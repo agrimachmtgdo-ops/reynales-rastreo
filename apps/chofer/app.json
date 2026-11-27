@@ -6,7 +6,9 @@
     "scheme": "reynaleschofer",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "platforms": ["android"],
+    "platforms": [
+      "android"
+    ],
     "backgroundColor": "#FBF6EC",
     "splash": {
       "image": "./assets/logo.png",
@@ -49,6 +51,11 @@
       ],
       "expo-sqlite",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4a432b08-e7d9-449a-b2fb-5d37901d8255"
+      }
+    }
   }
 }
