@@ -1,0 +1,16 @@
+{
+  "name": "reynales-rastreo",
+  "private": true,
+  "description": "Rastreo de camiones despachados por Industrias Reynales",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "despacho": "pnpm --filter @reynales/despacho dev",
+    "chofer": "pnpm --filter @reynales/chofer start",
+    "typecheck": "pnpm -r typecheck",
+    "build:despacho": "pnpm --filter @reynales/despacho build",
+    "db:test": "bash supabase/tests/run-local.sh"
+  }
+}
