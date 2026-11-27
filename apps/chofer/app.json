@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "Reynales Chofer",
+    "slug": "reynales-chofer",
+    "version": "0.1.0",
+    "scheme": "reynaleschofer",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "platforms": ["android"],
+    "backgroundColor": "#FBF6EC",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FBF6EC"
+    },
+    "android": {
+      "package": "bo.reynales.chofer",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "CAMERA"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_CONTACTS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "La app registra la ubicación del camión solo entre \"Iniciar viaje\" y \"Entregado\".",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "La cámara se usa para escanear el código QR de la invitación.",
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-sqlite",
+      "expo-font"
+    ]
+  }
+}
