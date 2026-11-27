@@ -1,0 +1,7 @@
+# Publicación del panel de despacho en Netlify.
+# Netlify detecta Next.js y el monorepo pnpm automáticamente; aquí solo se fija la versión de Node.
+# Las claves NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY se cargan en
+# Netlify → Site configuration → Environment variables (ver docs/GUIA-CONFIGURACION.md).
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
