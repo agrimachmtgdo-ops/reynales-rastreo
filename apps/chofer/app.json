@@ -2,6 +2,7 @@
   "expo": {
     "name": "Reynales Chofer",
     "slug": "reynales-chofer",
+    "owner": "industrias-reynales-bo",
     "version": "0.1.0",
     "scheme": "reynaleschofer",
     "orientation": "portrait",
