@@ -94,20 +94,16 @@ export default function Viaje({
   }
 
   // Confirmación dentro de la pantalla (botones grandes, legibles al sol).
-  // "Entregado" pide dos pasos porque cierra el viaje y detiene el rastreo.
-  const [confirmando, setConfirmando] = useState<{ etapa: EtapaChofer; paso: 1 | 2 } | null>(null);
+  // Dos pasos: el chofer pulsa el botón y luego confirma el mensaje.
+  const [confirmando, setConfirmando] = useState<{ etapa: EtapaChofer } | null>(null);
 
   function pedir(nueva: EtapaChofer) {
     setError(null);
-    setConfirmando({ etapa: nueva, paso: 1 });
+    setConfirmando({ etapa: nueva });
   }
 
   function aceptarPaso() {
     if (!confirmando) return;
-    if (confirmando.etapa === 'entregado' && confirmando.paso === 1) {
-      setConfirmando({ etapa: 'entregado', paso: 2 });
-      return;
-    }
     const nueva = confirmando.etapa;
     setConfirmando(null);
     void marcar(nueva);
@@ -129,17 +125,10 @@ export default function Viaje({
         si: 'Sí, estoy en frontera',
       };
     }
-    if (confirmando.paso === 1) {
-      return {
-        titulo: `Paso 1 de 2: ¿Llegó a ${viaje.destino}?`,
-        detalle: 'Confirme que el camión está en el lugar de entrega.',
-        si: 'Sí, llegué al destino',
-      };
-    }
     return {
-      titulo: 'Paso 2 de 2: ¿El cliente recibió la carga?',
-      detalle: 'Al confirmar se cierra el viaje y se detiene el rastreo. Esto no se puede deshacer desde el teléfono.',
-      si: 'Sí, carga entregada',
+      titulo: '¿Confirma la entrega?',
+      detalle: `Confirme que entregó la carga en ${viaje.destino}. Al confirmar se cierra el viaje y se detiene el rastreo.`,
+      si: 'Sí, confirmo la entrega',
     };
   })();
 
