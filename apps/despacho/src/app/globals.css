@@ -17,7 +17,7 @@ body {
   background: var(--crema);
   color: var(--tinta);
   font-family: var(--fuente-montserrat), system-ui, sans-serif;
-  font-size: 15px;
+  font-size: 16px;
 }
 a { color: var(--cafe); }
 h1, h2, h3 { color: var(--cafe); margin: 0 0 12px; }
@@ -131,3 +131,30 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .tablero { grid-template-columns: 1fr; height: auto; }
   .tablero .mapa { height: 420px; }
 }
+
+/* ---- Catálogos: pestañas, agregar, editar ---- */
+.pestanas { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 2px solid var(--borde); margin-bottom: 16px; }
+.pestanas a {
+  padding: 10px 16px; text-decoration: none; color: var(--cafe); font-weight: 600;
+  border-bottom: 3px solid transparent; margin-bottom: -2px; min-height: 44px; box-sizing: border-box;
+}
+.pestanas a.activa { border-bottom-color: var(--dorado); }
+.agregar { margin-bottom: 16px; }
+.agregar > summary {
+  cursor: pointer; font-weight: 700; color: var(--verde-oscuro); padding: 10px 0; list-style: none;
+}
+.agregar > summary::-webkit-details-marker { display: none; }
+.agregar[open] > summary { margin-bottom: 8px; }
+.edicion { background: #fffaf0; border: 1px solid var(--dorado); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+.edicion h2 { margin-top: 4px; }
+.obligatorio { color: #b3261e; }
+.ayuda { font-size: 13px; color: var(--gris); margin: 4px 0 10px; }
+.enlace-cancelar { margin-left: 16px; font-weight: 600; }
+.enlace-boton {
+  background: none; border: 0; padding: 0; color: var(--cafe); font: inherit; font-size: 14px;
+  text-decoration: underline; cursor: pointer;
+}
+td.acciones { white-space: nowrap; text-align: right; }
+td.acciones a { margin-right: 12px; }
+tr.inactivo td { color: var(--gris); }
+tr.evento-alerta td { background: #fff4e5; }
