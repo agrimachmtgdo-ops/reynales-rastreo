@@ -4,12 +4,11 @@ import { crearClienteServidor } from '@/lib/supabase/server';
 
 export default async function LayoutPanel({ children }: { children: React.ReactNode }) {
   const supabase = await crearClienteServidor();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims;
   if (!user) redirect('/login');
 
-  const { data: perfil } = await supabase.from('usuarios').select('nombre, rol, activo').eq('id', user.id).maybeSingle();
+  const { data: perfil } = await supabase.from('usuarios').select('nombre, rol, activo').eq('id', user.sub).maybeSingle();
 
   return (
     <>
