@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, Linking, ScrollView, Text, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { ETIQUETA_ETAPA, MARCA, type Etapa, type EtapaChofer } from '@reynales/shared';
 import { supabase } from '../supabase';
 import { Boton } from '../componentes';
@@ -93,12 +93,58 @@ export default function Viaje({
     }
   }
 
-  function confirmar(titulo: string, nueva: EtapaChofer) {
-    Alert.alert(titulo, '¿Confirma?', [
-      { text: 'No', style: 'cancel' },
-      { text: 'Sí', onPress: () => void marcar(nueva) },
-    ]);
+  // Confirmación dentro de la pantalla (botones grandes, legibles al sol).
+  // Dos pasos: el chofer pulsa el botón y luego confirma el mensaje.
+  const [confirmando, setConfirmando] = useState<{ etapa: EtapaChofer } | null>(null);
+
+  function pedir(nueva: EtapaChofer) {
+    setError(null);
+    setConfirmando({ etapa: nueva });
   }
+
+  function aceptarPaso() {
+    if (!confirmando) return;
+    const nueva = confirmando.etapa;
+    setConfirmando(null);
+    void marcar(nueva);
+  }
+
+  const textoConfirmacion = (() => {
+    if (!confirmando) return null;
+    if (confirmando.etapa === 'cargado') {
+      return {
+        titulo: `¿Iniciar el viaje a ${viaje.destino}?`,
+        detalle: 'Desde ahora la app registrará la ubicación del camión hasta que marque la entrega.',
+        si: 'Sí, iniciar viaje',
+      };
+    }
+    if (confirmando.etapa === 'en_frontera') {
+      return {
+        titulo: '¿Llegó a la frontera?',
+        detalle: 'Despacho verá que el camión está en trámite de frontera.',
+        si: 'Sí, estoy en frontera',
+      };
+    }
+    return {
+      titulo: '¿Confirma la entrega?',
+      detalle: `Confirme que entregó la carga en ${viaje.destino}. Al confirmar se cierra el viaje y se detiene el rastreo.`,
+      si: 'Sí, confirmo la entrega',
+    };
+  })();
+
+  // Solo se ofrece el siguiente paso lógico como botón principal.
+  const haciaPeru = viaje.destino_pais === 'PE';
+  const enCamino = etapa === 'cargado' || etapa === 'en_ruta';
+  const siguiente: { etapa: EtapaChofer; texto: string; variante: 'verde' | 'dorado' } | null =
+    etapa === 'programado'
+      ? { etapa: 'cargado', texto: 'Iniciar viaje', variante: 'verde' }
+      : enCamino && haciaPeru
+        ? { etapa: 'en_frontera', texto: 'Llegué a frontera', variante: 'dorado' }
+        : enCamino || etapa === 'en_frontera' || etapa === 'cruzo_frontera'
+          ? { etapa: 'entregado', texto: 'Entregado', variante: 'verde' }
+          : null;
+  // Si un viaje a Perú no pasó por "frontera" (por ejemplo, ya cruzó), la entrega sigue disponible como opción secundaria.
+  const entregaSecundaria = enCamino && haciaPeru;
 
   const estadoTexto = !activo
     ? { texto: 'Rastreo detenido', color: MARCA.gris }
@@ -135,21 +181,33 @@ export default function Viaje({
           </View>
         ) : (
           <View style={{ gap: 12 }}>
-            {etapa === 'programado' && <Boton texto="Iniciar viaje" onPress={() => confirmar('Iniciar viaje', 'cargado')} cargando={cargando} />}
-            {(etapa === 'cargado' || etapa === 'en_ruta') && viaje.destino_pais === 'PE' && (
-              <Boton texto="Llegué a frontera" variante="dorado" onPress={() => confirmar('Llegué a frontera', 'en_frontera')} cargando={cargando} />
+            {confirmando && textoConfirmacion ? (
+              <View style={[e.tarjeta, { borderColor: MARCA.dorado, borderWidth: 2, gap: 12 }]}>
+                <Text style={e.titulo}>{textoConfirmacion.titulo}</Text>
+                <Text style={e.texto}>{textoConfirmacion.detalle}</Text>
+                <Boton texto={textoConfirmacion.si} onPress={aceptarPaso} cargando={cargando} />
+                <Boton texto="Cancelar" variante="cafe" onPress={() => setConfirmando(null)} />
+              </View>
+            ) : (
+              <>
+                {siguiente && (
+                  <Boton texto={siguiente.texto} variante={siguiente.variante} onPress={() => pedir(siguiente.etapa)} cargando={cargando} />
+                )}
+                {entregaSecundaria && (
+                  <Pressable onPress={() => pedir('entregado')} accessibilityRole="button" style={{ paddingVertical: 14, alignItems: 'center' }}>
+                    <Text style={[e.etiqueta, { textDecorationLine: 'underline' }]}>Ya entregué la carga</Text>
+                  </Pressable>
+                )}
+                {viaje.telefono_coordinador && (
+                  <Boton
+                    texto="WhatsApp al coordinador"
+                    variante="cafe"
+                    onPress={() => Linking.openURL(`https://wa.me/${viaje.telefono_coordinador!.replace(/[^0-9]/g, '')}`)}
+                  />
+                )}
+                <Boton texto="Ajustes del teléfono" variante="cafe" onPress={alAbrirAjustes} />
+              </>
             )}
-            {['cargado', 'en_ruta', 'en_frontera', 'cruzo_frontera'].includes(etapa) && (
-              <Boton texto="Entregado" onPress={() => confirmar('Marcar como entregado', 'entregado')} cargando={cargando} />
-            )}
-            {viaje.telefono_coordinador && (
-              <Boton
-                texto="WhatsApp al coordinador"
-                variante="cafe"
-                onPress={() => Linking.openURL(`https://wa.me/${viaje.telefono_coordinador!.replace(/[^0-9]/g, '')}`)}
-              />
-            )}
-            <Boton texto="Ajustes del teléfono" variante="cafe" onPress={alAbrirAjustes} />
           </View>
         )}
         <Text style={e.textoChico}>

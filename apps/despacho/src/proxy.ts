@@ -22,9 +22,10 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims verifica la firma del token en el propio servidor (sin ir a Supabase en cada clic);
+  // solo consulta a Supabase cuando hay que renovar la sesión.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
 
   const enLogin = request.nextUrl.pathname.startsWith('/login');
   if (!user && !enLogin) {
