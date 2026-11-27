@@ -17,7 +17,16 @@ export default function PaginaLogin() {
     const { error } = await crearClienteNavegador().auth.signInWithPassword({ email: correo, password: clave });
     setCargando(false);
     if (error) {
-      setError('Correo o contraseña incorrectos.');
+      // Mensajes distintos para que el personal sepa a quién pedir ayuda.
+      if (error.code === 'email_not_confirmed') {
+        setError('Su correo aún no está confirmado. Pida al administrador que lo confirme.');
+      } else if (error.status === 429) {
+        setError('Demasiados intentos. Espere unos minutos y vuelva a intentar.');
+      } else if (error.code === 'invalid_credentials') {
+        setError('Correo o contraseña incorrectos.');
+      } else {
+        setError('No se pudo ingresar. Revise su conexión e intente de nuevo.');
+      }
       return;
     }
     router.replace('/');
