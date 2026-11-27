@@ -23,6 +23,12 @@ export async function asegurarSesion() {
   const { data } = await supabase.auth.getSession();
   if (data.session) return data.session;
   const { data: nueva, error } = await supabase.auth.signInAnonymously();
-  if (error) throw new Error('No se pudo conectar. Revise su señal e intente de nuevo.');
+  if (error) {
+    // Si el servidor respondió, el problema no es la señal: avisar a despacho.
+    if (error.status && error.status < 500) {
+      throw new Error('El sistema no está aceptando choferes en este momento. Avise a despacho.');
+    }
+    throw new Error('No se pudo conectar. Revise su señal e intente de nuevo.');
+  }
   return nueva.session;
 }
