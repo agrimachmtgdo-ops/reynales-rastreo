@@ -4,7 +4,11 @@
     "piloto": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_ENTORNO": "piloto" }
+      "env": {
+        "EXPO_PUBLIC_ENTORNO": "piloto",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://senprobwnznwtmhqcnry.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_xjWsUQCXxQFLkAGc_bxEtQ_MOskzxGU"
+      }
     },
     "produccion": {
       "android": { "buildType": "app-bundle" }
