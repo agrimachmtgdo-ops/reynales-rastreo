@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { formatoHora } from '@/lib/tipos';
 
@@ -8,16 +8,25 @@ interface Props {
   telefonoChofer: string | null;
   codigoMision: string;
   generar: () => Promise<{ ok: true; codigo: string; venceEn: string } | { ok: false; mensaje: string }>;
+  /** Invitación vigente guardada (si ya se generó antes). */
+  vigente?: { codigo: string; vence_en: string; usado_en: string | null } | null;
 }
+
+const enlaceQr = (codigo: string) => QRCode.toDataURL(`reynaleschofer://activar?codigo=${codigo}`, { width: 220, margin: 1 });
 
 /**
  * Genera el código de activación, muestra el QR (para imprimir en la guía)
  * y prepara el mensaje de WhatsApp para el chofer.
  */
-export default function InvitacionChofer({ nombreChofer, telefonoChofer, codigoMision, generar }: Props) {
-  const [codigo, setCodigo] = useState<string | null>(null);
-  const [vence, setVence] = useState<string | null>(null);
+export default function InvitacionChofer({ nombreChofer, telefonoChofer, codigoMision, generar, vigente }: Props) {
+  const [codigo, setCodigo] = useState<string | null>(vigente?.codigo ?? null);
+  const [vence, setVence] = useState<string | null>(vigente?.vence_en ?? null);
+  const [activadaEn, setActivadaEn] = useState<string | null>(vigente?.usado_en ?? null);
   const [qr, setQr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (vigente?.codigo) void enlaceQr(vigente.codigo).then(setQr);
+  }, [vigente?.codigo]);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
@@ -33,12 +42,17 @@ export default function InvitacionChofer({ nombreChofer, telefonoChofer, codigoM
     }
     setCodigo(r.codigo);
     setVence(r.venceEn);
+    setActivadaEn(null);
     // El QR lleva un enlace que la app del chofer reconoce al escanearlo.
-    setQr(await QRCode.toDataURL(`reynaleschofer://activar?codigo=${r.codigo}`, { width: 220, margin: 1 }));
+    setQr(await enlaceQr(r.codigo));
   }
 
   function confirmarReemplazo() {
-    return window.confirm('Se anulará el código anterior. ¿Continuar?');
+    return window.confirm(
+      activadaEn
+        ? 'El chofer ya activó el viaje en su teléfono. Un código nuevo solo sirve si cambió de teléfono. ¿Continuar?'
+        : 'Se anulará el código anterior. ¿Continuar?',
+    );
   }
 
   const enlaceApp = process.env.NEXT_PUBLIC_ENLACE_APP_CHOFER ?? '';
@@ -64,9 +78,13 @@ export default function InvitacionChofer({ nombreChofer, telefonoChofer, codigoM
           {qr && <img src={qr} alt={`QR del código ${codigo}`} width={140} height={140} />}
           <div>
             <div className="codigo-invitacion">{codigo}</div>
-            <div style={{ fontSize: 13, color: 'var(--gris)' }}>Activar antes de: {formatoHora(vence)}</div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <a className="boton" href={enlaceWhatsapp} target="_blank" rel="noreferrer">Enviar por WhatsApp</a>
+            {activadaEn ? (
+              <div className="mensaje-ok" style={{ margin: '4px 0 0' }}>Activada en el teléfono del chofer: {formatoHora(activadaEn)}</div>
+            ) : (
+              <div style={{ fontSize: 13, color: 'var(--gris)' }}>Pendiente de activar · vence: {formatoHora(vence)}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              {!activadaEn && <a className="boton" href={enlaceWhatsapp} target="_blank" rel="noreferrer">Enviar por WhatsApp</a>}
               <button type="button" className="boton secundario" onClick={crear}>Nuevo código</button>
             </div>
           </div>

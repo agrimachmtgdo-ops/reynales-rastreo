@@ -146,11 +146,17 @@ export default function Viaje({
   // Si un viaje a Perú no pasó por "frontera" (por ejemplo, ya cruzó), la entrega sigue disponible como opción secundaria.
   const entregaSecundaria = enCamino && haciaPeru;
 
+  // El indicador muestra cuándo llegó realmente el último envío a despacho.
+  const minDesdeEnvio = estado?.ultimoEnvio ? Math.floor((Date.now() - estado.ultimoEnvio) / 60000) : null;
+  const textoUltimoEnvio =
+    minDesdeEnvio === null ? 'Aún no se envió ninguna ubicación' : minDesdeEnvio < 1 ? 'Último envío: hace menos de 1 min' : `Último envío: hace ${minDesdeEnvio} min`;
   const estadoTexto = !activo
     ? { texto: 'Rastreo detenido', color: MARCA.gris }
     : estado?.ultimoEnvioOk === false || pendientes > 20
       ? { texto: `Guardando sin señal (${pendientes} puntos)`, color: MARCA.dorado }
-      : { texto: 'Enviando ubicación', color: MARCA.verde };
+      : minDesdeEnvio === null || minDesdeEnvio > 10
+        ? { texto: 'Esperando enviar ubicación', color: MARCA.dorado }
+        : { texto: 'Enviando ubicación', color: MARCA.verde };
   const mb = ((estado?.bytesUsados ?? 0) / (1024 * 1024)).toFixed(2);
 
   return (
@@ -161,13 +167,14 @@ export default function Viaje({
           <Text style={e.etiqueta}>Misión {viaje.mision_codigo}</Text>
           <Text style={e.titulo}>{viaje.destino}</Text>
           <Text style={e.texto}>Placa {viaje.placa} · {viaje.conductor}</Text>
-          <Text style={[e.texto, { fontFamily: F.negrita, color: MARCA.verde }]}>{ETIQUETA_ETAPA[etapa]}</Text>
+          <Text style={[e.texto, { fontFamily: F.negrita, color: MARCA.verdeOscuro }]}>{ETIQUETA_ETAPA[etapa]}</Text>
         </View>
 
         <View style={[e.tarjeta, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
           <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: estadoTexto.color }} />
           <View style={{ flex: 1 }}>
             <Text style={e.etiqueta}>{estadoTexto.texto}</Text>
+            {activo && <Text style={e.textoChico}>{textoUltimoEnvio}</Text>}
             <Text style={e.textoChico}>Datos usados en este viaje: {mb} MB{estado?.modoPeru ? ' · modo Perú (ahorro de roaming)' : ''}</Text>
           </View>
         </View>

@@ -5,14 +5,23 @@ import Link from 'next/link';
 import { ETIQUETA_ETAPA } from '@reynales/shared';
 import { crearClienteNavegador } from '@/lib/supabase/client';
 import { SELECT_ASIGNACION_EN_VIVO } from '@/lib/consultas';
-import { formatoHora, minutosSinSenal, prioridad, type AsignacionEnVivo } from '@/lib/tipos';
+import { formatoHora, grupoDe, haceCuanto, prioridad, type AsignacionEnVivo, type Grupo } from '@/lib/tipos';
 
 // Leaflet usa "window": se carga solo en el navegador.
-const MapaFlota = dynamic(() => import('./MapaFlota'), { ssr: false, loading: () => <p>Cargando mapa…</p> });
+const MapaFlota = dynamic(() => import('./MapaFlota'), { ssr: false, loading: () => <p style={{ padding: 12 }}>Cargando mapa…</p> });
+
+const RESUMEN: { grupo: Grupo; texto: string; clase: string }[] = [
+  { grupo: 'todos', texto: 'Todos', clase: '' },
+  { grupo: 'en_ruta', texto: 'En ruta', clase: 'en_ruta' },
+  { grupo: 'en_frontera', texto: 'En frontera', clase: 'en_frontera' },
+  { grupo: 'sin_senal', texto: 'Sin señal +30 min', clase: 'sin_senal' },
+  { grupo: 'programado', texto: 'Por iniciar', clase: 'programado' },
+];
 
 export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVivo[] }) {
   const [asignaciones, setAsignaciones] = useState(iniciales);
   const [seleccion, setSeleccion] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<Grupo>('todos');
   const [ahora, setAhora] = useState(() => Date.now());
 
   // Tiempo real: cada vez que un camión envía posiciones o cambia de etapa, se actualiza la fila.
@@ -43,41 +52,74 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
     () => [...asignaciones].sort((a, b) => prioridad(a, ahora) - prioridad(b, ahora)),
     [asignaciones, ahora],
   );
+  const conteo = useMemo(() => {
+    const c: Record<Grupo, number> = { todos: ordenadas.length, en_ruta: 0, en_frontera: 0, sin_senal: 0, programado: 0 };
+    ordenadas.forEach((a) => c[grupoDe(a, ahora)]++);
+    return c;
+  }, [ordenadas, ahora]);
+  const visibles = filtro === 'todos' ? ordenadas : ordenadas.filter((a) => grupoDe(a, ahora) === filtro);
 
   return (
-    <div className="tablero">
-      <section className="tarjeta lista" style={{ padding: 0 }}>
-        <h2 style={{ padding: '12px 12px 0' }}>Camiones en curso ({ordenadas.length})</h2>
-        {ordenadas.length === 0 && <p style={{ padding: 12 }}>No hay camiones en viaje.</p>}
-        {ordenadas.map((a) => {
-          const min = minutosSinSenal(a.ultima_senal, ahora);
-          const sinSenal = a.etapa !== 'programado' && (min === null || min > 30);
-          return (
-            <div
-              key={a.id}
-              className="camion"
-              onClick={() => setSeleccion(a.id)}
-              style={seleccion === a.id ? { background: 'var(--crema)' } : undefined}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span className="placa">{a.vehiculo?.placa ?? 'Sin placa'}</span>
-                <span className={`etiqueta ${a.etapa}`}>{ETIQUETA_ETAPA[a.etapa]}</span>
-              </div>
-              <div className="detalle">
-                <Link href={`/misiones/${a.mision_id}`}>{a.mision?.codigo}</Link> · {a.mision?.cliente?.razon_social} →{' '}
-                {a.mision?.destino?.nombre}
-              </div>
-              <div className="detalle">
-                {a.conductor?.nombre} · última señal: {formatoHora(a.ultima_senal)}
-                {sinSenal && <span className="alerta"> · {min === null ? 'nunca envió' : `sin señal hace ${min} min`}</span>}
-              </div>
+    <>
+      <div className="resumen" role="group" aria-label="Filtrar camiones">
+        {RESUMEN.map((r) => (
+          <button
+            key={r.grupo}
+            type="button"
+            className={`indicador ${r.clase} ${filtro === r.grupo ? 'activo' : ''}`}
+            aria-pressed={filtro === r.grupo}
+            onClick={() => setFiltro(r.grupo)}
+          >
+            <span className="numero">{conteo[r.grupo]}</span>
+            <span>{r.texto}</span>
+          </button>
+        ))}
+      </div>
+      <div className="tablero">
+        <section className="tarjeta lista" style={{ padding: 0 }}>
+          <h2 style={{ padding: '12px 12px 0' }}>Camiones en curso ({visibles.length})</h2>
+          {ordenadas.length === 0 && (
+            <div style={{ padding: 12 }}>
+              <p>No hay camiones en viaje.</p>
+              <Link className="boton" href="/misiones/nueva">Crear misión</Link>
             </div>
-          );
-        })}
-      </section>
-      <section className="mapa">
-        <MapaFlota asignaciones={ordenadas} seleccion={seleccion} />
-      </section>
-    </div>
+          )}
+          {ordenadas.length > 0 && visibles.length === 0 && <p style={{ padding: 12 }}>Ningún camión en este grupo.</p>}
+          {visibles.map((a) => {
+            const grupo = grupoDe(a, ahora);
+            const sinSenal = grupo === 'sin_senal';
+            return (
+              <div key={a.id} className={`camion ${seleccion === a.id ? 'seleccionado' : ''}`}>
+              <button
+                type="button"
+                className="camion-principal"
+                onClick={() => setSeleccion(a.id)}
+                aria-pressed={seleccion === a.id}
+              >
+                <span className="fila">
+                  <span className="placa">{a.vehiculo?.placa ?? 'Sin placa'}</span>
+                  <span className={`etiqueta ${a.etapa}`}>{ETIQUETA_ETAPA[a.etapa]}</span>
+                </span>
+                <span className="detalle">
+                  {a.mision?.codigo} · {a.mision?.cliente?.razon_social} → {a.mision?.destino?.nombre}
+                </span>
+                <span className="detalle">
+                  {a.conductor?.nombre} · última señal:{' '}
+                  <span title={formatoHora(a.ultima_senal)}>{haceCuanto(a.ultima_senal, ahora)}</span>
+                  {sinSenal && a.etapa !== 'programado' && <span className="alerta"> · revisar</span>}
+                </span>
+              </button>
+                <Link className="ver-mision" href={`/misiones/${a.mision_id}`}>
+                  Ver misión →
+                </Link>
+              </div>
+            );
+          })}
+        </section>
+        <section className="mapa">
+          <MapaFlota asignaciones={visibles} seleccion={seleccion} alSeleccionar={setSeleccion} />
+        </section>
+      </div>
+    </>
   );
 }

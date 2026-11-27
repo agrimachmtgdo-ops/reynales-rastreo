@@ -43,6 +43,15 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
   const asignaciones = (asigData ?? []) as unknown as (AsignacionEnVivo & { conductor_det: { telefono: string | null } | null })[];
   const ids = asignaciones.map((a) => a.id);
 
+  // Invitación más reciente (no anulada) de cada camión, para mostrarla al recargar la página.
+  const { data: invitacionesData } = ids.length
+    ? await supabase.from('invitaciones_chofer').select('asignacion_id, codigo, vence_en, usado_en, creado_en')
+        .in('asignacion_id', ids).eq('revocada', false).order('creado_en', { ascending: false })
+    : { data: [] };
+  const invitacionDe = (asigId: string) =>
+    ((invitacionesData ?? []) as { asignacion_id: string; codigo: string; vence_en: string; usado_en: string | null }[])
+      .find((i) => i.asignacion_id === asigId) ?? null;
+
   const { data: eventosData } = ids.length
     ? await supabase.from('eventos').select('id, asignacion_id, tipo, etapa_nueva, origen, ocurrido_en, detalle')
         .in('asignacion_id', ids).order('ocurrido_en', { ascending: false }).limit(50)
@@ -102,6 +111,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
                     telefonoChofer={a.conductor_det?.telefono ?? null}
                     codigoMision={m.codigo}
                     generar={crearInvitacion.bind(null, a.id)}
+                    vigente={invitacionDe(a.id)}
                   />
                 </div>
                 <div>

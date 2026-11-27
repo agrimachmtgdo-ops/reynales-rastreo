@@ -46,3 +46,25 @@ export function formatoHora(iso: string | null): string {
     timeZone: 'America/La_Paz',
   }).format(new Date(iso));
 }
+
+/** "hace 12 min", "hace 3 h" o "nunca". La hora exacta va en el title del elemento. */
+export function haceCuanto(iso: string | null, ahora = Date.now()): string {
+  const min = minutosSinSenal(iso, ahora);
+  if (min === null) return 'nunca';
+  if (min < 1) return 'hace menos de 1 min';
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 48) return `hace ${h} h`;
+  return `hace ${Math.floor(h / 24)} días`;
+}
+
+/** Grupos del resumen del tablero. */
+export type Grupo = 'todos' | 'en_ruta' | 'en_frontera' | 'sin_senal' | 'programado';
+
+export function grupoDe(a: Pick<AsignacionEnVivo, 'etapa' | 'ultima_senal'>, ahora = Date.now()): Exclude<Grupo, 'todos'> {
+  if (a.etapa === 'programado') return 'programado';
+  const min = minutosSinSenal(a.ultima_senal, ahora);
+  if (min === null || min > 30) return 'sin_senal';
+  if (a.etapa === 'en_frontera') return 'en_frontera';
+  return 'en_ruta';
+}

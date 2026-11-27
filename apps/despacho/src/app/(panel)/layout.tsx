@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Navegacion from '@/componentes/Navegacion';
 import { redirect } from 'next/navigation';
 import { crearClienteServidor } from '@/lib/supabase/server';
 
@@ -15,11 +15,7 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
       <header className="encabezado">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="Industrias Reynales" />
-        <nav>
-          <Link href="/">Tablero</Link>
-          <Link href="/misiones">Misiones</Link>
-          <Link href="/catalogos">Catálogos</Link>
-        </nav>
+        <Navegacion />
         <span className="usuario">
           {perfil?.nombre ?? user.email} · {perfil?.rol ?? 'sin rol'}
         </span>
