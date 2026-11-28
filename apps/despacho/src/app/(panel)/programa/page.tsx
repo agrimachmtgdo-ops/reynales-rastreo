@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import FiltrosAutomaticos from '@/componentes/FiltrosAutomaticos';
 import FormularioAccion from '@/componentes/FormularioAccion';
-import { ESTADO_ENVIO, formatoFecha, formatoToneladas, sumarDias } from '@/lib/pedidos';
+import { ESTADO_ENVIO, formatoFecha, formatoToneladas, resumenDespacho, sumarDias, type CamionDespacho } from '@/lib/pedidos';
 import { fechaCarga, formatoCosto, horaBolivia, NOMBRE_SEMAFORO, semaforo, type FilaPrograma, type Semaforo } from '@/lib/programa';
 import { fijarDiasAnticipacion } from './acciones';
 
@@ -34,6 +34,17 @@ export default async function PaginaPrograma({ searchParams }: { searchParams: P
   }
   const diasAnticipacion = Number(dias ?? 4);
   const filas = ((data ?? []) as FilaPrograma[]).map((f) => ({ ...f, luz: semaforo(f, hoy, diasAnticipacion) }));
+  // Toneladas que ya salieron de fábrica por envío (camiones del tramo 1 de cada misión).
+  const misiones = filas.map((f) => f.mision_id).filter((m): m is string => !!m);
+  const { data: camData } = misiones.length
+    ? await supabase.from('asignaciones').select('mision_id, etapa, toneladas_cargadas').eq('tramo', 1).in('mision_id', misiones)
+    : { data: [] };
+  const camionesPorMision = new Map<string, CamionDespacho[]>();
+  for (const c of (camData ?? []) as (CamionDespacho & { mision_id: string })[]) {
+    camionesPorMision.set(c.mision_id, [...(camionesPorMision.get(c.mision_id) ?? []), c]);
+  }
+  const despachoDe = (f: FilaPrograma) =>
+    resumenDespacho(Number(f.toneladas), f.camiones_necesarios, f.mision_id ? camionesPorMision.get(f.mision_id) ?? [] : []);
   const cuenta = (s: Semaforo) => filas.filter((f) => f.luz === s).length;
   const porFecha = new Map<string, typeof filas>();
   for (const f of filas) {
@@ -74,7 +85,7 @@ export default async function PaginaPrograma({ searchParams }: { searchParams: P
           </h2>
           <div className="tabla-desplazable">
             <table className="tabla-programa">
-              <thead><tr><th>Camiones</th><th>Envío</th><th>Cliente y destino</th><th className="numero">Toneladas</th><th>Presentación</th><th>Misión</th><th>Costo flete</th><th><span className="solo-lector">Acción</span></th></tr></thead>
+              <thead><tr><th>Camiones</th><th>Envío</th><th>Cliente y destino</th><th className="numero">Toneladas</th><th className="numero">Saldo t</th><th>Presentación</th><th>Misión</th><th>Costo flete</th><th><span className="solo-lector">Acción</span></th></tr></thead>
               <tbody>{lista.map((f) => (
                 <tr key={f.envio_id}>
                   <td>
@@ -96,6 +107,16 @@ export default async function PaginaPrograma({ searchParams }: { searchParams: P
                     <div className="ayuda-campo">{f.incoterm} {f.destino} · entrega {formatoFecha(f.entrega_vigente)}{f.embarque_fecha ? ` · embarque ${formatoFecha(f.embarque_fecha)}` : ''}</div>
                   </td>
                   <td data-etiqueta="Toneladas" className="numero">{formatoToneladas(Number(f.toneladas))}</td>
+                  {(() => {
+                    const d = despachoDe(f);
+                    if (f.estado === 'cancelado') return <td data-etiqueta="Saldo t" className="numero">—</td>;
+                    return (
+                      <td data-etiqueta="Saldo t" className="numero">
+                        <span className={d.saldo > 0 ? (d.enviadas > 0 ? 'saldo-parcial' : undefined) : 'saldo-cero'}>{formatoToneladas(d.saldo)}</span>
+                        {d.enviadas > 0 && <span className="sub-dato">salieron {formatoToneladas(d.enviadas)}{d.sinPeso > 0 ? ' (estim.)' : ''}</span>}
+                      </td>
+                    );
+                  })()}
                   <td data-etiqueta="Presentación">{f.presentacion ? horaBolivia(f.presentacion) : '—'}</td>
                   <td data-etiqueta="Misión">
                     {f.mision_id ? <Link href={`/misiones/${f.mision_id}`}>{f.mision_codigo}</Link> : '—'}

@@ -12,7 +12,7 @@ import {
 } from '@/lib/programa';
 import {
   agregarCamion, anularSolicitud, crearMisionEnvio, guardarRequerimiento, pedirCamiones, registrarAusencia,
-  registrarEmbarque, registrarLlegada, responderSolicitud,
+  registrarEmbarque, registrarLlegada, registrarPeso, responderSolicitud,
 } from '../acciones';
 
 export const dynamic = 'force-dynamic';
@@ -252,7 +252,7 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
                     <h4>Camiones ({vivos.length} de {s.camiones_confirmados ?? 0})</h4>
                     {propios.length > 0 && (
                       <div className="tabla-desplazable"><table>
-                        <thead><tr><th>Placa</th><th>Chofer</th><th>Estado</th><th>Llegada a fábrica</th>{gestiona && <th><span className="solo-lector">Acciones</span></th>}</tr></thead>
+                        <thead><tr><th>Placa</th><th>Chofer</th><th>Estado</th><th>Llegada a fábrica</th><th>Peso de balanza</th>{gestiona && <th><span className="solo-lector">Acciones</span></th>}</tr></thead>
                         <tbody>{propios.map((c) => (
                           <tr key={c.id} className={c.etapa === 'cancelado' ? 'inactivo' : undefined}>
                             <td>{c.vehiculo?.placa}</td>
@@ -262,6 +262,23 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
                               {c.ausencia_causa && <div className="ayuda-campo">{c.ausencia_causa}</div>}
                             </td>
                             <td>{c.llegada_fabrica ? fechaHoraBolivia(c.llegada_fabrica) : '—'}</td>
+                            <td>
+                              {c.etapa === 'cancelado' ? '—' : (
+                                <>
+                                  {c.toneladas_cargadas != null
+                                    ? <strong>{formatoToneladas(Number(c.toneladas_cargadas))}</strong>
+                                    : c.etapa !== 'programado' && <span className="etiqueta sin-peso">Salió sin peso</span>}
+                                  {esLogistica && (
+                                    <FormularioAccion accion={registrarPeso.bind(null, c.id, envio)} boton={c.toneladas_cargadas != null ? 'Corregir' : 'Guardar peso'}
+                                      claseBoton="boton secundario boton-chico" clase="peso-en-linea">
+                                      <label><span className="solo-lector">Peso de balanza en toneladas</span>
+                                        <input name="peso" inputMode="decimal" placeholder="t" defaultValue={c.toneladas_cargadas ?? ''} size={6} />
+                                      </label>
+                                    </FormularioAccion>
+                                  )}
+                                </>
+                              )}
+                            </td>
                             {gestiona && (
                               <td>
                                 {c.etapa === 'programado' && !c.llegada_fabrica && (

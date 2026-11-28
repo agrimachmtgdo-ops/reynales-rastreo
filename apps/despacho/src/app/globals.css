@@ -880,3 +880,11 @@ textarea { line-height: 1.5; }
   .lista-datos > div { grid-template-columns: 1fr; gap: 2px; }
   .avance-programa .leyenda-avance .estado-programa { margin-left: 0; }
 }
+.saldo-parcial { color: #8a3d00; font-weight: 700; }
+.saldo-cero { color: #006b2d; font-weight: 700; }
+.etiqueta.sin-peso { background: #f3d6d2; color: var(--rojo); font-weight: 700; }
+.peso-en-linea { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.peso-en-linea label { margin: 0; }
+.peso-en-linea input { width: 84px; min-height: 40px; margin: 0; }
+.peso-en-linea .mensaje-ok, .peso-en-linea .mensaje-error { flex-basis: 100%; margin: 0; padding: 4px 8px; font-size: 13px; }
+.boton.boton-chico { min-height: 40px; padding: 6px 12px; font-size: 14px; }
