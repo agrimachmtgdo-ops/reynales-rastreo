@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import {
-  aParametros, entregasPorSemana, fichasTransportistas, formatoHoras, formatoPct, formatoTn, mesAnterior,
-  META_PUNTUALIDAD, periodoAnterior, type FilaReporte, type FiltrosReporte, resumir, SENAL_MINIMA, tiempoPorTramo, tiempos, textoMotivo, toneladasPorCliente, variacion,
+  aParametros, entregasPorSemana, fichasTransportistas, formatoHoras, formatoPct, formatoTn, hallazgos, incidenciasPorMotivo, masAtrasadas, mesAnterior,
+  META_PUNTUALIDAD, periodoAnterior, type FilaReporte, type FiltrosReporte, type GrupoServicio, resumenCamiones, resumir, SENAL_MINIMA, servicioPor,
+  tiempoPorTramo, tiempos, textoMotivo, toneladasPorCliente, variacion,
 } from '@/lib/reportes';
 import { formatoHora } from '@/lib/tipos';
 import BotonImprimir from '@/componentes/BotonImprimir';
@@ -11,13 +12,16 @@ import { BarraMeta, BarraPartes, GraficoBarras, GraficoColumnas } from '@/compon
 const fechaCorta = (f: string) => new Date(`${f}T12:00:00Z`).toLocaleDateString('es-BO', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 /** Número grande con su comparación contra el período anterior. */
-function Cifra({ titulo, valor, detalle, cambio, ayuda }: { titulo: string; valor: string; detalle?: string; cambio?: string | null; ayuda?: string }) {
+function Cifra({ titulo, valor, detalle, cambio, ayuda, alerta, menosEsMejor }: {
+  titulo: string; valor: string; detalle?: string; cambio?: string | null; ayuda?: string; alerta?: boolean; menosEsMejor?: boolean;
+}) {
+  const mejora = cambio ? (cambio.startsWith('+') ? !menosEsMejor : cambio.startsWith('−') ? !!menosEsMejor : null) : null;
   return (
-    <div className="cifra">
+    <div className={alerta ? 'cifra cifra-alerta' : 'cifra'}>
       <span className="cifra-titulo">{titulo}</span>
       <span className="cifra-valor">{valor}</span>
       {detalle && <span className="cifra-detalle">{detalle}</span>}
-      {cambio !== undefined && <span className="cifra-detalle">{cambio ? `${cambio} vs. período anterior` : 'sin dato del período anterior'}</span>}
+      {cambio && <span className={`cifra-cambio ${mejora === true ? 'sube' : mejora === false ? 'baja' : ''}`}>{cambio} vs. período anterior</span>}
       {ayuda && <span className="cifra-detalle">{ayuda}</span>}
     </div>
   );
@@ -39,6 +43,12 @@ export default function ContenidoReporte({ filtros, filas, filasAnteriores, clie
   const parametros = aParametros(filtros);
   const hayFiltros = !!(filtros.cliente || filtros.pais || filtros.transportista);
   const puntualidad = r.conCompromiso > 0 ? r.aTiempo / r.conCompromiso : null;
+  const cam = resumenCamiones(filas);
+  const notas = hallazgos(filas, filasAnteriores);
+  const motivos = incidenciasPorMotivo(filas);
+  const atrasadas = masAtrasadas(filas);
+  const porClienteServ = servicioPor(filas, 'cliente');
+  const porDestino = servicioPor(filas, 'destino');
 
   return (
     <>
@@ -93,20 +103,44 @@ export default function ContenidoReporte({ filtros, filas, filasAnteriores, clie
           Las fechas se aplican al elegirlas; cliente, país y transportista, con «Aplicar». El enlace de esta página guarda los filtros: puede copiarlo y compartirlo.
         </p>
 
+        {ra.entregas === 0 && filas.length > 0 && (
+          <p className="ayuda" style={{ margin: '12px 0 0' }}>No hubo entregas en el período anterior: por eso no se muestran comparaciones.</p>
+        )}
+        <h2 className="titulo-grupo grupo-cifras">Volumen</h2>
         <div className="cifras">
           <Cifra titulo="Entregas" valor={String(r.entregas)} cambio={variacion(r.entregas, ra.entregas)} />
           <Cifra titulo="Toneladas despachadas" valor={`${formatoTn(r.toneladas)} TN`} detalle="pesadas en fábrica" cambio={variacion(r.toneladas, ra.toneladas)} />
-          <Cifra titulo="Duración del viaje" valor={formatoHoras(r.viajeMediana)} detalle={`mediana · peor 10 %: ${formatoHoras(r.viajePeor10)}`}
-            cambio={variacion(r.viajeMediana, ra.viajeMediana)} />
-          <Cifra titulo="Espera en el transbordo" valor={formatoHoras(r.esperaTransbordoMediana)}
-            detalle={`mediana · peor 10 %: ${formatoHoras(r.esperaTransbordoPeor10)}`} cambio={variacion(r.esperaTransbordoMediana, ra.esperaTransbordoMediana)} />
-          <Cifra titulo="Espera en frontera" valor={formatoHoras(r.fronteraMediana)} detalle={`mediana · peor 10 %: ${formatoHoras(r.fronteraPeor10)}`}
-            cambio={variacion(r.fronteraMediana, ra.fronteraMediana)} />
-          <Cifra titulo="Entregas a tiempo" valor={formatoPct(puntualidad)}
-            detalle={r.conCompromiso ? `${r.aTiempo} de ${r.conCompromiso} con fecha comprometida` : 'ninguna misión tiene «Entrega comprometida»'} />
-          <Cifra titulo="Documentos completos" valor={`${r.docsCompletos} de ${r.entregas}`} ayuda="factura; y DEX si sale de Bolivia" />
-          <Cifra titulo="Con incidencias" valor={`${r.conIncidencias} de ${r.entregas}`} ayuda="alertas o emergencias en el viaje" />
+          <Cifra titulo="Camiones despachados" valor={String(cam.camiones)} detalle="salidas de fábrica" />
+          <Cifra titulo="Carga por camión" valor={cam.tnPorCamion === null ? '—' : `${formatoTn(cam.tnPorCamion)} TN`}
+            detalle={cam.tnPorCamion === null ? 'sin pesos registrados' : `promedio · referencia 29 TN`} />
         </div>
+        <h2 className="titulo-grupo grupo-cifras">Servicio al cliente</h2>
+        <div className="cifras">
+          <Cifra titulo="Entregas a tiempo" valor={formatoPct(puntualidad)} alerta={puntualidad !== null && puntualidad < META_PUNTUALIDAD}
+            detalle={r.conCompromiso ? `${r.aTiempo} de ${r.conCompromiso} con fecha comprometida · meta ${formatoPct(META_PUNTUALIDAD)}` : 'ninguna misión tiene «Entrega comprometida»'} />
+          <Cifra titulo="Duración del viaje" menosEsMejor valor={formatoHoras(r.viajeMediana)} detalle={r.viajeMediana === null ? undefined : `típica (mediana) · los más lentos: ${formatoHoras(r.viajePeor10)}`}
+            cambio={variacion(r.viajeMediana, ra.viajeMediana)} />
+          <Cifra titulo="Espera en frontera" menosEsMejor valor={r.fronteraMediana === null ? 'Sin cruces' : formatoHoras(r.fronteraMediana)}
+            detalle={r.fronteraMediana === null ? undefined : `típica · los más lentos: ${formatoHoras(r.fronteraPeor10)}`} cambio={variacion(r.fronteraMediana, ra.fronteraMediana)} />
+          <Cifra titulo="Espera en el transbordo" menosEsMejor valor={r.esperaTransbordoMediana === null ? 'Sin transbordos' : formatoHoras(r.esperaTransbordoMediana)}
+            detalle={r.esperaTransbordoMediana === null ? undefined : `típica · los más lentos: ${formatoHoras(r.esperaTransbordoPeor10)}`}
+            cambio={variacion(r.esperaTransbordoMediana, ra.esperaTransbordoMediana)} />
+        </div>
+        <h2 className="titulo-grupo grupo-cifras">Control</h2>
+        <div className="cifras">
+          <Cifra titulo="Documentos completos" valor={`${r.docsCompletos} de ${r.entregas}`} ayuda="factura; y DEX si sale de Bolivia" alerta={r.docsCompletos < r.entregas} />
+          <Cifra titulo="Con incidencias" valor={`${r.conIncidencias} de ${r.entregas}`} ayuda="alertas o emergencias en el viaje" alerta={r.conIncidencias > 0} />
+          <Cifra titulo="Camiones sin peso" valor={`${cam.sinPeso} de ${cam.camiones}`} ayuda="sin ticket de balanza registrado" alerta={cam.sinPeso > 0} />
+          <Cifra titulo="Señal GPS" valor={formatoPct(cam.pctSenal)} ayuda={`del recorrido con señal · mínimo ${formatoPct(SENAL_MINIMA)}`}
+            alerta={cam.pctSenal !== null && cam.pctSenal < SENAL_MINIMA} />
+        </div>
+
+        {notas.length > 0 && (
+          <div className="hallazgos">
+            <h2 className="titulo-grupo">Lo más importante del período</h2>
+            <ul>{notas.map((n) => <li key={n.texto} className={`hallazgo ${n.tono}`}>{n.texto}</li>)}</ul>
+          </div>
+        )}
       </section>
 
       {filas.length === 0 ? (
@@ -132,14 +166,46 @@ export default function ContenidoReporte({ filtros, filas, filasAnteriores, clie
                   <tbody>{porCliente.map((c) => <tr key={c.cliente}><td>{c.cliente}</td><td>{c.entregas}</td><td>{formatoTn(c.toneladas)}</td></tr>)}</tbody></table>
               </details>
             </div>
+            {porTramo.viajes > 0 && (
+              <div>
+                <BarraPartes titulo={`Tiempo por tramo en viajes con transbordo (mediana de ${porTramo.viajes} ${porTramo.viajes === 1 ? 'viaje' : 'viajes'})`} partes={porTramo.partes} />
+              </div>
+            )}
             <div>
-              <BarraPartes titulo={`Tiempo por tramo en viajes con transbordo (mediana de ${porTramo.viajes} ${porTramo.viajes === 1 ? 'viaje' : 'viajes'})`} partes={porTramo.partes} />
+              {motivos.length === 0
+                ? <figure className="grafico"><figcaption>Incidencias por motivo</figcaption><p className="ayuda">Sin incidencias en el período.</p></figure>
+                : <GraficoBarras titulo="Incidencias por motivo" unidad="misiones" unidadUno="misión" datos={motivos.map((m) => ({ etiqueta: textoMotivo(m.motivo), valor: m.misiones }))} />}
             </div>
             <div>
               <BarraMeta titulo="Puntualidad" valor={puntualidad} meta={META_PUNTUALIDAD}
                 detalle={r.conCompromiso ? `${r.aTiempo} de ${r.conCompromiso} misiones con fecha comprometida` : 'Para medirla, cargue «Entrega comprometida» al crear o editar la misión.'} />
             </div>
           </section>
+
+          <section className="tarjeta rejilla-tablas">
+            <TablaServicio titulo="Servicio por cliente" columna="Cliente" grupos={porClienteServ} />
+            <TablaServicio titulo="Servicio por destino" columna="Destino" grupos={porDestino} />
+          </section>
+
+          {atrasadas.length > 0 && (
+            <section className="tarjeta">
+              <h2>Entregas más atrasadas</h2>
+              <div className="tabla-desplazable"><table className="tabla-tarjetas">
+                <thead><tr><th>Misión</th><th>Cliente</th><th>Destino</th><th>Comprometida</th><th>Entregada</th><th className="numero">Atraso</th><th>Incidencias</th></tr></thead>
+                <tbody>{atrasadas.map(({ f, retraso }) => (
+                  <tr key={f.id}>
+                    <td><Link href={`/misiones/${f.id}`}>{f.codigo}</Link></td>
+                    <td data-etiqueta="Cliente">{f.cliente}</td>
+                    <td data-etiqueta="Destino">{f.destino} ({f.pais})</td>
+                    <td data-etiqueta="Comprometida">{formatoHora(f.entrega_comprometida)}</td>
+                    <td data-etiqueta="Entregada">{formatoHora(f.entrega)}</td>
+                    <td data-etiqueta="Atraso" className="numero docs-faltan">{formatoHoras(retraso)}</td>
+                    <td data-etiqueta="Incidencias">{f.incidencias === 0 ? 'Ninguna' : f.motivos.map(textoMotivo).join(', ')}</td>
+                  </tr>
+                ))}</tbody>
+              </table></div>
+            </section>
+          )}
 
           <section className="tarjeta">
             <h2>Por transportista</h2>
@@ -200,5 +266,32 @@ export default function ContenidoReporte({ filtros, filas, filasAnteriores, clie
         </>
       )}
     </>
+  );
+}
+
+/** Entregas, toneladas y puntualidad de un grupo (cliente o destino). */
+function TablaServicio({ titulo, columna, grupos }: { titulo: string; columna: string; grupos: GrupoServicio[] }) {
+  return (
+    <div>
+      <h2>{titulo}</h2>
+      <div className="tabla-desplazable"><table className="tabla-tarjetas">
+        <thead><tr><th>{columna}</th><th className="numero">Entregas</th><th className="numero">TN</th><th className="numero">A tiempo</th><th className="numero">Atraso típico</th><th className="numero">Duración típica</th></tr></thead>
+        <tbody>{grupos.map((g) => {
+          const p = g.conCompromiso ? g.aTiempo / g.conCompromiso : null;
+          return (
+            <tr key={g.clave}>
+              <td>{g.nombre}</td>
+              <td data-etiqueta="Entregas" className="numero">{g.entregas}</td>
+              <td data-etiqueta="TN" className="numero">{formatoTn(g.toneladas)}</td>
+              <td data-etiqueta="A tiempo" className={`numero${p !== null && p < META_PUNTUALIDAD ? ' docs-faltan' : ''}`}>
+                {p === null ? '—' : `${formatoPct(p)} (${g.aTiempo}/${g.conCompromiso})`}
+              </td>
+              <td data-etiqueta="Atraso típico" className="numero">{g.retrasoMediano === null ? '—' : formatoHoras(g.retrasoMediano)}</td>
+              <td data-etiqueta="Duración típica" className="numero">{formatoHoras(g.duracionMediana)}</td>
+            </tr>
+          );
+        })}</tbody>
+      </table></div>
+    </div>
   );
 }

@@ -911,3 +911,29 @@ textarea { line-height: 1.5; }
   .tabla-misiones td:not(:first-child) .sub-dato.sin-margen::before { content: none; }
   .tabla-misiones td:not(:first-child) .sub-dato { margin-left: 6px; }
 }
+
+/* ---- Reporte: grupos de cifras, hallazgos, tablas de servicio y gráficos legibles ---- */
+.grafico .eje { font-size: 19px; }
+.grafico .eje-nombre { font-size: 21px; }
+.grafico .valor, .grafico .valor-sobre-claro, .grafico .valor-sobre-oscuro { font-size: 20px; }
+@media (max-width: 520px) { .grafico .eje, .grafico .valor, .grafico .eje-nombre { font-size: 24px; } }
+.grupo-cifras { margin: 20px 0 0; }
+.cifras { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); margin-top: 8px; }
+.cifra { padding: 12px 14px; gap: 4px; }
+.cifra-titulo { font-size: 14px; }
+.cifra-detalle { font-size: 13px; line-height: 1.4; }
+.cifra-cambio { font-size: 13px; font-weight: 700; color: var(--gris); }
+.cifra-cambio.sube { color: #006b2d; }
+.cifra-cambio.baja { color: #a04000; }
+.cifra.cifra-alerta { border-color: #f0c9a4; background: #fdf1e6; }
+.cifra.cifra-alerta .cifra-valor { color: #8a3d00; }
+.hallazgos { margin-top: 20px; padding: 16px; border-radius: var(--radio); border: 1px solid var(--borde); background: var(--superficie-suave); }
+.hallazgos ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hallazgo { position: relative; padding-left: 24px; line-height: 1.5; }
+.hallazgo::before { position: absolute; left: 0; top: 0; font-weight: 700; }
+.hallazgo.bien::before { content: "✓"; color: #006b2d; }
+.hallazgo.atencion::before { content: "!"; color: #fff; background: #d35400; border-radius: 50%; width: 16px; height: 16px; font-size: 12px; text-align: center; line-height: 16px; top: 3px; }
+.hallazgo.neutro::before { content: "•"; color: var(--gris); }
+.rejilla-tablas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 24px; }
+.rejilla-tablas h2 { margin-top: 0; }
+@media (max-width: 520px) { .cifras { grid-template-columns: 1fr 1fr; gap: 8px; } .cifra { padding: 10px; } }

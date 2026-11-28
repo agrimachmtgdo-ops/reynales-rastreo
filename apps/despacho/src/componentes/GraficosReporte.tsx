@@ -23,7 +23,7 @@ const numero = (n: number) => n.toLocaleString('es-BO', { maximumFractionDigits:
 export function GraficoColumnas({
   titulo, datos, unidad,
 }: { titulo: string; datos: { etiqueta: string; valor: number; detalle?: string }[]; unidad: string }) {
-  const ancho = 640, alto = 220, izq = 36, abajo = 28, arriba = 18;
+  const ancho = 640, alto = 260, izq = 48, abajo = 40, arriba = 28;
   const { tope, marcas } = escalaMaxima(Math.max(0, ...datos.map((d) => d.valor)));
   const anchoBanda = (ancho - izq) / Math.max(1, datos.length);
   const barra = Math.min(36, anchoBanda * 0.6);
@@ -36,7 +36,7 @@ export function GraficoColumnas({
         {marcas.map((m) => (
           <g key={m}>
             <line x1={izq} x2={ancho} y1={y(m)} y2={y(m)} className="rejilla-grafico" />
-            <text x={izq - 6} y={y(m) + 4} textAnchor="end" className="eje">{numero(m)}</text>
+            <text x={izq - 6} y={y(m) + 6} textAnchor="end" className="eje">{numero(m)}</text>
           </g>
         ))}
         {datos.map((d, i) => {
@@ -48,9 +48,9 @@ export function GraficoColumnas({
               {h >= 4 ? <path d={`M${x},${y(0)} v${-(h - 4)} q0,-4 4,-4 h${barra - 8} q4,0 4,4 v${h - 4} z`} fill={COLOR_SERIE[0]} />
                 : h > 0 && <rect x={x} y={y(d.valor)} width={barra} height={h} fill={COLOR_SERIE[0]} />}
               {d.valor > 0 && (d.valor === mayor || datos.length <= 6) && (
-                <text x={x + barra / 2} y={y(d.valor) - 5} textAnchor="middle" className="valor">{numero(d.valor)}</text>
+                <text x={x + barra / 2} y={y(d.valor) - 8} textAnchor="middle" className="valor">{numero(d.valor)}</text>
               )}
-              <text x={x + barra / 2} y={alto - 10} textAnchor="middle" className="eje">{d.etiqueta}</text>
+              <text x={x + barra / 2} y={alto - 12} textAnchor="middle" className="eje">{d.etiqueta}</text>
               <title>{`${d.etiqueta}: ${numero(d.valor)} ${unidad}${d.detalle ? ` · ${d.detalle}` : ''}`}</title>
             </g>
           );
@@ -62,9 +62,10 @@ export function GraficoColumnas({
 
 /** Barras horizontales ordenadas (ej. toneladas por cliente). */
 export function GraficoBarras({
-  titulo, datos, unidad,
-}: { titulo: string; datos: { etiqueta: string; valor: number; detalle?: string }[]; unidad: string }) {
-  const fila = 30, izq = 170, ancho = 640, der = 70;
+  titulo, datos, unidad, unidadUno,
+}: { titulo: string; datos: { etiqueta: string; valor: number; detalle?: string }[]; unidad: string; unidadUno?: string }) {
+  const u = (v: number) => (v === 1 && unidadUno ? unidadUno : unidad);
+  const fila = 44, izq = 230, ancho = 640, der = 120;
   const alto = Math.max(1, datos.length) * fila + 8;
   const tope = Math.max(1, ...datos.map((d) => d.valor));
   const largo = (v: number) => ((ancho - izq - der) * v) / tope;
@@ -79,12 +80,12 @@ export function GraficoBarras({
           return (
             <g key={d.etiqueta} className="marca">
               <rect x={0} y={yy - 4} width={ancho} height={fila} fill="transparent" />
-              <text x={izq - 8} y={yy + 13} textAnchor="end" className="eje-nombre">
-                {d.etiqueta.length > 22 ? `${d.etiqueta.slice(0, 21)}…` : d.etiqueta}
+              <text x={izq - 10} y={yy + 18} textAnchor="end" className="eje-nombre">
+                {d.etiqueta.length > 18 ? `${d.etiqueta.slice(0, 17)}…` : d.etiqueta}
               </text>
-              {w > 0 && <path d={`M${izq},${yy + 3} h${Math.max(0, w - 4)} q4,0 4,4 v8 q0,4 -4,4 h${-Math.max(0, w - 4)} z`} fill={COLOR_SERIE[0]} />}
-              <text x={izq + w + 6} y={yy + 13} className="valor">{numero(d.valor)} {unidad}</text>
-              <title>{`${d.etiqueta}: ${numero(d.valor)} ${unidad}${d.detalle ? ` · ${d.detalle}` : ''}`}</title>
+              {w > 0 && <path d={`M${izq},${yy + 2} h${Math.max(0, w - 6)} q6,0 6,6 v12 q0,6 -6,6 h${-Math.max(0, w - 6)} z`} fill={COLOR_SERIE[0]} />}
+              <text x={izq + w + 8} y={yy + 20} className="valor">{numero(d.valor)} {u(d.valor)}</text>
+              <title>{`${d.etiqueta}: ${numero(d.valor)} ${u(d.valor)}${d.detalle ? ` · ${d.detalle}` : ''}`}</title>
             </g>
           );
         })}

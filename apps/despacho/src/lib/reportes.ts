@@ -314,3 +314,102 @@ export function aParametros(f: FiltrosReporte): string {
   if (f.transportista) p.set('transportista', f.transportista);
   return p.toString();
 }
+
+// ---- Análisis adicionales (mismos datos, sin consultas nuevas) ----
+
+/** Camiones del tramo 1 (los que salen de fábrica): viajes, peso y señal GPS. */
+export function resumenCamiones(filas: FilaReporte[]) {
+  const camiones = filas.flatMap((f) => f.camiones.filter((c) => c.tramo === 1));
+  const conPeso = camiones.filter((c) => c.toneladas !== null && c.toneladas !== undefined);
+  const todos = filas.flatMap((f) => f.camiones);
+  const minViaje = todos.reduce((s, c) => s + (Number(c.minutos_viaje) || 0), 0);
+  const minSin = todos.reduce((s, c) => s + (c.minutos_viaje ? Number(c.minutos_sin_senal) || 0 : 0), 0);
+  return {
+    camiones: camiones.length,
+    sinPeso: camiones.length - conPeso.length,
+    tnPorCamion: conPeso.length ? conPeso.reduce((s, c) => s + Number(c.toneladas), 0) / conPeso.length : null,
+    pctSenal: minViaje > 0 ? 1 - minSin / minViaje : null,
+  };
+}
+
+export interface GrupoServicio {
+  clave: string;
+  nombre: string;
+  entregas: number;
+  toneladas: number;
+  conCompromiso: number;
+  aTiempo: number;
+  retrasoMediano: number | null;
+  duracionMediana: number | null;
+}
+
+/** Entregas, toneladas, puntualidad y duración agrupadas (por cliente o por destino). */
+export function servicioPor(filas: FilaReporte[], por: 'cliente' | 'destino'): GrupoServicio[] {
+  const mapa = new Map<string, { g: GrupoServicio; retrasos: number[]; duraciones: (number | null)[] }>();
+  for (const f of filas) {
+    const clave = por === 'cliente' ? f.cliente_id : `${f.destino}|${f.pais}`;
+    const nombre = por === 'cliente' ? f.cliente : `${f.destino} (${f.pais})`;
+    const x = mapa.get(clave) ?? {
+      g: { clave, nombre, entregas: 0, toneladas: 0, conCompromiso: 0, aTiempo: 0, retrasoMediano: null, duracionMediana: null },
+      retrasos: [], duraciones: [],
+    };
+    const t = tiempos(f);
+    x.g.entregas++;
+    x.g.toneladas += Number(f.toneladas) || 0;
+    if (t.retraso !== null) {
+      x.g.conCompromiso++;
+      if (t.retraso === 0) x.g.aTiempo++;
+      else x.retrasos.push(t.retraso);
+    }
+    x.duraciones.push(t.viaje);
+    mapa.set(clave, x);
+  }
+  return [...mapa.values()].map(({ g, retrasos, duraciones }) => ({
+    ...g, retrasoMediano: mediana(retrasos), duracionMediana: mediana(duraciones),
+  })).sort((a, b) => b.toneladas - a.toneladas || b.entregas - a.entregas);
+}
+
+/** Cuántas misiones tuvieron cada motivo de incidencia, de más a menos frecuente. */
+export function incidenciasPorMotivo(filas: FilaReporte[]): { motivo: string; misiones: number }[] {
+  const mapa = new Map<string, number>();
+  for (const f of filas) for (const m of new Set(f.motivos)) mapa.set(m, (mapa.get(m) ?? 0) + 1);
+  return [...mapa.entries()].map(([motivo, misiones]) => ({ motivo, misiones })).sort((a, b) => b.misiones - a.misiones);
+}
+
+/** Las entregas más atrasadas respecto de lo comprometido. */
+export function masAtrasadas(filas: FilaReporte[], maximo = 5) {
+  return filas.map((f) => ({ f, retraso: tiempos(f).retraso }))
+    .filter((x): x is { f: FilaReporte; retraso: number } => x.retraso !== null && x.retraso > 0)
+    .sort((a, b) => b.retraso - a.retraso).slice(0, maximo);
+}
+
+/** Frases cortas con lo más importante del período (para leer en 10 segundos). */
+export function hallazgos(filas: FilaReporte[], anteriores: FilaReporte[]): { tono: 'bien' | 'atencion' | 'neutro'; texto: string }[] {
+  const out: { tono: 'bien' | 'atencion' | 'neutro'; texto: string }[] = [];
+  if (filas.length === 0) return out;
+  const r = resumir(filas);
+  const ra = resumir(anteriores);
+  const cam = resumenCamiones(filas);
+  if (ra.entregas > 0) {
+    const v = variacion(r.toneladas, ra.toneladas);
+    if (v) out.push({ tono: r.toneladas >= ra.toneladas ? 'bien' : 'atencion', texto: `Toneladas despachadas: ${v} frente al período anterior (${formatoTn(r.toneladas)} TN contra ${formatoTn(ra.toneladas)} TN).` });
+  }
+  if (r.conCompromiso > 0) {
+    const p = r.aTiempo / r.conCompromiso;
+    out.push({ tono: p >= META_PUNTUALIDAD ? 'bien' : 'atencion', texto: `Puntualidad ${formatoPct(p)} (meta ${formatoPct(META_PUNTUALIDAD)}): ${r.conCompromiso - r.aTiempo} de ${r.conCompromiso} entregas llegaron tarde.` });
+  } else {
+    out.push({ tono: 'atencion', texto: 'Ninguna entrega tiene fecha comprometida: no se puede medir la puntualidad.' });
+  }
+  const peorCliente = servicioPor(filas, 'cliente').filter((g) => g.conCompromiso >= 2 && g.aTiempo / g.conCompromiso < META_PUNTUALIDAD)
+    .sort((a, b) => a.aTiempo / a.conCompromiso - b.aTiempo / b.conCompromiso)[0];
+  if (peorCliente) out.push({ tono: 'atencion', texto: `El cliente con menor puntualidad es ${peorCliente.nombre}: ${peorCliente.aTiempo} de ${peorCliente.conCompromiso} a tiempo.` });
+  const motivo = incidenciasPorMotivo(filas)[0];
+  if (motivo) out.push({ tono: 'atencion', texto: `Incidencia más frecuente: ${textoMotivo(motivo.motivo)} (${motivo.misiones} ${motivo.misiones === 1 ? 'misión' : 'misiones'}).` });
+  if (cam.sinPeso > 0) out.push({ tono: 'atencion', texto: `Camiones sin peso de balanza: ${cam.sinPeso} de ${cam.camiones}. Las toneladas del reporte están incompletas hasta que se registre el peso.` });
+  const docs = r.entregas - r.docsCompletos;
+  if (docs > 0) out.push({ tono: 'atencion', texto: `${docs} de ${r.entregas} entregas tienen documentos incompletos (factura o DEX).` });
+  const senalBaja = fichasTransportistas(filas).filter((t) => t.pctSenal !== null && t.pctSenal < SENAL_MINIMA);
+  if (senalBaja.length) out.push({ tono: 'atencion', texto: `Señal GPS baja (menos de ${formatoPct(SENAL_MINIMA)}): ${senalBaja.map((t) => t.nombre).join(', ')}.` });
+  if (out.every((h) => h.tono !== 'atencion')) out.push({ tono: 'bien', texto: 'Sin alertas en el período: documentos, peso y señal en orden.' });
+  return out;
+}
