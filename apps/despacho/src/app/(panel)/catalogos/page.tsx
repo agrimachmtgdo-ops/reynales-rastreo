@@ -3,6 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/server';
 import FormularioCatalogo from '@/componentes/FormularioCatalogo';
 import SelectorUbicacion from '@/componentes/SelectorUbicacion';
 import SeccionOperadores from '@/componentes/SeccionOperadores';
+import CamposProducto from '@/componentes/CamposProducto';
 import {
   actualizarRegistro,
   alternarActivo,
@@ -71,6 +72,22 @@ export default async function PaginaCatalogos({
   const enlaceCorregir = (t: { tabla: string; fila_id: string }) =>
     t.tabla === 'misiones' ? `/misiones/${t.fila_id}` : `/catalogos?pestana=${t.tabla}&editar=${t.fila_id}`;
   const filas = (filasData ?? []) as Fila[];
+  // Uso de cada producto (pedidos y misiones que lo llevan), para saber qué se puede desactivar.
+  const uso = new Map<string, { pedidos: number; misiones: number }>();
+  if (pestana === 'productos') {
+    const [{ data: ped }, { data: mis }] = await Promise.all([
+      supabase.from('pedidos').select('producto_id').not('producto_id', 'is', null),
+      supabase.from('misiones').select('producto_id').not('producto_id', 'is', null),
+    ]);
+    const sumar = (id: string, k: 'pedidos' | 'misiones') => {
+      const u = uso.get(id) ?? { pedidos: 0, misiones: 0 };
+      u[k] += 1;
+      uso.set(id, u);
+    };
+    (ped ?? []).forEach((r) => sumar(String(r.producto_id), 'pedidos'));
+    (mis ?? []).forEach((r) => sumar(String(r.producto_id), 'misiones'));
+  }
+  const activos = filas.filter((f) => f.activo !== false).length;
   const editando = sp.editar ? filas.find((f) => f.id === sp.editar) : undefined;
   const opcionesTransportista = (transportistasData ?? []).map((t) => (
     <option key={t.id} value={t.id}>{t.razon_social}</option>
@@ -143,19 +160,7 @@ export default async function PaginaCatalogos({
         <SelectorUbicacion lat={v(f, 'lat')} lon={v(f, 'lon')} radio={v(f, 'radio_m') ?? '500'} />
       </>
     ),
-    productos: (f) => (
-      <>
-        <label>Nombre <Req /><input name="nombre" required maxLength={120} placeholder="Ej. Harina Integral" defaultValue={v(f, 'nombre')} /></label>
-        <label>Código interno<input name="codigo" maxLength={30} placeholder="Ej. HI-01" defaultValue={v(f, 'codigo')} /></label>
-        <label>Presentación
-          <input name="presentacion" maxLength={60} list="presentaciones" placeholder="Ej. Sacos de 50 kg" defaultValue={v(f, 'presentacion')} />
-          <datalist id="presentaciones">
-            <option value="Sacos de 50 kg" /><option value="Sacos de 40 kg" /><option value="Big bag de 1.200 kg" /><option value="Granel" />
-          </datalist>
-        </label>
-        <label>Partida arancelaria (NANDINA)<input name="partida_arancelaria" inputMode="decimal" maxLength={14} placeholder="Ej. 1101.00.00" pattern="[0-9.]{4,14}" defaultValue={v(f, 'partida_arancelaria')} /></label>
-      </>
-    ),
+    productos: (f) => <CamposProducto f={f} />,
   };
 
   const crear = { clientes: crearCliente, transportistas: crearTransportista, conductores: crearConductor, vehiculos: crearVehiculo, ubicaciones: crearUbicacion, productos: crearProducto }[pestana];
@@ -219,15 +224,26 @@ export default async function PaginaCatalogos({
       </table></div>
     ),
     productos: (
-      <div className="tabla-desplazable"><table>
-        <thead><tr><th>Producto</th><th>Código</th><th>Presentación</th><th>Partida arancelaria</th><th>Estado</th><th></th></tr></thead>
-        <tbody>{filas.map((x) => (
-          <tr key={x.id} className={claseFila(x)}>
-            <td>{v(x, 'nombre')}</td><td>{v(x, 'codigo')}</td><td>{v(x, 'presentacion')}</td><td>{v(x, 'partida_arancelaria')}</td>
-            <td>{x.activo ? 'Activo' : 'Inactivo'}</td>
-            <td className="acciones">{enlaceEditar(x)} {botonActivo('productos', x)}</td>
-          </tr>
-        ))}</tbody>
+      <div className="tabla-desplazable"><table className="tabla-catalogo tabla-tarjetas">
+        <thead><tr><th>Producto</th><th>Presentación</th><th>Partida arancelaria</th><th>Uso</th><th>Estado</th><th><span className="solo-lector">Acciones</span></th></tr></thead>
+        <tbody>{filas.map((x) => {
+          const u = uso.get(x.id);
+          return (
+            <tr key={x.id} className={claseFila(x)}>
+              <td data-etiqueta="Producto">
+                <strong className="nombre-catalogo">{v(x, 'nombre')}</strong>
+                {x.codigo ? <span className="codigo-catalogo">{v(x, 'codigo')}</span> : null}
+              </td>
+              <td data-etiqueta="Presentación">{v(x, 'presentacion') ?? <span className="vacio">Sin indicar</span>}</td>
+              <td data-etiqueta="Partida" className="cifra-tabla">{v(x, 'partida_arancelaria') ?? <span className="vacio">—</span>}</td>
+              <td data-etiqueta="Uso">{u
+                ? <span className="uso-producto">{[u.pedidos && `${u.pedidos} ${u.pedidos === 1 ? 'pedido' : 'pedidos'}`, u.misiones && `${u.misiones} ${u.misiones === 1 ? 'misión' : 'misiones'}`].filter(Boolean).join(' · ')}</span>
+                : <span className="vacio">Sin uso aún</span>}</td>
+              <td data-etiqueta="Estado"><span className={`etiqueta ${x.activo ? 'activo' : 'inactivo'}`}>{x.activo ? 'Activo' : 'Inactivo'}</span></td>
+              <td className="acciones">{enlaceEditar(x)} {botonActivo('productos', x)}</td>
+            </tr>
+          );
+        })}</tbody>
       </table></div>
     ),
   };
@@ -260,35 +276,54 @@ export default async function PaginaCatalogos({
         {sp.guardado && !editando && <div role="status" className="mensaje-ok">Cambios guardados.</div>}
         {error && <div className="mensaje-error">No se pudo cargar la lista: {error.message}</div>}
 
+        {pestana === 'productos' && (
+          <div className="cabecera-catalogo">
+            <div>
+              <h2>Productos</h2>
+              <p>{activos} {activos === 1 ? 'activo' : 'activos'}{filas.length > activos ? ` · ${filas.length - activos} inactivo${filas.length - activos === 1 ? '' : 's'}` : ''}. Se eligen en pedidos y misiones y agrupan los reportes.</p>
+            </div>
+          </div>
+        )}
         {editando ? (
-          <div className="edicion">
-            <h2>Editar {singular}</h2>
+          <div className={pestana === 'productos' ? 'edicion panel-edicion' : 'edicion'}>
+            <h2>Editar {singular}{pestana === 'productos' ? ` · ${v(editando, 'nombre')}` : ''}</h2>
             <FormularioCatalogo
               key={editando.id}
               accion={actualizarRegistro.bind(null, pestana, editando.id)}
               boton="Guardar cambios"
               cancelar={url()}
+              secciones={pestana === 'productos'}
             >
               {campos[pestana](editando)}
             </FormularioCatalogo>
+            {pestana === 'productos' && (
+              <p className="ayuda">Cambiar el nombre no altera los pedidos y misiones ya guardados: siguen enlazados a este producto.</p>
+            )}
           </div>
+        ) : pestana === 'productos' ? (
+          <details className="agregar panel-nuevo" open={filas.length === 0}>
+            <summary>
+              <span className="si-cerrado">+ Agregar producto</span>
+              <span className="si-abierto"><strong>Nuevo producto</strong><span>Un producto usado no se borra: se desactiva y deja de ofrecerse en las listas.</span></span>
+            </summary>
+            <FormularioCatalogo accion={crear} boton="Guardar producto" secciones>
+              {campos.productos()}
+            </FormularioCatalogo>
+          </details>
         ) : (
           <details className="agregar">
             <summary>+ Agregar {singular}</summary>
             {pestana === 'ubicaciones' && (
               <p className="ayuda">El radio define la geocerca (fábrica ~800 m, frontera ~1.500 m).</p>
             )}
-            {pestana === 'productos' && (
-              <p className="ayuda">Los productos se eligen en pedidos y misiones y agrupan los reportes. Un producto usado no se borra: se desactiva y deja de ofrecerse en las listas.</p>
-            )}
             <FormularioCatalogo accion={crear} boton={`Guardar ${singular}`}>
               {campos[pestana]()}
             </FormularioCatalogo>
           </details>
         )}
-        <p className="ayuda"><span className="obligatorio">*</span> Dato obligatorio.</p>
+        {pestana !== 'productos' && <p className="ayuda"><span className="obligatorio">*</span> Dato obligatorio.</p>}
 
-        {filas.length === 0 ? <p>Todavía no hay registros. Use «Agregar {singular}».</p> : tablas[pestana]}
+        {filas.length === 0 ? <p className="vacio-catalogo">Todavía no hay registros. Use «Agregar {singular}».</p> : tablas[pestana]}
       </section>
       {pestana === 'transportistas' && <SeccionOperadores transportistas={transportistasData ?? []} />}
     </>
