@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import L, { type Map as LeafletMap } from 'leaflet';
-import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
+import { MapContainer, CircleMarker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
+import CapaBase from './CapaBase';
 import { ETIQUETA_ETAPA, MARCA } from '@reynales/shared';
 import { estaDetenido, formatoHora, haceCuanto, minutosSinSenal, MINUTOS_DETENIDO, textoEmergencia, type AsignacionEnVivo } from '@/lib/tipos';
 
@@ -165,10 +166,7 @@ export default function MapaFlota({
   return (
     <div style={{ position: 'relative', height: '100%', minHeight: 400 }}>
       <MapContainer center={CENTRO} zoom={6} style={{ height: '100%', width: '100%', minHeight: 400 }}>
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <CapaBase />
         {(recorridos ?? []).map((r, i) =>
           r.length > 1 ? (
             <Polyline key={i} positions={r} pathOptions={{ color: COLORES_RECORRIDO[i % COLORES_RECORRIDO.length], weight: 3, opacity: 0.85 }} />
