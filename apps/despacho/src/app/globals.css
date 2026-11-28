@@ -1170,3 +1170,46 @@ a.boton-cancelar { display: inline-flex; align-items: center; text-decoration: n
 .prueba-entrega .fotos-enlaces img { width: 96px; height: 96px; }
 .texto-alerta { color: var(--rojo); }
 .tabla-mermas td.merma { color: var(--rojo); font-weight: 600; }
+
+/* ---- Tarjetas de camión más livianas y separadas (pedido de Ronald, 2026-11-28) ----
+   Montserrat en 700 se ve muy gruesa: el énfasis baja a 600 y los textos de apoyo a 400. */
+strong, b { font-weight: 600; }
+.agregar > summary { font-weight: 600; }
+.camiones-tramo { gap: 18px; margin-top: 14px; }
+.camion-tramo {
+  position: relative; border: 1px solid var(--borde); border-left: 5px solid var(--st-programado);
+  border-radius: var(--radio, 12px); padding: 14px 18px 12px; box-shadow: var(--sombra-1);
+}
+.camion-tramo.etapa-cargado, .camion-tramo.etapa-en_ruta { border-left-color: var(--st-en_ruta); }
+.camion-tramo.etapa-en_frontera { border-left-color: var(--st-en_frontera); }
+.camion-tramo.etapa-cruzo_frontera { border-left-color: var(--st-cruzo_frontera); }
+.camion-tramo.etapa-entregado { border-left-color: var(--verde-oscuro); }
+.camion-tramo.etapa-cancelado { border-left-color: var(--st-sin_senal); opacity: .8; }
+.camion-tramo.emergencia { border: 2px solid var(--rojo); border-left-width: 5px; }
+.identidad-camion { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.numero-camion { font-size: 12px; font-weight: 500; color: var(--gris); text-transform: uppercase; letter-spacing: .05em; }
+.camion-tramo .titulo-camion { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 17px; font-weight: 400; }
+.placa-camion { font-weight: 600; color: var(--cafe); letter-spacing: .02em; }
+.chofer-camion { font-size: 15px; color: var(--gris); }
+.camion-tramo .datos-camion { font-size: 13.5px; margin: 10px 0 6px; }
+.camion-tramo .datos-camion li { font-weight: 400; }
+/* Secciones plegables (inspección, carga, prueba de entrega): una línea sobria cada una. */
+.camion-tramo .carga-camion { border-top-color: var(--borde); margin: 4px 0 0; padding-top: 0; }
+.camion-tramo .carga-camion[open] { padding-bottom: 8px; }
+.camion-tramo .carga-camion > summary { font-size: 14px; font-weight: 500; color: var(--gris); min-height: 44px; align-items: center; }
+.camion-tramo .carga-camion > summary strong { color: var(--tinta); font-weight: 600; }
+.camion-tramo .carga-camion[open] > summary { color: var(--cafe); }
+.camion-tramo .carga-camion > :not(summary) { font-size: 14px; }
+.camion-tramo .carga-camion h5 { font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; }
+.camion-tramo .etiqueta { font-weight: 500; }
+/* Alertas dentro de la tarjeta: recuadro suave en vez de texto rojo grueso. */
+.camion-tramo p.alerta {
+  font-weight: 400; font-size: 14px; color: #7a1f14; background: #fdf1ef;
+  border-left: 3px solid var(--rojo); border-radius: 6px; padding: 8px 12px; margin: 8px 0;
+}
+.camion-tramo p.alerta strong { color: var(--rojo); }
+@media (max-width: 520px) {
+  .camion-tramo { padding: 12px 12px 10px; }
+  .camiones-tramo { gap: 14px; }
+}
+@media print { .camion-tramo { box-shadow: none; break-inside: avoid; } }

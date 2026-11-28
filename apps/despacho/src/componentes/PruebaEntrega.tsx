@@ -35,7 +35,7 @@ export default function PruebaEntrega({
   const puedeRegistrar = puedeEditar && (!prueba || prueba.origen === 'logistica');
 
   return (
-    <details className={`carga-camion agregar prueba-entrega${conNovedad ? ' con-novedad' : ''}`} open={!prueba || !!conNovedad}>
+    <details className={`carga-camion agregar prueba-entrega${conNovedad ? ' con-novedad' : ''}`} open={!!conNovedad}>
       <summary>
         Prueba de entrega:{' '}
         {prueba

@@ -44,7 +44,7 @@ export default function CargaCamion({
   ].filter(Boolean).join(' · ');
 
   return (
-    <details className="carga-camion agregar" open={sinLotes || (comparacion?.fuera ?? false)}>
+    <details className="carga-camion agregar" open={comparacion?.fuera ?? false}>
       <summary>
         Carga del camión: <strong>{resumen}</strong>
         {sinLotes && <span className="etiqueta sin-peso">Sin lotes</span>}

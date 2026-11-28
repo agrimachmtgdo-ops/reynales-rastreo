@@ -319,13 +319,19 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
     && !asignaciones.some((a) => (a.tramo ?? 1) === ultimoTramo && a.etapa === 'entregado');
   const sugerirTransbordo = puedeAgregarTransbordo && ultimoTramo === 1 && m.destino?.pais === 'PE';
 
-  const tarjetaCamion = (a: AsignacionEnVivo) => {
+  const tarjetaCamion = (a: AsignacionEnVivo, i: number, lista: AsignacionEnVivo[]) => {
     const min = minutosSinSenal(a.ultima_senal);
     const cerrada = a.etapa === 'entregado' || a.etapa === 'cancelado';
     return (
-      <article key={a.id} className={`camion-tramo${a.emergencia_en ? ' emergencia' : ''}`}>
+      <article key={a.id} className={`camion-tramo etapa-${a.etapa}${a.emergencia_en ? ' emergencia' : ''}`}>
         <div className="cabeza-camion">
-          <h4 className="titulo-camion">{a.vehiculo?.placa} · {a.conductor?.nombre}</h4>
+          <div className="identidad-camion">
+            {lista.length > 1 && <span className="numero-camion">Camión {i + 1} de {lista.length}</span>}
+            <h4 className="titulo-camion">
+              <span className="placa-camion">{a.vehiculo?.placa}</span>
+              <span className="chofer-camion">{a.conductor?.nombre}</span>
+            </h4>
+          </div>
           <span className={`etiqueta ${a.etapa}`}>{a.etapa === 'entregado' && intermedio(a.id) ? 'Entregado en transbordo' : ETIQUETA_ETAPA[a.etapa]}</span>
         </div>
         {(() => {
