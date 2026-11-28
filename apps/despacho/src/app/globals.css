@@ -740,3 +740,49 @@ tbody tr:hover td { background: var(--superficie-suave); }
   .encabezado { position: static; box-shadow: none; }
   .tarjeta { box-shadow: none; }
 }
+
+/* ---- Diseño v2: formularios, filtros y enlaces de acción ---- */
+label { font-size: 14px; }
+/* Filtros: el botón queda alineado con los campos (sin margen bajo las etiquetas). */
+.filtros-misiones, .filtros-reporte { align-items: end; gap: 12px 16px; margin-bottom: 16px; }
+.filtros-misiones > label, .filtros-reporte > label { margin-bottom: 0; }
+.filtros-misiones .acciones-filtro, .filtros-reporte .acciones-filtro { min-height: 44px; display: flex; align-items: center; gap: 8px; }
+/* Encabezado de sección: título y botones en la misma línea. */
+.cabecera-seccion { margin-bottom: 20px; }
+.cabecera-seccion h1, .cabecera-seccion h2 { margin: 0; }
+/* Enlaces que son acciones: aspecto de botón sin relleno (no de texto subrayado). */
+.enlace-secundario, .enlace-cancelar {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; margin-left: 0;
+  border-radius: 10px; text-decoration: none; font-weight: 600; transition: background-color .15s ease;
+}
+.enlace-secundario { color: var(--verde-oscuro); }
+.enlace-cancelar { color: var(--cafe); }
+.enlace-secundario:hover, .enlace-cancelar:hover { background: #efe9de; }
+.enlace-secundario[download]::before {
+  content: ''; width: 18px; height: 18px; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12m0 0-4-4m4 4 4-4M5 21h14'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12m0 0-4-4m4 4 4-4M5 21h14'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+/* Tablas: códigos en negrita, números alineados a la derecha también en el título. */
+th.numero { text-align: right; }
+td:first-child > a:first-child { font-weight: 700; text-decoration: none; color: var(--cafe); }
+td:first-child > a:first-child:hover { text-decoration: underline; }
+td { vertical-align: middle; }
+/* Formulario de pedido: los campos ocupan todo el ancho; acciones juntas abajo. */
+.tarjeta:has(> .formulario-pedido) { max-width: 1100px; margin-left: auto; margin-right: auto; }
+.formulario-pedido .rejilla { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 4px 16px; }
+.formulario-pedido fieldset { border-radius: var(--radio); padding: 16px 20px 8px; margin-bottom: 20px; background: var(--superficie-suave); }
+.formulario-pedido legend { font-size: 16px; padding: 0 8px; }
+.formulario-pedido textarea { min-height: 96px; resize: vertical; }
+.formulario-pedido > .boton { margin-right: 4px; }
+.formulario-pedido > .ayuda { margin-top: 12px; }
+fieldset input, fieldset select, fieldset textarea { background: var(--superficie); }
+textarea { line-height: 1.5; }
+.migas { margin-bottom: 4px; }
+.migas a { text-decoration: none; }
+.migas a:hover { text-decoration: underline; }
+@media (max-width: 520px) {
+  .cabecera-seccion .botones { width: 100%; }
+  .cabecera-seccion .botones .boton { flex: 1 1 auto; }
+  .formulario-pedido fieldset { padding: 12px 12px 4px; }
+}
