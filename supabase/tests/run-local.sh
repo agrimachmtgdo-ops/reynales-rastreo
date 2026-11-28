@@ -14,6 +14,7 @@ for f in migrations/*.sql; do
   [[ "$f" == *20261216000100_productos.sql ]] && continue
   [[ "$f" == *20261217000100_lotes_balanza.sql ]] && continue
   [[ "$f" == *20261218000100_inspeccion_precinto.sql ]] && continue
+  [[ "$f" == *20261219000100_requisitos_documentos.sql ]] && continue
   echo "→ $f"
   "${PSQL[@]}" -d "$DB" -f "$f"
 done
@@ -86,4 +87,11 @@ echo "→ ida y vuelta de la reversión de inspección y precinto (con datos)"
 "${PSQL[@]}" -d "$DB" -c "select 1 from public.asignaciones where precinto = 'P-77'" | grep -q 1
 "${PSQL[@]}" -d "$DB" -tA -c "select count(*) from pg_proc where proname in ('guardar_lote','quitar_lote','registrar_balanza') and prosrc like '%puede_editar()%'" | grep -qx 3
 "${PSQL[@]}" -d "$DB" -f migrations/20261218000100_inspeccion_precinto.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261219000100_requisitos_documentos.sql
+"${PSQL[@]}" -d "$DB" -f tests/100_requisitos_documentos.sql
+echo "→ ida y vuelta de la reversión de requisitos de documentos (se detiene si hay documentos nuevos)"
+if "${PSQL[@]}" -d "$DB" -f revertir/20261219000100_requisitos_documentos.sql 2>/dev/null; then echo "FALLÓ: la reversión debía detenerse"; exit 1; fi
+"${PSQL[@]}" -d "$DB" -c "update public.documentos set etiqueta = 'lista_empaque' where etiqueta not in ('lista_empaque')" >/dev/null
+"${PSQL[@]}" -d "$DB" -f revertir/20261219000100_requisitos_documentos.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261219000100_requisitos_documentos.sql
 echo "✔ Todas las pruebas pasaron"

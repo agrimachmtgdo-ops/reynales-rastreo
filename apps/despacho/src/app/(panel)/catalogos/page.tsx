@@ -4,6 +4,8 @@ import FormularioCatalogo from '@/componentes/FormularioCatalogo';
 import SelectorUbicacion from '@/componentes/SelectorUbicacion';
 import SeccionOperadores from '@/componentes/SeccionOperadores';
 import CamposProducto from '@/componentes/CamposProducto';
+import { TIPO_DOCUMENTO } from '@/lib/documentos';
+import { ReglasGenerales, RequisitosCliente, type Requisito } from '@/componentes/RequisitosDocumentos';
 import {
   actualizarRegistro,
   alternarActivo,
@@ -87,6 +89,13 @@ export default async function PaginaCatalogos({
     (ped ?? []).forEach((r) => sumar(String(r.producto_id), 'pedidos'));
     (mis ?? []).forEach((r) => sumar(String(r.producto_id), 'misiones'));
   }
+  // Requisitos de documentos (entrega 3); vacío si la base aún no los tiene.
+  const { data: requisitosData } = pestana === 'clientes'
+    ? await supabase.from('requisitos_documentos').select('documento, momento, alcance, pais, cliente_id, requerido, activo').order('documento')
+    : { data: null };
+  const requisitos = (requisitosData ?? []) as Requisito[];
+  const generales = requisitos.filter((r) => r.alcance !== 'cliente');
+  const editaRequisitos = esAdmin || perfilActual === 'logistica' || perfilActual === 'comercial';
   const activos = filas.filter((f) => f.activo !== false).length;
   const editando = sp.editar ? filas.find((f) => f.id === sp.editar) : undefined;
   const opcionesTransportista = (transportistasData ?? []).map((t) => (
@@ -170,10 +179,15 @@ export default async function PaginaCatalogos({
   const tablas: Record<Pestana, React.ReactNode> = {
     clientes: (
       <div className="tabla-desplazable"><table>
-        <thead><tr><th>Razón social</th><th>NIT/RUC</th><th>País</th><th>WhatsApp</th><th>Comercial</th><th></th></tr></thead>
-        <tbody>{filas.map((c) => (
-          <tr key={c.id}><td>{v(c, 'razon_social')}</td><td>{v(c, 'nit_ruc')}</td><td>{v(c, 'pais')}</td><td>{v(c, 'whatsapp')}</td><td>{nombreComercial(c.comercial_id)}</td><td className="acciones">{enlaceEditar(c)}</td></tr>
-        ))}</tbody>
+        <thead><tr><th>Razón social</th><th>NIT/RUC</th><th>País</th><th>WhatsApp</th><th>Comercial</th><th>Documentos propios</th><th></th></tr></thead>
+        <tbody>{filas.map((c) => {
+          const propios = requisitos.filter((r) => r.cliente_id === c.id);
+          return (
+            <tr key={c.id}><td>{v(c, 'razon_social')}</td><td>{v(c, 'nit_ruc')}</td><td>{v(c, 'pais')}</td><td>{v(c, 'whatsapp')}</td><td>{nombreComercial(c.comercial_id)}</td>
+              <td>{propios.length ? propios.map((r) => `${r.requerido ? '' : 'sin '}${TIPO_DOCUMENTO[r.documento] ?? r.documento}`).join(', ') : <span className="vacio">—</span>}</td>
+              <td className="acciones">{enlaceEditar(c)}</td></tr>
+          );
+        })}</tbody>
       </table></div>
     ),
     transportistas: (
@@ -299,6 +313,14 @@ export default async function PaginaCatalogos({
             {pestana === 'productos' && (
               <p className="ayuda">Cambiar el nombre no altera los pedidos y misiones ya guardados: siguen enlazados a este producto.</p>
             )}
+            {pestana === 'clientes' && requisitosData && (
+              <RequisitosCliente
+                clienteId={editando.id}
+                requisitos={requisitos.filter((r) => r.cliente_id === editando.id)}
+                generales={generales}
+                puedeEditar={editaRequisitos}
+              />
+            )}
           </div>
         ) : pestana === 'productos' ? (
           <details className="agregar panel-nuevo" open={filas.length === 0}>
@@ -322,6 +344,7 @@ export default async function PaginaCatalogos({
           </details>
         )}
         {pestana !== 'productos' && <p className="ayuda"><span className="obligatorio">*</span> Dato obligatorio.</p>}
+        {pestana === 'clientes' && esAdmin && requisitosData && !editando && <ReglasGenerales generales={generales} />}
 
         {filas.length === 0 ? <p className="vacio-catalogo">Todavía no hay registros. Use «Agregar {singular}».</p> : tablas[pestana]}
       </section>
