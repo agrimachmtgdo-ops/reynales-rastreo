@@ -2,13 +2,14 @@
 import { useEffect } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
 import { ETIQUETA_ETAPA, MARCA } from '@reynales/shared';
-import { formatoHora, type AsignacionEnVivo } from '@/lib/tipos';
+import { formatoHora, textoEmergencia, type AsignacionEnVivo } from '@/lib/tipos';
 
 // Centro inicial: entre Monteagudo y Desaguadero.
 const CENTRO: [number, number] = [-17.6, -66.5];
 const AZUL = '#1d4f80';
 
-function color(etapa: AsignacionEnVivo['etapa']) {
+function color(etapa: AsignacionEnVivo['etapa'], emergencia?: string | null) {
+  if (emergencia) return MARCA.rojo;
   if (etapa === 'en_frontera') return MARCA.dorado;
   if (etapa === 'cruzo_frontera') return AZUL;
   return MARCA.verde;
@@ -42,6 +43,7 @@ function Leyenda() {
     { c: MARCA.verde, t: 'En ruta' },
     { c: MARCA.dorado, t: 'En frontera' },
     { c: AZUL, t: 'Cruzó a Perú' },
+    { c: MARCA.rojo, t: 'Emergencia' },
   ];
   return (
     <div className="leyenda" aria-label="Leyenda del mapa">
@@ -81,7 +83,7 @@ export default function MapaFlota({
             key={a.id}
             center={[a.ultima_lat!, a.ultima_lon!]}
             radius={a.id === seleccion ? 11 : 8}
-            pathOptions={{ color: MARCA.cafe, weight: a.id === seleccion ? 3 : 2, fillColor: color(a.etapa), fillOpacity: 0.9 }}
+            pathOptions={{ color: MARCA.cafe, weight: a.id === seleccion ? 3 : 2, fillColor: color(a.etapa, a.emergencia_en), fillOpacity: 0.9 }}
             eventHandlers={{ click: () => alSeleccionar?.(a.id) }}
           >
             <Tooltip permanent direction="right" offset={[10, 0]} className="placa-mapa">
@@ -89,6 +91,7 @@ export default function MapaFlota({
             </Tooltip>
             <Popup>
               <strong>{a.vehiculo?.placa}</strong> · {ETIQUETA_ETAPA[a.etapa]}
+              {a.emergencia_en && <><br /><strong style={{ color: MARCA.rojo }}>EMERGENCIA: {textoEmergencia(a.emergencia_motivo)}</strong></>}
               <br />
               {a.mision?.codigo} → {a.mision?.destino?.nombre}
               <br />

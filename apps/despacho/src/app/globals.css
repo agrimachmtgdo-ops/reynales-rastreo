@@ -173,3 +173,10 @@ tr.evento-alerta td { background: #fff4e5; }
   .punto-vivo { animation: latido 2s ease-in-out infinite; }
 }
 @keyframes latido { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* Emergencias */
+.etiqueta.emergencia { background: var(--rojo); color: var(--blanco); margin-top: 4px; align-self: flex-start; }
+.franja-emergencia { background: var(--rojo); color: var(--blanco); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; display: grid; gap: 6px; font-size: 15px; }
+.franja-emergencia a { color: var(--blanco); font-weight: 700; text-decoration: underline; }
+.tarjeta.emergencia { border: 2px solid var(--rojo); }
+.aviso-emergencia { background: #fbe3e0; border-left: 4px solid var(--rojo); padding: 12px; border-radius: 8px; margin: 8px 0 12px; }

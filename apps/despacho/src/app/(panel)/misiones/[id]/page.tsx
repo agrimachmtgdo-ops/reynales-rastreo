@@ -3,13 +3,13 @@ import { ETAPAS, ETIQUETA_ETAPA, type Etapa } from '@reynales/shared';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import { cargarCatalogosCamion } from '@/lib/catalogos';
 import { SELECT_ASIGNACION_EN_VIVO } from '@/lib/consultas';
-import { formatoHora, minutosSinSenal, type AsignacionEnVivo } from '@/lib/tipos';
+import { enlaceWhatsApp, formatoHora, minutosSinSenal, textoEmergencia, type AsignacionEnVivo } from '@/lib/tipos';
 import CamposCamion from '@/componentes/CamposCamion';
 import FormularioAccion from '@/componentes/FormularioAccion';
 import InvitacionChofer from '@/componentes/InvitacionChofer';
 import MapaMision from '@/componentes/MapaMision';
 import RefrescoEnVivo from '@/componentes/RefrescoEnVivo';
-import { agregarCamion, cambiarEtapaManual, crearInvitacion } from '../acciones';
+import { agregarCamion, atenderEmergencia, cambiarEtapaManual, crearInvitacion } from '../acciones';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,13 +34,17 @@ function describirEvento(e: Evento, chofer: string): string {
     if (e.origen === 'chofer') return `${chofer} marcó ${etapa} desde la app${antes}.`;
     if (e.origen === 'despacho') return `Despacho cambió la etapa a ${etapa}${antes}${d.nota ? `. Nota: ${String(d.nota)}` : ''}.`;
     if (d.motivo === 'salio_de_origen') return `El sistema detectó que el camión salió de fábrica: ${etapa}${antes}.`;
+    if (d.motivo === 'cruce_sin_parada') return `El sistema detectó que el camión cruzó a Perú por ${String(d.frontera)} sin detenerse en la frontera${antes}.`;
     if (d.frontera) return `El sistema detectó ${etapa} en ${String(d.frontera)}${antes}.`;
     return `El sistema cambió la etapa a ${etapa}${antes}.`;
   }
   if (e.tipo === 'incidencia' && d.motivo === 'ubicacion_simulada') {
     return `Alerta: el teléfono envió ${String(d.cantidad ?? 'algunas')} ubicaciones simuladas (posible GPS falso). Se descartaron.`;
   }
-  if (e.tipo === 'emergencia') return `Emergencia reportada por ${chofer}${d.nota ? `: ${String(d.nota)}` : ''}.`;
+  if (e.tipo === 'emergencia') {
+    const donde = typeof d.lat === 'number' && typeof d.lon === 'number' ? ` Ubicación: ${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}.` : ' Sin ubicación.';
+    return `EMERGENCIA reportada por ${chofer} desde la app: ${textoEmergencia(d.motivo as string)}.${donde}`;
+  }
   if (e.tipo === 'nota') return `Nota${e.origen === 'despacho' ? ' de despacho' : ''}: ${String(d.nota ?? '')}`;
   const resto = Object.entries(d).map(([k, v]) => `${k}: ${String(v)}`).join(' · ');
   return `${e.tipo}${resto ? ` (${resto})` : ''}`;
@@ -82,11 +86,11 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
     : { data: [] };
   const eventos = (eventosData ?? []) as Evento[];
 
-  // Recorrido del primer camión con señal (para la línea en el mapa).
+  // Recorrido completo (simplificado) del primer camión con señal, para la línea en el mapa.
   const conSenal = asignaciones.find((a) => a.ultima_senal);
   let recorrido: [number, number][] = [];
   if (conSenal) {
-    const { data } = await supabase.rpc('recorrido_asignacion', { p_asignacion: conSenal.id, p_limite: 2000 });
+    const { data } = await supabase.rpc('recorrido_simplificado', { p_asignacion: conSenal.id, p_tolerancia_m: 25 });
     recorrido = ((data ?? []) as { lat: number; lon: number }[]).map((p) => [p.lat, p.lon]);
   }
 
@@ -121,7 +125,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
         const min = minutosSinSenal(a.ultima_senal);
         const cerrada = a.etapa === 'entregado' || a.etapa === 'cancelado';
         return (
-          <section key={a.id} className="tarjeta">
+          <section key={a.id} className={`tarjeta${a.emergencia_en ? ' emergencia' : ''}`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ margin: 0 }}>{a.vehiculo?.placa} · {a.conductor?.nombre}</h2>
               <span className={`etiqueta ${a.etapa}`}>{ETIQUETA_ETAPA[a.etapa]}</span>
@@ -130,6 +134,27 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
               Última señal: {formatoHora(a.ultima_senal)} {min !== null && `(hace ${min} min)`} ·{' '}
               {a.ultima_velocidad_kmh ?? 0} km/h · {a.toneladas_cargadas ? `${a.toneladas_cargadas} TN cargadas` : 'TN sin registrar'}
             </p>
+            {a.emergencia_en && (
+              <div className="aviso-emergencia" role="alert">
+                <strong>EMERGENCIA: {textoEmergencia(a.emergencia_motivo)}</strong> · reportada {formatoHora(a.emergencia_en)}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
+                  {a.conductor?.telefono && (
+                    <a className="boton" href={`tel:${a.conductor.telefono.replace(/[^0-9+]/g, '')}`}>Llamar al chofer</a>
+                  )}
+                  {enlaceWhatsApp(a.conductor?.telefono) && (
+                    <a className="boton secundario" href={enlaceWhatsApp(a.conductor?.telefono)!} target="_blank" rel="noreferrer">WhatsApp</a>
+                  )}
+                  {a.ultima_lat !== null && a.ultima_lon !== null && (
+                    <a className="boton secundario" href={`https://www.google.com/maps?q=${a.ultima_lat},${a.ultima_lon}`} target="_blank" rel="noreferrer">
+                      Abrir ubicación en Google Maps
+                    </a>
+                  )}
+                </div>
+                <FormularioAccion accion={atenderEmergencia.bind(null, a.id, id)} boton="Marcar como atendida" claseBoton="boton secundario">
+                  <label>¿Qué se hizo? (obligatorio)<input name="nota" required placeholder="Ej. se llamó al chofer, está bien; se envió mecánico" /></label>
+                </FormularioAccion>
+              </div>
+            )}
             {!cerrada && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
                 <div>

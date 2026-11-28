@@ -14,10 +14,22 @@ export interface AsignacionEnVivo {
   ultima_velocidad_kmh: number | null;
   ultima_senal: string | null;
   toneladas_cargadas: number | null;
+  emergencia_en: string | null;
+  emergencia_motivo: string | null;
   mision: { codigo: string; cliente: { razon_social: string } | null; destino: { nombre: string } | null } | null;
   conductor: { nombre: string; telefono?: string | null } | null;
   vehiculo: { placa: string } | null;
 }
+
+/** Motivos del botón de emergencia de la app del chofer. */
+export const MOTIVO_EMERGENCIA: Record<string, string> = {
+  accidente: 'Accidente',
+  robo: 'Robo o asalto',
+  mecanica: 'Falla mecánica',
+  salud: 'Problema de salud',
+  otro: 'Otra emergencia',
+};
+export const textoEmergencia = (motivo: string | null | undefined) => MOTIVO_EMERGENCIA[motivo ?? ''] ?? 'Emergencia';
 
 /** Minutos desde la última señal (null si nunca envió). */
 export function minutosSinSenal(ultimaSenal: string | null, ahora = Date.now()): number | null {
@@ -27,9 +39,10 @@ export function minutosSinSenal(ultimaSenal: string | null, ahora = Date.now()):
 
 /**
  * Prioridad para ordenar el tablero "por necesidad de acción":
- * 0 = sin señal hace más de 30 min en viaje, 1 = nunca envió, 2 = en frontera, 3 = normal, 4 = programado.
+ * -1 = emergencia activa, 0 = sin señal hace más de 30 min en viaje, 1 = nunca envió, 2 = en frontera, 3 = normal, 4 = programado.
  */
-export function prioridad(a: Pick<AsignacionEnVivo, 'etapa' | 'ultima_senal'>, ahora = Date.now()): number {
+export function prioridad(a: Pick<AsignacionEnVivo, 'etapa' | 'ultima_senal'> & { emergencia_en?: string | null }, ahora = Date.now()): number {
+  if (a.emergencia_en) return -1;
   const min = minutosSinSenal(a.ultima_senal, ahora);
   if (a.etapa === 'programado') return 4;
   if (min !== null && min > 30) return 0;

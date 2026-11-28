@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ETIQUETA_ETAPA } from '@reynales/shared';
 import { crearClienteNavegador } from '@/lib/supabase/client';
 import { SELECT_ASIGNACION_EN_VIVO } from '@/lib/consultas';
-import { enlaceWhatsApp, formatoHora, grupoDe, haceCuanto, prioridad, type AsignacionEnVivo, type Grupo } from '@/lib/tipos';
+import { enlaceWhatsApp, formatoHora, grupoDe, haceCuanto, prioridad, textoEmergencia, type AsignacionEnVivo, type Grupo } from '@/lib/tipos';
 
 // Leaflet usa "window": se carga solo en el navegador.
 const MapaFlota = dynamic(() => import('./MapaFlota'), { ssr: false, loading: () => <p style={{ padding: 12 }}>Cargando mapa…</p> });
@@ -48,6 +48,7 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
   const [conexion, setConexion] = useState<EstadoConexion>('conectando');
   const [avisos, setAvisos] = useState(false);
   const yaAvisados = useRef<Set<string>>(new Set());
+  const emergenciasVistas = useRef<Set<string> | null>(null);
 
   // Preferencia de avisos (se recuerda en este navegador).
   useEffect(() => {
@@ -99,6 +100,8 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
         setAsignaciones((previas) => {
           const actual = previas.find((a) => a.id === id);
           if (!actual || !nueva.etapa || nueva.etapa !== actual.etapa) return previas;
+          // Una emergencia nueva o atendida se consulta completa.
+          if ((nueva.emergencia_en ?? null) !== (actual.emergencia_en ?? null)) return previas;
           aplicado = true;
           // Se descarta un evento más viejo que lo ya mostrado.
           if (actual.ultima_senal && nueva.ultima_senal && nueva.ultima_senal < actual.ultima_senal) return previas;
@@ -159,6 +162,33 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
     }
   }, [asignaciones, ahora, avisos]);
 
+  // Emergencias: pitido triple y notificación SIEMPRE (no depende del botón de avisos).
+  // Las que ya estaban al abrir la página no suenan; se ven en la franja roja.
+  useEffect(() => {
+    const activas = asignaciones.filter((a) => a.emergencia_en);
+    const claves = new Set(activas.map((a) => `${a.id}:${a.emergencia_en}`));
+    if (emergenciasVistas.current === null) {
+      emergenciasVistas.current = claves;
+      return;
+    }
+    const nuevas = activas.filter((a) => !emergenciasVistas.current!.has(`${a.id}:${a.emergencia_en}`));
+    emergenciasVistas.current = claves;
+    if (nuevas.length === 0) return;
+    pitar();
+    setTimeout(pitar, 700);
+    setTimeout(pitar, 1400);
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      for (const a of nuevas) {
+        new Notification(`EMERGENCIA · ${a.vehiculo?.placa ?? ''}`, {
+          body: `${textoEmergencia(a.emergencia_motivo)} · ${a.conductor?.nombre ?? ''}`,
+          requireInteraction: true,
+        });
+      }
+    }
+  }, [asignaciones]);
+
+  const emergencias = asignaciones.filter((a) => a.emergencia_en);
+
   const ordenadas = useMemo(
     () => [...asignaciones].sort((a, b) => prioridad(a, ahora) - prioridad(b, ahora)),
     [asignaciones, ahora],
@@ -180,6 +210,18 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
           {avisos ? '🔔 Avisos de sin señal: activados' : '🔕 Activar avisos de sin señal'}
         </button>
       </div>
+      {emergencias.length > 0 && (
+        <div className="franja-emergencia" role="alert">
+          {emergencias.map((a) => (
+            <div key={a.id}>
+              <strong>EMERGENCIA · {a.vehiculo?.placa}</strong> · {textoEmergencia(a.emergencia_motivo)} · {a.conductor?.nombre} ·{' '}
+              <span title={formatoHora(a.emergencia_en)}>{haceCuanto(a.emergencia_en, ahora)}</span> ·{' '}
+              <Link href={`/misiones/${a.mision_id}`}>Atender →</Link>
+              {a.conductor?.telefono && <> · <a href={`tel:${a.conductor.telefono.replace(/[^0-9+]/g, '')}`}>Llamar</a></>}
+            </div>
+          ))}
+        </div>
+      )}
       <div className="resumen" role="group" aria-label="Filtrar camiones">
         {RESUMEN.map((r) => (
           <button
@@ -227,6 +269,7 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
                   <span title={formatoHora(a.ultima_senal)}>{haceCuanto(a.ultima_senal, ahora)}</span>
                   {sinSenal && a.etapa !== 'programado' && <span className="alerta"> · revisar</span>}
                 </span>
+                {a.emergencia_en && <span className="etiqueta emergencia">EMERGENCIA: {textoEmergencia(a.emergencia_motivo)}</span>}
               </button>
                 <span className="acciones-camion">
                   <Link className="ver-mision" href={`/misiones/${a.mision_id}`}>

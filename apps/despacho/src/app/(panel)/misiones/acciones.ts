@@ -72,6 +72,16 @@ export async function crearInvitacion(asignacionId: string) {
   return { ok: true as const, codigo: fila.codigo, venceEn: fila.vence_en };
 }
 
+export async function atenderEmergencia(asignacionId: string, misionId: string, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const nota = texto(f, 'nota');
+  if (!nota) return { ok: false, mensaje: 'Escriba qué se hizo (ej. "se llamó al chofer, está bien, se envió mecánico").' };
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc('atender_emergencia', { p_asignacion: asignacionId, p_nota: nota });
+  if (error) return { ok: false, mensaje: error.message };
+  revalidatePath(`/misiones/${misionId}`);
+  return { ok: true, mensaje: 'Emergencia marcada como atendida.' };
+}
+
 export async function cambiarEtapaManual(asignacionId: string, misionId: string, _: Resultado | null, f: FormData): Promise<Resultado> {
   const supabase = await crearClienteServidor();
   const { error } = await supabase.rpc('cambiar_etapa_manual', {
