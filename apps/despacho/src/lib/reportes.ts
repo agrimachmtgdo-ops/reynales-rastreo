@@ -1,3 +1,4 @@
+import { esPais } from '@reynales/shared';
 /**
  * Cálculos del reporte de entregas. La base de datos devuelve una fila por misión
  * (public.reporte_entregas); aquí se arman los números, gráficos y fichas.
@@ -84,7 +85,7 @@ export function leerFiltros(p: Record<string, string | string[] | undefined>): F
   let hasta = fechaValida(t('hasta')) ? t('hasta')! : hoy;
   if (hasta < desde) [desde, hasta] = [hasta, desde];
   if (Date.parse(hasta) - Date.parse(desde) > 400 * DIA) desde = sumarDias(hasta, -400);
-  const pais = t('pais') === 'PE' || t('pais') === 'BO' ? t('pais') : undefined;
+  const pais = esPais(t('pais')) ? t('pais') : undefined;
   return {
     desde, hasta, pais,
     cliente: uuidValido(t('cliente')) ? t('cliente') : undefined,

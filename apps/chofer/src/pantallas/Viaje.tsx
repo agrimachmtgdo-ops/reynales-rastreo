@@ -171,7 +171,7 @@ export default function Viaje({
   })();
 
   // Solo se ofrece el siguiente paso lógico como botón principal.
-  const haciaPeru = viaje.destino_pais === 'PE';
+  const haciaPeru = viaje.destino_pais !== 'BO'; // fuera de Bolivia: Perú o Chile
   const enCamino = etapa === 'cargado' || etapa === 'en_ruta';
   const siguiente: { etapa: EtapaChofer; texto: string; variante: 'verde' | 'dorado' } | null =
     etapa === 'programado'
@@ -181,7 +181,7 @@ export default function Viaje({
         : enCamino || etapa === 'en_frontera' || etapa === 'cruzo_frontera'
           ? { etapa: 'entregado', texto: viaje.transbordo ? 'Entregué en transbordo' : 'Entregado', variante: 'verde' }
           : null;
-  // Si un viaje a Perú no pasó por "frontera" (por ejemplo, ya cruzó), la entrega sigue disponible como opción secundaria.
+  // Si un viaje al exterior no pasó por "frontera" (por ejemplo, ya cruzó), la entrega sigue disponible como opción secundaria.
   const entregaSecundaria = enCamino && haciaPeru;
 
   // El indicador muestra cuándo llegó realmente el último envío a despacho.
@@ -226,7 +226,7 @@ export default function Viaje({
           <View style={{ flex: 1 }}>
             <Text style={e.etiqueta}>{estadoTexto.texto}</Text>
             {activo && <Text style={e.textoChico}>{textoUltimoEnvio}</Text>}
-            <Text style={e.textoChico}>Datos usados en este viaje: {mb} MB{estado?.modoPeru ? ' · modo Perú (ahorro de roaming)' : ''}</Text>
+            <Text style={e.textoChico}>Datos usados en este viaje: {mb} MB{estado?.modoPeru ? ' · modo exterior (ahorro de roaming)' : ''}</Text>
           </View>
         </View>
 

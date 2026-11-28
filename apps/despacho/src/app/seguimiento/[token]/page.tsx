@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { ETIQUETA_ETAPA, type Etapa } from '@reynales/shared';
+import { ETIQUETA_ETAPA, esInternacional, nombreZonaHoraria, type Etapa } from '@reynales/shared';
 import BarraEtapas from '@/componentes/BarraEtapas';
 import MapaSeguimiento from '@/componentes/MapaSeguimiento';
 import RefrescoPeriodico from '@/componentes/RefrescoPeriodico';
@@ -111,7 +111,7 @@ export default async function PaginaSeguimiento({ params }: { params: Promise<{ 
   }
 
   const zona = s.zona_horaria;
-  const nombreZona = zona === 'America/Lima' ? 'hora de Perú' : 'hora de Bolivia';
+  const nombreZona = nombreZonaHoraria(zona);
   const horas: Partial<Record<Etapa, string>> = {};
   for (const h of s.hitos) horas[h.etapa] = h.hora;
   const enViaje = (e: Etapa) => e === 'cargado' || e === 'en_ruta' || e === 'en_frontera' || e === 'cruzo_frontera';
@@ -190,7 +190,7 @@ export default async function PaginaSeguimiento({ params }: { params: Promise<{ 
                     ) : rango ? (
                       <div>
                         Llegada estimada: <strong>entre {formatoHora(rango.desde, zona)} y {formatoHora(rango.hasta, zona)}</strong> ({nombreZona})
-                        {s.destino_pais === 'PE' && (c.etapa === 'cargado' || c.etapa === 'en_ruta' || c.etapa === 'en_frontera') && ', sin contar la espera en frontera'}.
+                        {esInternacional(s.destino_pais) && (c.etapa === 'cargado' || c.etapa === 'en_ruta' || c.etapa === 'en_frontera') && ', sin contar la espera en frontera'}.
                       </div>
                     ) : (
                       <div className="ayuda" style={{ margin: 0 }}>

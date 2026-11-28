@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ETIQUETA_ETAPA, type Etapa } from '@reynales/shared';
+import { ETIQUETA_ETAPA, esInternacional, type Etapa } from '@reynales/shared';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import { enlaceWhatsApp, formatoHora, minutosSinSenal, TOLERANCIA_PESO } from '@/lib/tipos';
 import { documentosFaltantes, nombreDocumento, TIPO_DOCUMENTO, type DocumentoVigente } from '@/lib/documentos';
@@ -56,7 +56,7 @@ export default async function PaginaCargaTransbordo({ params }: { params: Promis
   const declaradas = c.mis_camiones.reduce((t, a) => t + (a.toneladas ?? 0), 0);
   const fabrica = c.toneladas_fabrica ?? 0;
   const diferencia = fabrica > 0 && declaradas > 0 ? Math.abs(declaradas - fabrica) / fabrica : null;
-  const aPeru = c.destino_pais === 'PE';
+  const internacional = esInternacional(c.destino_pais);
   const etiqueta = (a: Camion, propio: boolean) =>
     !propio && a.etapa === 'entregado' ? 'Carga recibida' : ETIQUETA_ETAPA[a.etapa];
   const llamar = (tel: string | null) => (tel ? (
@@ -130,7 +130,7 @@ export default async function PaginaCargaTransbordo({ params }: { params: Promis
           </p>
         )}
         {c.mis_camiones.map((a) => {
-          const faltan = aPeru ? documentosFaltantes(c.documentos, a.id) : [];
+          const faltan = internacional ? documentosFaltantes(c.documentos, a.id) : [];
           const abierta = a.etapa !== 'entregado' && a.etapa !== 'cancelado';
           return (
             <div key={a.id} className="camion-transbordo">
@@ -143,7 +143,7 @@ export default async function PaginaCargaTransbordo({ params }: { params: Promis
               </p>
               {faltan.length > 0 ? (
                 <p className="alerta">Falta subir: {faltan.map((t) => TIPO_DOCUMENTO[t]).join(' y ')}.</p>
-              ) : aPeru ? <p className="mensaje-ok" style={{ padding: 6 }}>CRT y MIC/DTA cargados ✓</p> : null}
+              ) : internacional ? <p className="mensaje-ok" style={{ padding: 6 }}>CRT y MIC/DTA cargados ✓</p> : null}
               {abierta && (
                 <InvitacionChofer
                   nombreChofer={a.chofer}

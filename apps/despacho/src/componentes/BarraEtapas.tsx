@@ -1,9 +1,9 @@
-import { ETAPAS, ETIQUETA_ETAPA, type Etapa } from '@reynales/shared';
+import { ETAPAS, ETIQUETA_ETAPA, esInternacional, type Etapa } from '@reynales/shared';
 import { formatoHora } from '@/lib/tipos';
 
-/** Pasos del viaje; los de frontera solo si el destino es Perú. */
+/** Pasos del viaje; los de frontera solo si el destino está fuera de Bolivia. */
 function pasos(destinoPais: string | null | undefined): Etapa[] {
-  return destinoPais === 'PE'
+  return esInternacional(destinoPais)
     ? ['programado', 'cargado', 'en_ruta', 'en_frontera', 'cruzo_frontera', 'entregado']
     : ['programado', 'cargado', 'en_ruta', 'entregado'];
 }

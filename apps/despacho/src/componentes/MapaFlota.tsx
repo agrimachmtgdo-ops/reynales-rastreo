@@ -78,7 +78,7 @@ function Leyenda() {
   const items = [
     { c: MARCA.verde, t: 'En ruta' },
     { c: MARCA.dorado, t: 'En frontera' },
-    { c: AZUL, t: 'Cruzó a Perú' },
+    { c: AZUL, t: 'Cruzó la frontera' },
     { c: MORADO_DETENIDO, t: 'Detenido' },
     { c: GRIS_SIN_SENAL, t: 'Sin señal +30 min' },
     { c: CAFE_POR_INICIAR, t: 'Por iniciar' },

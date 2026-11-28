@@ -1,3 +1,4 @@
+import { esInternacional } from '@reynales/shared';
 /** Tipos de documento (enum tipo_documento) con el nombre que ve el usuario. */
 export const TIPO_DOCUMENTO: Record<string, string> = {
   factura: 'Factura',
@@ -20,7 +21,7 @@ export type ClaveDocumento =
 /** Tipos que despacho puede subir, en el orden en que se ofrecen. */
 export const CLAVES_DESPACHO: ClaveDocumento[] = ['factura', 'dex', 'guia', 'lista_empaque', 'certificado_origen', 'crt', 'mic_dta', 'otro'];
 
-/** Documentos que debe llevar un camión que cruza a Perú. */
+/** Documentos que debe llevar un camión que cruza la frontera (Perú o Chile). */
 export const DOCUMENTOS_CRUCE = ['crt', 'mic_dta'] as const;
 
 /** Tipos que piden número obligatorio al subirlos. */
@@ -72,13 +73,13 @@ export function documentosFaltantes(documentos: DocumentoVigente[], asignacionId
 }
 
 /**
- * Documentos que se revisan al salir de fábrica: factura siempre y DEX si va a Perú.
+ * Documentos que se revisan al salir de fábrica: factura siempre y DEX si sale de Bolivia (Perú o Chile).
  * La lista de empaque se muestra como opcional.
  */
 export function documentosRequeridos(pais: string | null | undefined): { clave: ClaveDocumento; obligatorio: boolean }[] {
   return [
     { clave: 'factura', obligatorio: true },
-    ...(pais === 'PE' ? [{ clave: 'dex' as const, obligatorio: true }] : []),
+    ...(esInternacional(pais) ? [{ clave: 'dex' as const, obligatorio: true }] : []),
     { clave: 'lista_empaque', obligatorio: false },
   ];
 }

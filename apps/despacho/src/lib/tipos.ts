@@ -140,7 +140,7 @@ export function grupoDe(
 }
 
 /**
- * Lleva un teléfono a formato internacional E.164 (+591 Bolivia, +51 Perú), o null si no se
+ * Lleva un teléfono a formato internacional E.164 (+591 Bolivia, +51 Perú; otros países como +56 Chile con su código), o null si no se
  * puede deducir con certeza. Mismas reglas que la función normalizar_telefono de la base de datos.
  */
 export function normalizarTelefono(telefono: string | null | undefined): string | null {
@@ -161,7 +161,7 @@ export function normalizarTelefono(telefono: string | null | undefined): string 
 }
 
 export const MENSAJE_TELEFONO =
-  'Escriba el número con código de país, por ejemplo +59171234567 (Bolivia) o +51987654321 (Perú).';
+  'Escriba el número con código de país, por ejemplo +59171234567 (Bolivia) o +51987654321 (Perú); para Chile, +56 y el número.';
 
 /** Enlace de WhatsApp a un número. Null si el número no tiene (ni se puede deducir) el código de país. */
 export function enlaceWhatsApp(telefono: string | null | undefined, texto?: string): string | null {
