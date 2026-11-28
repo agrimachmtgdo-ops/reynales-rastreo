@@ -14,6 +14,10 @@ export interface AsignacionEnVivo {
   ultima_velocidad_kmh: number | null;
   ultima_senal: string | null;
   toneladas_cargadas: number | null;
+  /** Tramo del viaje (1 = desde fábrica; 2 y 3 = después de un transbordo). */
+  tramo?: number;
+  /** Toneladas declaradas en el transbordo (tramos 2 y 3; el peso de balanza es solo el de fábrica). */
+  toneladas_declaradas?: number | null;
   emergencia_en: string | null;
   emergencia_motivo: string | null;
   /** Desde cuándo el camión no se mueve más de 300 m (lo calcula la base de datos). */
@@ -21,6 +25,24 @@ export interface AsignacionEnVivo {
   mision: { codigo: string; cliente: { razon_social: string } | null; destino: { nombre: string } | null } | null;
   conductor: { id?: string; nombre: string; telefono?: string | null } | null;
   vehiculo: { placa: string } | null;
+}
+
+/** Diferencia máxima entre lo declarado en un transbordo y lo pesado en fábrica (0,5 %). */
+export const TOLERANCIA_PESO = 0.005;
+
+/** Tramo en curso: el mayor tramo con algún camión que ya cargó (1 si ninguno). */
+export function tramoActivo(asignaciones: { etapa: Etapa; tramo?: number }[]): number {
+  const enViaje = asignaciones.filter((a) => a.etapa !== 'programado' && a.etapa !== 'cancelado').map((a) => a.tramo ?? 1);
+  return Math.max(1, ...enViaje);
+}
+
+/** La carga está entre dos tramos: el tramo en curso ya entregó todo y el siguiente aún no sale. */
+export function enTransbordo(asignaciones: { etapa: Etapa; tramo?: number }[], ultimoTramo: number): boolean {
+  if (ultimoTramo <= 1) return false;
+  const activo = tramoActivo(asignaciones);
+  if (activo >= ultimoTramo) return false;
+  const delTramo = asignaciones.filter((a) => (a.tramo ?? 1) === activo && a.etapa !== 'cancelado');
+  return delTramo.length > 0 && delTramo.every((a) => a.etapa === 'entregado');
 }
 
 /** Motivos del botón de emergencia de la app del chofer. */

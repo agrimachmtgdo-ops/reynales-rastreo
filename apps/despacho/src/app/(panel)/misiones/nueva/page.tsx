@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import { cargarCatalogosCamion } from '@/lib/catalogos';
 import CamposCamion from '@/componentes/CamposCamion';
+import SeccionTransbordo from '@/componentes/SeccionTransbordo';
 import FormularioAccion from '@/componentes/FormularioAccion';
 import { NotaObligatorio, Req } from '@/componentes/Obligatorio';
 import { crearMision } from '../acciones';
@@ -61,6 +62,8 @@ export default async function PaginaNuevaMision() {
           <label>WhatsApp del coordinador<input name="telefono_coordinador" placeholder="+591…" /></label>
         </div>
         <label>Notas<textarea name="notas" rows={2} /></label>
+        <h2>Transbordo</h2>
+        <SeccionTransbordo transportistas={catalogos.transportistas} />
         <h2>Primer camión</h2>
         <CamposCamion catalogos={catalogos} />
       </FormularioAccion>

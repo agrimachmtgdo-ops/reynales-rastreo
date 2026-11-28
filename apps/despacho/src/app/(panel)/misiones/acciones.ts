@@ -35,12 +35,15 @@ const numero = (f: FormData, k: string) => {
   return v === null ? null : Number(v.replace(',', '.'));
 };
 
-function datosAsignacion(f: FormData) {
+/** Datos del camión. En el tramo 1 el peso es de balanza; después de un transbordo, declarado. */
+function datosAsignacion(f: FormData, tramo = 1) {
   return {
     transportista_id: texto(f, 'transportista_id'),
     conductor_id: texto(f, 'conductor_id'),
     vehiculo_id: texto(f, 'vehiculo_id'),
-    toneladas_cargadas: numero(f, 'toneladas_cargadas'),
+    tramo,
+    toneladas_cargadas: tramo === 1 ? numero(f, 'toneladas_cargadas') : null,
+    toneladas_declaradas: tramo > 1 ? numero(f, 'toneladas_declaradas') : null,
   };
 }
 
@@ -76,6 +79,10 @@ const OBLIGATORIOS_MISION: [string, string][] = [
 export async function crearMision(_: Resultado | null, f: FormData): Promise<Resultado> {
   const falta = OBLIGATORIOS_MISION.find(([campo]) => !texto(f, campo));
   if (falta) return { ok: false, mensaje: `Falta elegir ${falta[1]}.`, campo: falta[0], errorCampo: 'Dato obligatorio.' };
+  const conTransbordo = f.get('con_transbordo') === 'on';
+  if (conTransbordo && !texto(f, 'transportista_tramo2')) {
+    return { ok: false, mensaje: 'Falta elegir la empresa que hará el tramo después del transbordo.', campo: 'transportista_tramo2', errorCampo: 'Dato obligatorio.' };
+  }
   const coordinador = telefonoCoordinador(f);
   if (coordinador.error) return coordinador.error;
   const ocupado = await avisoOcupado(f);
@@ -98,6 +105,15 @@ export async function crearMision(_: Resultado | null, f: FormData): Promise<Res
     .select('id')
     .single();
   if (error || !mision) return { ok: false, mensaje: `No se pudo crear la misión: ${error?.message}` };
+
+  if (conTransbordo) {
+    const { error: errorTramo } = await supabase.from('tramos').insert({
+      mision_id: mision.id, numero: 2, transportista_id: texto(f, 'transportista_tramo2'), lugar_inicio: texto(f, 'lugar_tramo2'),
+    });
+    if (errorTramo) {
+      return { ok: false, mensaje: `La misión se creó, pero no el transbordo: ${errorTramo.message}. Agréguelo desde el detalle.` };
+    }
+  }
 
   const { error: errorAsig } = await supabase.from('asignaciones').insert({ mision_id: mision.id, ...datosAsignacion(f) });
   if (errorAsig) {
@@ -130,14 +146,55 @@ export async function editarMision(misionId: string, _: Resultado | null, f: For
   return { ok: true, mensaje: 'Datos de la misión actualizados.' };
 }
 
-export async function agregarCamion(misionId: string, _: Resultado | null, f: FormData): Promise<Resultado> {
+export async function agregarCamion(misionId: string, tramo: number, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const declaradas = numero(f, 'toneladas_declaradas');
+  if (tramo > 1 && declaradas !== null && (Number.isNaN(declaradas) || declaradas < 0)) {
+    return { ok: false, mensaje: 'Las toneladas deben ser un número.', campo: 'toneladas_declaradas', errorCampo: 'Escriba un número, por ejemplo 14,5.' };
+  }
   const ocupado = await avisoOcupado(f);
   if (ocupado) return ocupado;
   const supabase = await crearClienteServidor();
-  const { error } = await supabase.from('asignaciones').insert({ mision_id: misionId, ...datosAsignacion(f) });
+  const { error } = await supabase.from('asignaciones').insert({ mision_id: misionId, ...datosAsignacion(f, tramo) });
   if (error) return { ok: false, mensaje: `No se pudo agregar el camión: ${error.message}` };
   revalidatePath(`/misiones/${misionId}`);
   return { ok: true, mensaje: 'Camión agregado. Genere ahora la invitación para el chofer.' };
+}
+
+/** Agrega un transbordo: el tramo siguiente, con la empresa que lo hará y el lugar aproximado. */
+export async function agregarTransbordo(misionId: string, numeroTramo: number, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const transportista = texto(f, 'transportista_tramo');
+  if (!transportista) return { ok: false, mensaje: 'Falta elegir la empresa del nuevo tramo.', campo: 'transportista_tramo', errorCampo: 'Dato obligatorio.' };
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.from('tramos').insert({
+    mision_id: misionId, numero: numeroTramo, transportista_id: transportista, lugar_inicio: texto(f, 'lugar_tramo'),
+  });
+  if (error) return { ok: false, mensaje: error.message };
+  revalidatePath(`/misiones/${misionId}`);
+  return { ok: true, mensaje: `Transbordo registrado. Agregue los camiones del tramo ${numeroTramo} cuando los conozca.` };
+}
+
+/** Corrige el lugar de transbordo o la empresa de un tramo. */
+export async function editarTramo(misionId: string, tramoId: string, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.from('tramos')
+    .update({ transportista_id: texto(f, 'transportista_tramo'), lugar_inicio: texto(f, 'lugar_tramo') })
+    .eq('id', tramoId);
+  if (error) return { ok: false, mensaje: error.message };
+  revalidatePath(`/misiones/${misionId}`);
+  return { ok: true, mensaje: 'Tramo actualizado.' };
+}
+
+/** Toneladas declaradas de un camión después del transbordo (no puede superar lo pesado en fábrica + 0,5 %). */
+export async function fijarToneladasDeclaradas(asignacionId: string, misionId: string, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const valor = numero(f, 'toneladas_declaradas');
+  if (valor !== null && (Number.isNaN(valor) || valor < 0)) {
+    return { ok: false, mensaje: 'Escriba un número, por ejemplo 14,5.', campo: 'toneladas_declaradas', errorCampo: 'Número no válido.' };
+  }
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.from('asignaciones').update({ toneladas_declaradas: valor }).eq('id', asignacionId);
+  if (error) return { ok: false, mensaje: error.message };
+  revalidatePath(`/misiones/${misionId}`);
+  return { ok: true, mensaje: 'Toneladas guardadas.' };
 }
 
 export async function crearInvitacion(asignacionId: string) {

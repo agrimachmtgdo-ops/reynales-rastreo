@@ -100,7 +100,7 @@ export default function Viaje({
         await detenerRastreo();
         await guardarEstado({ viaje: null });
         Alert.alert(
-          'Viaje entregado',
+          viaje.transbordo ? 'Carga entregada en transbordo' : 'Viaje entregado',
           quedan > 0
             ? `Gracias. El rastreo se detuvo. Quedan ${quedan} ubicaciones guardadas: se enviarán solas la próxima vez que abra la app con señal.`
             : 'Gracias. El rastreo se detuvo.',
@@ -156,6 +156,13 @@ export default function Viaje({
         si: 'Sí, estoy en frontera',
       };
     }
+    if (viaje.transbordo) {
+      return {
+        titulo: '¿Entregó la carga en el transbordo?',
+        detalle: 'Confirme que la carga ya pasó al otro camión. Al confirmar se cierra su viaje y se detiene el rastreo.',
+        si: 'Sí, entregué en transbordo',
+      };
+    }
     return {
       titulo: '¿Confirma la entrega?',
       detalle: `Confirme que entregó la carga en ${viaje.destino}. Al confirmar se cierra el viaje y se detiene el rastreo.`,
@@ -172,7 +179,7 @@ export default function Viaje({
       : enCamino && haciaPeru
         ? { etapa: 'en_frontera', texto: 'Llegué a frontera', variante: 'dorado' }
         : enCamino || etapa === 'en_frontera' || etapa === 'cruzo_frontera'
-          ? { etapa: 'entregado', texto: 'Entregado', variante: 'verde' }
+          ? { etapa: 'entregado', texto: viaje.transbordo ? 'Entregué en transbordo' : 'Entregado', variante: 'verde' }
           : null;
   // Si un viaje a Perú no pasó por "frontera" (por ejemplo, ya cruzó), la entrega sigue disponible como opción secundaria.
   const entregaSecundaria = enCamino && haciaPeru;
