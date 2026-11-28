@@ -18,6 +18,8 @@ export interface AsignacionEnVivo {
   tramo?: number;
   /** Toneladas declaradas en el transbordo (tramos 2 y 3; el peso de balanza es solo el de fábrica). */
   toneladas_declaradas?: number | null;
+  /** N.º de precinto (obligatorio después de un transbordo). */
+  precinto?: string | null;
   emergencia_en: string | null;
   emergencia_motivo: string | null;
   /** Desde cuándo el camión no se mueve más de 300 m (lo calcula la base de datos). */

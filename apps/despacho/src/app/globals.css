@@ -290,3 +290,18 @@ img, svg, video { max-width: 100%; }
 
 /* Encabezado de cada tramo cuando la misión tiene transbordo. */
 .tramo-encabezado { border-left: 6px solid var(--dorado, #E2A900); }
+
+/* ---- Transbordo (operador, celular) y documentos ---- */
+.encabezado-transbordo { gap: 12px; flex-wrap: wrap; }
+.encabezado-transbordo .usuario { flex: 1; min-width: 0; }
+.contenido-transbordo { max-width: 760px; padding: 16px; }
+.lista-cargas { list-style: none; padding: 0; margin: 0; }
+.carga-enlace { display: grid; gap: 6px; text-decoration: none; color: var(--tinta); min-height: 44px; }
+.carga-enlace:hover, .carga-enlace:focus-visible { border-color: var(--dorado); }
+.carga-titulo { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.camion-transbordo { border-top: 1px solid var(--borde); padding: 12px 0; }
+.camion-transbordo:first-of-type { border-top: 0; }
+.lista-documentos { list-style: none; padding: 0; margin: 0; }
+.lista-documentos li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--borde); }
+.contenido-transbordo summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; color: var(--cafe); }
+.contenido-transbordo input, .contenido-transbordo select { min-height: 44px; font-size: 16px; }

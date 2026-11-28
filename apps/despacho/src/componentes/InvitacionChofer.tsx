@@ -11,6 +11,8 @@ interface Props {
   generar: () => Promise<{ ok: true; codigo: string; venceEn: string } | { ok: false; mensaje: string }>;
   /** Invitación vigente guardada (si ya se generó antes). */
   vigente?: { codigo: string; vence_en: string; usado_en: string | null } | null;
+  /** Texto si el chofer no tiene WhatsApp (el operador de transbordo no entra a Catálogos). */
+  sinWhatsapp?: string;
 }
 
 const enlaceQr = (codigo: string) => QRCode.toDataURL(`reynaleschofer://activar?codigo=${codigo}`, { width: 220, margin: 1 });
@@ -19,7 +21,7 @@ const enlaceQr = (codigo: string) => QRCode.toDataURL(`reynaleschofer://activar?
  * Genera el código de activación, muestra el QR (para imprimir en la guía)
  * y prepara el mensaje de WhatsApp para el chofer.
  */
-export default function InvitacionChofer({ nombreChofer, telefonoChofer, codigoMision, generar, vigente }: Props) {
+export default function InvitacionChofer({ nombreChofer, telefonoChofer, codigoMision, generar, vigente, sinWhatsapp }: Props) {
   const [codigo, setCodigo] = useState<string | null>(vigente?.codigo ?? null);
   const [vence, setVence] = useState<string | null>(vigente?.vence_en ?? null);
   const [activadaEn, setActivadaEn] = useState<string | null>(vigente?.usado_en ?? null);
@@ -112,7 +114,7 @@ export default function InvitacionChofer({ nombreChofer, telefonoChofer, codigoM
             </div>
             {!activadaEn && !enlaceWhatsapp && (
               <p className="alerta" style={{ marginTop: 8 }}>
-                Este chofer no tiene WhatsApp registrado (o le falta el código de país). Agréguelo en <Link href="/catalogos?pestana=conductores">Catálogos → Choferes</Link> o use «Copiar mensaje».
+                {sinWhatsapp ?? <>Este chofer no tiene WhatsApp registrado (o le falta el código de país). Agréguelo en <Link href="/catalogos?pestana=conductores">Catálogos → Choferes</Link> o use «Copiar mensaje».</>}
               </p>
             )}
           </div>

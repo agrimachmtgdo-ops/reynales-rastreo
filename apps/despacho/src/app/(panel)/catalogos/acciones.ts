@@ -163,3 +163,33 @@ export async function alternarActivo(tabla: 'conductores' | 'ubicaciones', id: s
   await supabase.from(tabla).update({ activo }).eq('id', id);
   revalidatePath('/catalogos');
 }
+
+/**
+ * ADMINISTRADOR: habilita como operador de transbordo una cuenta ya creada en Supabase
+ * (Authentication → Add user, con «Auto Confirm User»).
+ */
+export async function registrarOperador(_: Resultado | null, f: FormData): Promise<Resultado> {
+  const correo = texto(f, 'correo');
+  const nombre = texto(f, 'nombre');
+  const transportista = texto(f, 'transportista_id');
+  if (!correo) return { ok: false, mensaje: 'Escriba el correo de la cuenta.', campo: 'correo', errorCampo: 'Dato obligatorio.' };
+  if (!nombre) return { ok: false, mensaje: 'Escriba el nombre del operador.', campo: 'nombre', errorCampo: 'Dato obligatorio.' };
+  if (!transportista) return { ok: false, mensaje: 'Elija la empresa.', campo: 'transportista_id', errorCampo: 'Dato obligatorio.' };
+  const telefonoTexto = texto(f, 'telefono');
+  const telefono = telefonoTexto ? normalizarTelefono(telefonoTexto) : null;
+  if (telefonoTexto && !telefono) return { ok: false, mensaje: 'Revise el teléfono.', campo: 'telefono', errorCampo: MENSAJE_TELEFONO };
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc('registrar_operador', {
+    p_correo: correo, p_nombre: nombre, p_transportista: transportista, p_telefono: telefono,
+  });
+  if (error) return { ok: false, mensaje: error.message };
+  revalidatePath('/catalogos');
+  return { ok: true, mensaje: `Listo: ${nombre} ya puede entrar con su correo y contraseña. Verá la sección «Transbordo» en el celular.` };
+}
+
+/** ADMINISTRADOR: activa o desactiva un operador (no se borra, para conservar el historial). */
+export async function alternarOperador(id: string, activo: boolean) {
+  const supabase = await crearClienteServidor();
+  await supabase.from('operadores_transbordo').update({ activo }).eq('id', id);
+  revalidatePath('/catalogos');
+}

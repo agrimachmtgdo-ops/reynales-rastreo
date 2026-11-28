@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import FormularioCatalogo from '@/componentes/FormularioCatalogo';
 import SelectorUbicacion from '@/componentes/SelectorUbicacion';
+import SeccionOperadores from '@/componentes/SeccionOperadores';
 import {
   actualizarRegistro,
   alternarActivo,
@@ -245,6 +246,7 @@ export default async function PaginaCatalogos({
 
         {filas.length === 0 ? <p>Todavía no hay registros. Use «Agregar {singular}».</p> : tablas[pestana]}
       </section>
+      {pestana === 'transportistas' && <SeccionOperadores transportistas={transportistasData ?? []} />}
     </>
   );
 }

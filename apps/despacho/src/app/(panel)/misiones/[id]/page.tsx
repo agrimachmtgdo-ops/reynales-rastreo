@@ -15,9 +15,13 @@ import RefrescoEnVivo from '@/componentes/RefrescoEnVivo';
 import BotonImprimir from '@/componentes/BotonImprimir';
 import BarraEtapas from '@/componentes/BarraEtapas';
 import EnlaceCliente from '@/componentes/EnlaceCliente';
+import SubirDocumento from '@/componentes/SubirDocumento';
+import ListaDocumentos from '@/componentes/ListaDocumentos';
+import { documentosFaltantes, TIPO_DOCUMENTO, type DocumentoVigente } from '@/lib/documentos';
+import { enlacesDocumentos } from '@/lib/enlacesDocumentos';
 import {
   agregarCamion, agregarTransbordo, anularEnlaceSeguimiento, atenderEmergencia, cambiarEtapaManual, crearEnlaceSeguimiento, crearInvitacion,
-  editarMision, editarTramo, fijarToneladasDeclaradas,
+  editarMision, editarTramo, fijarToneladasDeclaradas, registrarDocumentoDespacho,
 } from '../acciones';
 
 export const dynamic = 'force-dynamic';
@@ -53,6 +57,19 @@ function describirEvento(e: Evento, chofer: string, entregaEnTransbordo = false)
     return dec === null
       ? `Alerta: el tramo ${String(d.tramo)} salió sin toneladas declaradas (en fábrica se pesaron ${fab} TN). Anótelas en cada camión del tramo.`
       : `Alerta: el tramo ${String(d.tramo)} salió con ${dec} TN declaradas y en fábrica se pesaron ${fab} TN (diferencia de ${(Math.abs(dec - fab) / fab * 100).toFixed(1)} %, más del 0,5 % permitido).`;
+  }
+  if (e.tipo === 'incidencia' && d.motivo === 'sin_documentos_transbordo') {
+    const faltan = Array.isArray(d.faltan) ? (d.faltan as string[]).map((t) => TIPO_DOCUMENTO[t] ?? t).join(' y ') : 'documentos';
+    return `Alerta: el camión salió hacia Perú sin ${faltan}. Pida al operador del transbordo que los suba.`;
+  }
+  if (e.tipo === 'nota' && d.motivo === 'camion_registrado_por_operador') {
+    return `${String(d.operador ?? 'El operador')} (transbordo) registró este camión: ${String(d.toneladas)} TN declaradas, precinto ${String(d.precinto)}. Ya tiene código para la app.`;
+  }
+  if (e.tipo === 'nota' && d.motivo === 'documento_operador') {
+    return `${String(d.operador ?? 'El operador')} (transbordo) subió el ${TIPO_DOCUMENTO[String(d.documento)] ?? String(d.documento)} N.º ${String(d.numero ?? '')}.`;
+  }
+  if (e.tipo === 'cambio_etapa' && e.etapa_nueva && d.motivo === 'recibido_en_transbordo') {
+    return `${String(d.operador ?? 'El operador')} (transbordo) confirmó que recibió la carga: «Entregado en transbordo»${d.nota ? `. Nota: ${String(d.nota)}` : ''}.`;
   }
   if (e.tipo === 'cambio_etapa' && e.etapa_nueva) {
     const etapa = entregaEnTransbordo && e.etapa_nueva === 'entregado' ? '«Entregado en transbordo»' : `«${nombreEtapa(e.etapa_nueva)}»`;
@@ -105,6 +122,9 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
     supabase.from('tramos').select('id, numero, lugar_inicio, transportista_id, transportista:transportistas(razon_social)')
       .eq('mision_id', id).order('numero'),
   ]);
+  const { data: documentosData } = await supabase.from('documentos')
+    .select('id, tipo, numero, nombre_original, ruta_archivo, asignacion_id, tipo_mime, creado_en, operador:operadores_transbordo(nombre)')
+    .eq('mision_id', id).is('reemplazado_por', null).order('creado_en', { ascending: false });
   const tramos = (tramosData ?? []) as unknown as Tramo[];
   const ultimoTramo = Math.max(1, ...tramos.map((t) => t.numero));
   const enlaceCliente = (enlaceData ?? null) as { token: string; creado_en: string; visitas: number; ultima_visita: string | null } | null;
@@ -160,6 +180,16 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
   const placaDe = (asigId: string) => asignaciones.find((a) => a.id === asigId)?.vehiculo?.placa ?? '';
   const choferDe = (asigId: string) => asignaciones.find((a) => a.id === asigId)?.conductor?.nombre ?? 'El chofer';
 
+  const documentos: DocumentoVigente[] = ((documentosData ?? []) as unknown as {
+    id: string; tipo: string; numero: string | null; nombre_original: string | null; ruta_archivo: string;
+    asignacion_id: string | null; tipo_mime: string | null; creado_en: string; operador: { nombre: string } | null;
+  }[]).map((d) => ({
+    id: d.id, tipo: d.tipo, numero: d.numero, nombre: d.nombre_original, ruta: d.ruta_archivo, asignacion_id: d.asignacion_id,
+    placa: d.asignacion_id ? placaDe(d.asignacion_id) || null : null, tipo_mime: d.tipo_mime, creado_en: d.creado_en,
+    subido_por: d.operador ? `${d.operador.nombre} (transbordo)` : null,
+  }));
+  const enlacesDoc = await enlacesDocumentos(supabase, documentos);
+
   const tnFabrica = asignaciones
     .filter((a) => (a.tramo ?? 1) === 1 && a.etapa !== 'cancelado')
     .reduce((t, a) => t + (a.toneladas_cargadas ?? 0), 0);
@@ -181,7 +211,11 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
           {(a.tramo ?? 1) > 1
             ? (a.toneladas_declaradas !== null && a.toneladas_declaradas !== undefined ? `${a.toneladas_declaradas} TN declaradas` : 'TN declaradas sin registrar')
             : (a.toneladas_cargadas ? `${a.toneladas_cargadas} TN cargadas` : 'TN sin registrar')}
+          {a.precinto && ` · Precinto ${a.precinto}`}
         </p>
+        {(a.tramo ?? 1) > 1 && m.destino?.pais === 'PE' && a.etapa !== 'cancelado' && documentosFaltantes(documentos, a.id).length > 0 && (
+          <p className="alerta">Falta {documentosFaltantes(documentos, a.id).map((t) => TIPO_DOCUMENTO[t]).join(' y ')} de este camión.</p>
+        )}
         {(() => {
           const recorrido = recorridoDe(a.id);
           const km = kmRecorridos(recorrido);
@@ -404,6 +438,23 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
           </details>
         </section>
       )}
+
+      <section className="tarjeta no-imprimir">
+        <h2>Documentos</h2>
+        <ListaDocumentos documentos={documentos} enlaces={enlacesDoc} />
+        {m.etapa !== 'cancelado' && (
+          <details className="agregar" style={{ marginTop: 12 }}>
+            <summary>+ Subir documento</summary>
+            <SubirDocumento
+              misionId={id}
+              tipos={['factura', 'guia', 'dex', 'crt', 'mic_dta', 'certificado_origen', 'otro']}
+              camiones={asignaciones.filter((a) => a.etapa !== 'cancelado').map((a) => ({ id: a.id, placa: a.vehiculo?.placa ?? '' }))}
+              reemplazables={documentos.map((d) => ({ id: d.id, texto: `${TIPO_DOCUMENTO[d.tipo] ?? d.tipo}${d.numero ? ` ${d.numero}` : ''} · ${d.placa ?? 'toda la carga'}` }))}
+              registrar={registrarDocumentoDespacho.bind(null, id)}
+            />
+          </details>
+        )}
+      </section>
 
       <section className="tarjeta">
         <h2>Eventos</h2>

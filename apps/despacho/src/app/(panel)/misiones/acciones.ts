@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import type { Etapa } from '@reynales/shared';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import { MENSAJE_TELEFONO, normalizarTelefono } from '@/lib/tipos';
+import type { DatosDocumento } from '@/lib/documentos';
 
 export interface Resultado {
   ok: boolean;
@@ -44,6 +45,7 @@ function datosAsignacion(f: FormData, tramo = 1) {
     tramo,
     toneladas_cargadas: tramo === 1 ? numero(f, 'toneladas_cargadas') : null,
     toneladas_declaradas: tramo > 1 ? numero(f, 'toneladas_declaradas') : null,
+    ...(tramo > 1 ? { precinto: texto(f, 'precinto') } : {}),
   };
 }
 
@@ -151,6 +153,9 @@ export async function agregarCamion(misionId: string, tramo: number, _: Resultad
   if (tramo > 1 && declaradas !== null && (Number.isNaN(declaradas) || declaradas < 0)) {
     return { ok: false, mensaje: 'Las toneladas deben ser un número.', campo: 'toneladas_declaradas', errorCampo: 'Escriba un número, por ejemplo 14,5.' };
   }
+  if (tramo > 1 && !texto(f, 'precinto')) {
+    return { ok: false, mensaje: 'Escriba el número de precinto del camión.', campo: 'precinto', errorCampo: 'Dato obligatorio.' };
+  }
   const ocupado = await avisoOcupado(f);
   if (ocupado) return ocupado;
   const supabase = await crearClienteServidor();
@@ -256,4 +261,20 @@ export async function anularEnlaceSeguimiento(misionId: string) {
   if (error) return { ok: false as const, mensaje: error.message };
   revalidatePath(`/misiones/${misionId}`);
   return { ok: true as const };
+}
+
+/** Despacho registra un documento ya subido al almacenamiento (y, si corresponde, reemplaza la versión anterior). */
+export async function registrarDocumentoDespacho(misionId: string, d: DatosDocumento) {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.from('documentos').insert({
+    mision_id: misionId, asignacion_id: d.asignacionId, tipo: d.tipo, numero: d.numero, ruta_archivo: d.ruta,
+    nombre_original: d.nombre.slice(0, 200), tipo_mime: d.tipoMime, tamano_bytes: d.tamano,
+  }).select('id').single();
+  if (error || !data) return { ok: false, mensaje: `No se pudo guardar el documento: ${error?.message}` };
+  if (d.reemplaza) {
+    const { error: errorReemplazo } = await supabase.rpc('reemplazar_documento', { p_anterior: d.reemplaza, p_nuevo: data.id });
+    if (errorReemplazo) return { ok: false, mensaje: `Se guardó el documento, pero no se marcó el reemplazo: ${errorReemplazo.message}` };
+  }
+  revalidatePath(`/misiones/${misionId}`);
+  return { ok: true, mensaje: 'Documento guardado.' };
 }
