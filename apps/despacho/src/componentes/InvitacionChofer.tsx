@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import QRCode from 'qrcode';
-import { formatoHora } from '@/lib/tipos';
+import { enlaceWhatsApp, formatoHora } from '@/lib/tipos';
 
 interface Props {
   nombreChofer: string;
@@ -70,8 +70,8 @@ export default function InvitacionChofer({ nombreChofer, telefonoChofer, codigoM
         'La app solo registra su ubicación entre "Iniciar viaje" y "Entregado". Ante cualquier duda, responda a este mensaje.',
       ].join('\n')
     : '';
-  const numero = (telefonoChofer ?? '').replace(/[^0-9]/g, '');
-  const enlaceWhatsapp = numero.length >= 8 ? `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}` : null;
+  // Solo con código de país (+591 / +51): un wa.me sin él abre el chat equivocado.
+  const enlaceWhatsapp = mensaje ? enlaceWhatsApp(telefonoChofer, mensaje) : null;
   const [copiado, setCopiado] = useState(false);
 
   async function copiar() {
@@ -112,7 +112,7 @@ export default function InvitacionChofer({ nombreChofer, telefonoChofer, codigoM
             </div>
             {!activadaEn && !enlaceWhatsapp && (
               <p className="alerta" style={{ marginTop: 8 }}>
-                Este chofer no tiene WhatsApp registrado. Agréguelo en <Link href="/catalogos?pestana=conductores">Catálogos → Choferes</Link> o use «Copiar mensaje».
+                Este chofer no tiene WhatsApp registrado (o le falta el código de país). Agréguelo en <Link href="/catalogos?pestana=conductores">Catálogos → Choferes</Link> o use «Copiar mensaje».
               </p>
             )}
           </div>

@@ -51,10 +51,16 @@ export default async function PaginaCatalogos({
     vehiculos: () => supabase.from('vehiculos').select('*, transportista:transportistas(razon_social)').order('placa'),
     ubicaciones: () => supabase.from('ubicaciones').select('*').order('activo', { ascending: false }).order('tipo').order('nombre'),
   };
-  const [{ data: filasData, error }, { data: transportistasData }] = await Promise.all([
+  const [{ data: filasData, error }, { data: transportistasData }, { data: porCorregirData }] = await Promise.all([
     consultas[pestana](),
     supabase.from('transportistas').select('id, razon_social').order('razon_social'),
+    supabase.rpc('telefonos_por_corregir'),
   ]);
+  // Teléfonos antiguos sin código de país que no se pudieron corregir solos.
+  const porCorregir = ((porCorregirData ?? []) as { tabla: string; fila_id: string; nombre: string; valor: string }[]);
+  const NOMBRE_TABLA: Record<string, string> = { clientes: 'Cliente', conductores: 'Chofer', transportistas: 'Transportista', misiones: 'Misión' };
+  const enlaceCorregir = (t: { tabla: string; fila_id: string }) =>
+    t.tabla === 'misiones' ? `/misiones/${t.fila_id}` : `/catalogos?pestana=${t.tabla}&editar=${t.fila_id}`;
   const filas = (filasData ?? []) as Fila[];
   const editando = sp.editar ? filas.find((f) => f.id === sp.editar) : undefined;
   const opcionesTransportista = (transportistasData ?? []).map((t) => (
@@ -77,7 +83,7 @@ export default async function PaginaCatalogos({
         <label>NIT / RUC<input name="nit_ruc" defaultValue={v(f, 'nit_ruc')} /></label>
         <label>País<select name="pais" defaultValue={v(f, 'pais') ?? 'BO'}><option value="BO">Bolivia</option><option value="PE">Perú</option></select></label>
         <label>Contacto<input name="contacto" defaultValue={v(f, 'contacto')} /></label>
-        <label>WhatsApp<input name="whatsapp" placeholder="+51…" defaultValue={v(f, 'whatsapp')} /></label>
+        <label>WhatsApp<input name="whatsapp" inputMode="tel" placeholder="+51987654321" defaultValue={v(f, 'whatsapp')} /></label>
         <label>Correo<input name="correo" type="email" defaultValue={v(f, 'correo')} /></label>
       </>
     ),
@@ -86,7 +92,7 @@ export default async function PaginaCatalogos({
         <label>Razón social o nombre del dueño <Req /><input name="razon_social" required defaultValue={v(f, 'razon_social')} /></label>
         <label>NIT<input name="nit" defaultValue={v(f, 'nit')} /></label>
         <label>Contacto<input name="contacto" defaultValue={v(f, 'contacto')} /></label>
-        <label>Teléfono<input name="telefono" defaultValue={v(f, 'telefono')} /></label>
+        <label>Teléfono<input name="telefono" inputMode="tel" placeholder="+59171234567" defaultValue={v(f, 'telefono')} /></label>
         <label>Aceptó condiciones de rastreo el<input name="clausula_rastreo_aceptada_en" type="date" defaultValue={v(f, 'clausula_rastreo_aceptada_en')} /></label>
       </>
     ),
@@ -95,7 +101,7 @@ export default async function PaginaCatalogos({
         <label>Transportista <Req /><select name="transportista_id" required defaultValue={v(f, 'transportista_id')}>{opcionesTransportista}</select></label>
         <label>Nombre completo <Req /><input name="nombre" required defaultValue={v(f, 'nombre')} /></label>
         <label>CI (uso interno)<input name="ci" defaultValue={v(f, 'ci')} /></label>
-        <label>Teléfono (uso interno)<input name="telefono" placeholder="+591…" defaultValue={v(f, 'telefono')} /></label>
+        <label>WhatsApp del chofer<input name="telefono" inputMode="tel" placeholder="+59171234567" defaultValue={v(f, 'telefono')} /></label>
         <label>Licencia<input name="licencia" defaultValue={v(f, 'licencia')} /></label>
       </>
     ),
@@ -187,6 +193,19 @@ export default async function PaginaCatalogos({
   return (
     <>
       <h1>Catálogos</h1>
+      {porCorregir.length > 0 && (
+        <div className="lista-telefonos" role="status">
+          <strong>Teléfonos para corregir ({porCorregir.length}):</strong> no tienen código de país y el sistema no puede deducirlo.
+          Mientras tanto no se arma el enlace de WhatsApp.
+          <ul>
+            {porCorregir.map((t) => (
+              <li key={`${t.tabla}-${t.fila_id}`}>
+                {NOMBRE_TABLA[t.tabla] ?? t.tabla} <strong>{t.nombre}</strong>: {t.valor} · <Link href={enlaceCorregir(t)}>Corregir</Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <nav className="pestanas" aria-label="Catálogos">
         {PESTANAS.map((p) => (
           <Link key={p.id} href={`/catalogos?pestana=${p.id}`} className={p.id === pestana ? 'activa' : undefined} aria-current={p.id === pestana ? 'page' : undefined}>

@@ -2,10 +2,34 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { crearClienteServidor } from '@/lib/supabase/server';
+import { MENSAJE_TELEFONO, normalizarTelefono } from '@/lib/tipos';
 
 export interface Resultado {
   ok: boolean;
   mensaje: string;
+  /** Campo con error, para mostrar el mensaje junto a él. */
+  campo?: string;
+  errorCampo?: string;
+}
+
+// Campo de teléfono de cada tabla (se guarda siempre con código de país).
+const CAMPO_TELEFONO: Partial<Record<Tabla, string>> = {
+  clientes: 'whatsapp',
+  transportistas: 'telefono',
+  conductores: 'telefono',
+};
+
+/** Normaliza el teléfono de la fila; devuelve un error junto al campo si no tiene código de país. */
+function revisarTelefono(tabla: Tabla, fila: Record<string, unknown>): Resultado | null {
+  const campo = CAMPO_TELEFONO[tabla];
+  const valor = campo ? fila[campo] : null;
+  if (!campo || typeof valor !== 'string') return null;
+  const normal = normalizarTelefono(valor);
+  if (!normal) {
+    return { ok: false, mensaje: `Revise el teléfono: «${valor}» no tiene código de país.`, campo, errorCampo: MENSAJE_TELEFONO };
+  }
+  fila[campo] = normal;
+  return null;
 }
 
 type Tabla = 'clientes' | 'transportistas' | 'conductores' | 'vehiculos' | 'ubicaciones';
@@ -78,6 +102,7 @@ const CAMPO_NOMBRE: Partial<Record<Tabla, string>> = {
 
 function mensajeError(error: { code?: string; message: string }): string {
   if (error.code === '23505') return 'Ya existe un registro con ese dato (por ejemplo, la misma placa).';
+  if (error.code === '23514' && error.message.startsWith('Teléfono no válido')) return error.message;
   if (error.code === '23514') return 'Algún dato no tiene el formato correcto (revise placa, coordenadas o radio).';
   if (error.code === '42501') return 'Su usuario no tiene permiso para modificar catálogos.';
   return `No se pudo guardar: ${error.message}`;
@@ -96,6 +121,8 @@ async function hayDuplicado(tabla: Tabla, fila: Record<string, unknown>, excepto
 
 async function crear(tabla: Tabla, f: FormData): Promise<Resultado> {
   const fila = DATOS[tabla](f);
+  const errorTelefono = revisarTelefono(tabla, fila);
+  if (errorTelefono) return errorTelefono;
   if (await hayDuplicado(tabla, fila)) {
     return { ok: false, mensaje: `Ya existe un registro llamado "${String(fila[CAMPO_NOMBRE[tabla]!])}". Use "Editar" en la lista.` };
   }
@@ -108,6 +135,8 @@ async function crear(tabla: Tabla, f: FormData): Promise<Resultado> {
 
 async function actualizar(tabla: Tabla, id: string, f: FormData): Promise<Resultado> {
   const fila = DATOS[tabla](f);
+  const errorTelefono = revisarTelefono(tabla, fila);
+  if (errorTelefono) return errorTelefono;
   if (await hayDuplicado(tabla, fila, id)) {
     return { ok: false, mensaje: `Ya existe otro registro llamado "${String(fila[CAMPO_NOMBRE[tabla]!])}".` };
   }

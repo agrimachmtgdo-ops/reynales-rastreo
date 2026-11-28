@@ -5,15 +5,19 @@ import Link from 'next/link';
 import { ETIQUETA_ETAPA } from '@reynales/shared';
 import { crearClienteNavegador } from '@/lib/supabase/client';
 import { SELECT_ASIGNACION_EN_VIVO } from '@/lib/consultas';
-import { enlaceWhatsApp, formatoHora, grupoDe, haceCuanto, prioridad, textoEmergencia, type AsignacionEnVivo, type Grupo } from '@/lib/tipos';
+import {
+  enlaceWhatsApp, formatoHora, grupoDe, haceCuanto, minutosDetenido, MINUTOS_DETENIDO, prioridad, textoEmergencia,
+  type AsignacionEnVivo, type Grupo,
+} from '@/lib/tipos';
 
 // Leaflet usa "window": se carga solo en el navegador.
 const MapaFlota = dynamic(() => import('./MapaFlota'), { ssr: false, loading: () => <p style={{ padding: 12 }}>Cargando mapa…</p> });
 
-const RESUMEN: { grupo: Grupo; texto: string; clase: string }[] = [
+const resumen = (minDetenido: number): { grupo: Grupo; texto: string; clase: string }[] => [
   { grupo: 'todos', texto: 'Todos', clase: '' },
   { grupo: 'en_ruta', texto: 'En ruta', clase: 'en_ruta' },
   { grupo: 'en_frontera', texto: 'En frontera', clase: 'en_frontera' },
+  { grupo: 'detenido', texto: `Detenido +${minDetenido} min`, clase: 'detenido' },
   { grupo: 'sin_senal', texto: 'Sin señal +30 min', clase: 'sin_senal' },
   { grupo: 'programado', texto: 'Por iniciar', clase: 'programado' },
 ];
@@ -40,7 +44,14 @@ function pitar() {
 
 type EstadoConexion = 'conectando' | 'conectado' | 'reconectando';
 
-export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVivo[] }) {
+export default function TableroEnVivo({
+  iniciales,
+  minDetenido = MINUTOS_DETENIDO,
+}: {
+  iniciales: AsignacionEnVivo[];
+  /** Minutos sin moverse para marcar «Detenido» (configurable). */
+  minDetenido?: number;
+}) {
   const [asignaciones, setAsignaciones] = useState(iniciales);
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Grupo>('todos');
@@ -113,6 +124,7 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
                   ultima_lon: nueva.ultima_lon ?? a.ultima_lon,
                   ultima_velocidad_kmh: nueva.ultima_velocidad_kmh ?? a.ultima_velocidad_kmh,
                   ultima_senal: nueva.ultima_senal ?? a.ultima_senal,
+                  detenido_desde: nueva.detenido_desde !== undefined ? nueva.detenido_desde : a.detenido_desde,
                 }
               : a,
           );
@@ -149,7 +161,7 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
 
   // Aviso cuando un camión en viaje pasa a "sin señal +30 min" (una vez por camión hasta que vuelva la señal).
   useEffect(() => {
-    const sinSenal = asignaciones.filter((a) => a.etapa !== 'programado' && grupoDe(a, ahora) === 'sin_senal');
+    const sinSenal = asignaciones.filter((a) => a.etapa !== 'programado' && grupoDe(a, ahora, minDetenido) === 'sin_senal');
     const ids = new Set(sinSenal.map((a) => a.id));
     for (const id of [...yaAvisados.current]) if (!ids.has(id)) yaAvisados.current.delete(id);
     const nuevos = sinSenal.filter((a) => !yaAvisados.current.has(a.id));
@@ -160,7 +172,7 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
       const placas = nuevos.map((a) => a.vehiculo?.placa ?? 'sin placa').join(', ');
       new Notification('Camión sin señal', { body: `${placas}: más de 30 min sin enviar ubicación.` });
     }
-  }, [asignaciones, ahora, avisos]);
+  }, [asignaciones, ahora, avisos, minDetenido]);
 
   // Emergencias: pitido triple y notificación SIEMPRE (no depende del botón de avisos).
   // Las que ya estaban al abrir la página no suenan; se ven en la franja roja.
@@ -190,15 +202,15 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
   const emergencias = asignaciones.filter((a) => a.emergencia_en);
 
   const ordenadas = useMemo(
-    () => [...asignaciones].sort((a, b) => prioridad(a, ahora) - prioridad(b, ahora)),
-    [asignaciones, ahora],
+    () => [...asignaciones].sort((a, b) => prioridad(a, ahora, minDetenido) - prioridad(b, ahora, minDetenido)),
+    [asignaciones, ahora, minDetenido],
   );
   const conteo = useMemo(() => {
-    const c: Record<Grupo, number> = { todos: ordenadas.length, en_ruta: 0, en_frontera: 0, sin_senal: 0, programado: 0 };
-    ordenadas.forEach((a) => c[grupoDe(a, ahora)]++);
+    const c: Record<Grupo, number> = { todos: ordenadas.length, en_ruta: 0, en_frontera: 0, detenido: 0, sin_senal: 0, programado: 0 };
+    ordenadas.forEach((a) => c[grupoDe(a, ahora, minDetenido)]++);
     return c;
-  }, [ordenadas, ahora]);
-  const visibles = filtro === 'todos' ? ordenadas : ordenadas.filter((a) => grupoDe(a, ahora) === filtro);
+  }, [ordenadas, ahora, minDetenido]);
+  const visibles = filtro === 'todos' ? ordenadas : ordenadas.filter((a) => grupoDe(a, ahora, minDetenido) === filtro);
 
   return (
     <>
@@ -223,7 +235,7 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
         </div>
       )}
       <div className="resumen" role="group" aria-label="Filtrar camiones">
-        {RESUMEN.map((r) => (
+        {resumen(minDetenido).map((r) => (
           <button
             key={r.grupo}
             type="button"
@@ -247,7 +259,7 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
           )}
           {ordenadas.length > 0 && visibles.length === 0 && <p style={{ padding: 12 }}>Ningún camión en este grupo.</p>}
           {visibles.map((a) => {
-            const grupo = grupoDe(a, ahora);
+            const grupo = grupoDe(a, ahora, minDetenido);
             const sinSenal = grupo === 'sin_senal';
             return (
               <div key={a.id} className={`camion ${seleccion === a.id ? 'seleccionado' : ''}`}>
@@ -269,12 +281,24 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
                   <span title={formatoHora(a.ultima_senal)}>{haceCuanto(a.ultima_senal, ahora)}</span>
                   {sinSenal && a.etapa !== 'programado' && <span className="alerta"> · revisar</span>}
                 </span>
+                {grupo === 'detenido' && (
+                  <span className="etiqueta detenido">Detenido hace {haceCuanto(a.detenido_desde ?? null, ahora).replace('hace ', '')} ({minutosDetenido(a, ahora)} min)</span>
+                )}
                 {a.emergencia_en && <span className="etiqueta emergencia">EMERGENCIA: {textoEmergencia(a.emergencia_motivo)}</span>}
               </button>
                 <span className="acciones-camion">
                   <Link className="ver-mision" href={`/misiones/${a.mision_id}`}>
                     Ver misión →
                   </Link>
+                  {!enlaceWhatsApp(a.conductor?.telefono) && (
+                    <Link
+                      className="ver-mision aviso-sin-whatsapp"
+                      href={a.conductor?.id ? `/catalogos?pestana=conductores&editar=${a.conductor.id}` : '/catalogos?pestana=conductores'}
+                      title={a.conductor?.telefono ? `Número guardado sin código de país: ${a.conductor.telefono}` : 'El chofer no tiene teléfono registrado'}
+                    >
+                      Sin WhatsApp registrado · editar chofer
+                    </Link>
+                  )}
                   {enlaceWhatsApp(a.conductor?.telefono) && (
                     <a
                       className="ver-mision"
@@ -291,7 +315,7 @@ export default function TableroEnVivo({ iniciales }: { iniciales: AsignacionEnVi
           })}
         </section>
         <section className="mapa">
-          <MapaFlota asignaciones={visibles} seleccion={seleccion} alSeleccionar={setSeleccion} />
+          <MapaFlota asignaciones={visibles} seleccion={seleccion} alSeleccionar={setSeleccion} minDetenido={minDetenido} />
         </section>
       </div>
     </>
