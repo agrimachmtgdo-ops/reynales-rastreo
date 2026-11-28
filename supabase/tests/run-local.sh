@@ -28,4 +28,8 @@ echo "→ ida y vuelta de la reversión de Chile (se detiene si hay datos CL)"
 echo "→ ida y vuelta de la reversión de roles"
 "${PSQL[@]}" -d "$DB" -f revertir/20261209000100_roles_comercial.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261209000100_roles_comercial.sql
+"${PSQL[@]}" -d "$DB" -f tests/80_pedidos.sql
+echo "→ ida y vuelta de la reversión de pedidos"
+"${PSQL[@]}" -d "$DB" -f revertir/20261210000100_pedidos.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261210000100_pedidos.sql
 echo "✔ Todas las pruebas pasaron"
