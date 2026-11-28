@@ -22,10 +22,12 @@ export interface FilaMision {
   dex: string | null;
   tonelaje_objetivo: number | null;
   creado_en: string;
+  entrega_comprometida: string | null;
+  envio: { id: string; numero: number; pedido: { id: string; codigo: string; producto: string | null } | null } | null;
   cliente: { razon_social: string } | null;
   origen: { nombre: string } | null;
   destino: { nombre: string; pais: string } | null;
-  asignaciones: { ultima_senal: string | null; etapa: Etapa; tramo: number; vehiculo: { placa: string } | null; conductor: { nombre: string } | null }[];
+  asignaciones: { ultima_senal: string | null; etapa: Etapa; tramo: number; toneladas_cargadas: number | null; vehiculo: { placa: string } | null; conductor: { nombre: string } | null }[];
   tramos: { numero: number }[];
   documentos: { tipo: string; etiqueta: string | null; reemplazado_por: string | null }[];
 }
@@ -43,10 +45,11 @@ export async function buscarMisiones(
   const supabase = await crearClienteServidor();
   let consulta = supabase
     .from('misiones')
-    .select(`id, codigo, etapa, factura, guia, dex, tonelaje_objetivo, creado_en,
+    .select(`id, codigo, etapa, factura, guia, dex, tonelaje_objetivo, creado_en, entrega_comprometida,
+             envio:programa_envios(id, numero, pedido:pedidos(id, codigo, producto)),
              cliente:clientes(razon_social), origen:ubicaciones!misiones_origen_id_fkey(nombre),
              destino:ubicaciones!misiones_destino_id_fkey(nombre, pais),
-             asignaciones(ultima_senal, etapa, tramo, vehiculo:vehiculos(placa), conductor:conductores(nombre)),
+             asignaciones(ultima_senal, etapa, tramo, toneladas_cargadas, vehiculo:vehiculos(placa), conductor:conductores(nombre)),
              tramos(numero), documentos(tipo, etiqueta, reemplazado_por)`, { count: 'exact' })
     .order('creado_en', { ascending: false })
     .range(desdeFila, desdeFila + limite - 1);

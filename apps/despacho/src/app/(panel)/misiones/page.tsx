@@ -4,6 +4,7 @@ import { buscarMisiones, POR_PAGINA, type FiltrosMisiones } from '@/lib/misiones
 import { enTransbordo, formatoHora, haceCuanto } from '@/lib/tipos';
 import FiltrosAutomaticos from '@/componentes/FiltrosAutomaticos';
 import { claveDe, estadoDocumentos } from '@/lib/documentos';
+import { formatoFecha, formatoToneladas, plural } from '@/lib/pedidos';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,7 @@ export default async function PaginaMisiones({ searchParams }: { searchParams: P
   const faltanDocs = (m: (typeof misiones)[number]) =>
     estadoDocumentos((m.documentos ?? []).filter((d) => !d.reemplazado_por).map((d) => claveDe(d.tipo, d.etiqueta)), m.destino?.pais)
       .filter((e) => e.obligatorio && !e.tiene).map((e) => e.nombre);
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' });
   const ultimaSenal = (m: (typeof misiones)[number]) =>
     m.asignaciones.map((a) => a.ultima_senal).filter((t): t is string => !!t).sort().at(-1) ?? null;
 
@@ -63,31 +65,72 @@ export default async function PaginaMisiones({ searchParams }: { searchParams: P
           : `Mostrando ${(pagina - 1) * POR_PAGINA + 1}–${(pagina - 1) * POR_PAGINA + misiones.length} de ${total} ${total === 1 ? 'misión' : 'misiones'}${hayFiltros ? ' encontradas' : ''}, de la más nueva a la más antigua`}
       </p>
       <div className="tabla-desplazable">
-        <table className="tabla-tarjetas">
+        <table className="tabla-tarjetas tabla-misiones">
           <thead>
-            <tr><th>Código</th><th>Cliente</th><th>Destino</th><th>Factura</th><th>Docs</th><th>Camiones</th><th>Chofer</th><th>Etapa</th><th>Última señal</th><th>Creada</th></tr>
+            <tr><th>Misión</th><th>Cliente y destino</th><th>Entrega</th><th>Camiones y carga</th><th>Documentos</th><th>Etapa</th></tr>
           </thead>
           <tbody>
-            {misiones.map((m) => (
-              <tr key={m.id}>
-                <td><Link href={`/misiones/${m.id}`}>{m.codigo}</Link></td>
-                <td data-etiqueta="Cliente">{m.cliente?.razon_social}</td>
-                <td data-etiqueta="Destino">{m.destino?.nombre} ({m.destino?.pais})</td>
-                <td data-etiqueta="Factura">{m.factura || '—'}</td>
-                <td data-etiqueta="Docs" style={{ whiteSpace: 'nowrap' }}>
-                  {faltanDocs(m).length === 0
-                    ? <span title="Documentos obligatorios completos">✓ Completos</span>
-                    : <span className="docs-faltan" title={`Faltan: ${faltanDocs(m).join(' y ')}`}>Falta {faltanDocs(m).join(' y ')}</span>}
-                </td>
-                <td data-etiqueta="Camiones" title={m.asignaciones.map((a) => a.vehiculo?.placa).join(', ')}>
-                  {m.asignaciones.map((a) => a.vehiculo?.placa).filter(Boolean).join(', ') || '—'}
-                </td>
-                <td data-etiqueta="Chofer">{m.asignaciones.map((a) => a.conductor?.nombre).filter(Boolean).join(', ') || '—'}</td>
-                <td data-etiqueta="Etapa"><span className={`etiqueta ${m.etapa}`}>{enTransbordo(m.asignaciones, Math.max(1, ...m.tramos.map((t) => t.numero))) ? 'En transbordo' : ETIQUETA_ETAPA[m.etapa]}</span></td>
-                <td data-etiqueta="Última señal" title={formatoHora(ultimaSenal(m))} style={{ whiteSpace: 'nowrap' }}>{ultimaSenal(m) ? haceCuanto(ultimaSenal(m)) : '—'}</td>
-                <td data-etiqueta="Creada">{formatoHora(m.creado_en)}</td>
-              </tr>
-            ))}
+            {misiones.map((m) => {
+              const camiones = m.asignaciones.filter((a) => (a.tramo ?? 1) === 1 && a.etapa !== 'cancelado');
+              const entregados = camiones.filter((a) => a.etapa === 'entregado').length;
+              const conPeso = camiones.filter((a) => a.toneladas_cargadas != null);
+              const cargadas = conPeso.reduce((t, a) => t + Number(a.toneladas_cargadas), 0);
+              const sinPeso = camiones.filter((a) => a.toneladas_cargadas == null && a.etapa !== 'programado').length;
+              const abierta = m.etapa !== 'entregado' && m.etapa !== 'cancelado';
+              const vence = m.entrega_comprometida;
+              const atrasada = abierta && !!vence && vence < hoy;
+              const ultima = ultimaSenal(m);
+              const faltan = faltanDocs(m);
+              const etiquetaEtapa = enTransbordo(m.asignaciones, Math.max(1, ...m.tramos.map((t) => t.numero))) ? 'En transbordo' : ETIQUETA_ETAPA[m.etapa];
+              return (
+                <tr key={m.id}>
+                  <td>
+                    <Link className="codigo-mision" href={`/misiones/${m.id}`}>{m.codigo}</Link>
+                    {m.envio?.pedido
+                      ? <span className="sub-dato"><Link href={`/programa/${m.envio.id}`}>{m.envio.pedido.codigo} · envío {m.envio.numero}</Link></span>
+                      : <span className="sub-dato">Sin pedido</span>}
+                    <span className="sub-dato" title={formatoHora(m.creado_en)}>Creada {formatoHora(m.creado_en)}</span>
+                  </td>
+                  <td data-etiqueta="Cliente y destino">
+                    <strong className="dato-principal">{m.cliente?.razon_social ?? '—'}</strong>
+                    <span className="sub-dato">→ {m.destino?.nombre} ({m.destino?.pais})</span>
+                    {m.envio?.pedido?.producto && <span className="sub-dato">{m.envio.pedido.producto}</span>}
+                  </td>
+                  <td data-etiqueta="Entrega">
+                    {vence ? <span className={atrasada ? 'texto-atrasado' : undefined}>{formatoFecha(vence)}</span> : '—'}
+                    {atrasada && <span className="etiqueta atrasada">Atrasada</span>}
+                  </td>
+                  <td data-etiqueta="Camiones y carga">
+                    {camiones.length === 0 ? '—' : (
+                      <>
+                        <span className="dato-principal">{entregados > 0 ? `${entregados} de ${camiones.length} ${camiones.length === 1 ? 'entregado' : 'entregados'}` : plural(camiones.length, 'camión', 'camiones')}</span>
+                        <span className="sub-dato" title={camiones.map((a) => `${a.vehiculo?.placa ?? ''} · ${a.conductor?.nombre ?? ''}`).join('\n')}>
+                          {camiones.map((a) => a.vehiculo?.placa).filter(Boolean).join(', ')}
+                        </span>
+                        <span className="sub-dato">
+                          {conPeso.length > 0
+                            ? `${formatoToneladas(cargadas)} cargadas${m.tonelaje_objetivo ? ` de ${formatoToneladas(Number(m.tonelaje_objetivo))}` : ''}`
+                            : m.tonelaje_objetivo ? `Objetivo ${formatoToneladas(Number(m.tonelaje_objetivo))}` : 'Sin peso registrado'}
+                        </span>
+                        {sinPeso > 0 && <span className="etiqueta sin-peso">{sinPeso === 1 ? '1 sin peso' : `${sinPeso} sin peso`}</span>}
+                      </>
+                    )}
+                  </td>
+                  <td data-etiqueta="Documentos">
+                    <span className="sub-dato sin-margen">Factura {m.factura || '—'}</span>
+                    {faltan.length === 0
+                      ? <span className="docs-ok" title="Documentos obligatorios completos">✓ Completos</span>
+                      : <span className="docs-faltan" title={`Faltan: ${faltan.join(' y ')}`}>Falta {faltan.join(' y ')}</span>}
+                  </td>
+                  <td data-etiqueta="Etapa">
+                    <span className={`etiqueta ${m.etapa}`}>{etiquetaEtapa}</span>
+                    {abierta && m.etapa !== 'programado' && (
+                      <span className="sub-dato" title={formatoHora(ultima)}>Señal: {ultima ? haceCuanto(ultima) : 'nunca'}</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
