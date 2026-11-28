@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Seguimiento de su carga · Industrias Reynales',
   robots: { index: false, follow: false },
-  referrer: 'no-referrer',
+  referrer: 'strict-origin-when-cross-origin',
 };
 
 interface CamionPublico {

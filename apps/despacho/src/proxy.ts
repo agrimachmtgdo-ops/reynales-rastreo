@@ -10,7 +10,7 @@ export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith('/seguimiento/')) {
     const publica = NextResponse.next();
     publica.headers.set('X-Robots-Tag', 'noindex, nofollow');
-    publica.headers.set('Referrer-Policy', 'no-referrer');
+    publica.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     return publica;
   }
 
