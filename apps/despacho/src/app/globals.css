@@ -945,3 +945,40 @@ textarea { line-height: 1.5; }
 .estado-transbordo > div { display: flex; flex-direction: column; gap: 2px; flex: 1 1 320px; }
 .estado-transbordo span { font-size: 14px; color: var(--gris); }
 .estado-transbordo ul { margin: 4px 0 0; padding-left: 18px; flex-basis: 100%; }
+
+/* ---- Recorrido de la carga: tramos en forma de árbol ---- */
+.cabeza-recorrido { display: flex; justify-content: space-between; align-items: baseline; gap: 8px 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.arbol-tramos { list-style: none; margin: 0; padding: 0; }
+.nodo-tramo { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 0 14px; padding-bottom: 20px; }
+.nodo-tramo::before { content: ''; position: absolute; left: 19px; top: 40px; bottom: 0; width: 2px; background: var(--borde, #e6dccd); }
+.nodo-tramo:last-child { padding-bottom: 0; }
+.nodo-tramo:last-child::before { display: none; }
+.numero-tramo { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 18px;
+  background: var(--fondo-suave, #f6f1e9); color: var(--cafe, #5A371B); border: 2px solid var(--st-programado); }
+.estado-en_ruta > .numero-tramo { border-color: var(--st-en_ruta); }
+.estado-entregado > .numero-tramo { background: var(--verde-oscuro); color: var(--blanco); border-color: var(--verde-oscuro); }
+.nodo-nuevo > .numero-tramo { border-style: dashed; border-color: var(--dorado, #E2A900); color: #7a5a00; background: transparent; }
+.cuerpo-tramo { min-width: 0; }
+.cabeza-tramo { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px 16px; flex-wrap: wrap; min-height: 40px; }
+.cabeza-tramo h3 { margin: 6px 0 2px; font-size: 18px; }
+.ruta-tramo { font-weight: 500; color: var(--tinta-suave, #6b5a4a); margin-left: 6px; }
+.meta-tramo { font-size: 14px; margin: 0; }
+.camiones-tramo { display: grid; gap: 10px; margin-top: 12px; }
+.camion-tramo { border: 1px solid var(--borde, #e6dccd); border-radius: 10px; padding: 12px 14px; background: var(--blanco, #fff); }
+.camion-tramo.emergencia { border: 2px solid var(--rojo); }
+.camion-tramo .titulo-camion { margin: 0; font-size: 16px; }
+.camion-tramo h3 { font-size: 15px; }
+.acciones-tramo { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.acciones-tramo .agregar summary, .nodo-nuevo .agregar summary { font-size: 15px; }
+.paso-transbordo { margin: 14px 0 0; padding: 8px 12px; border-radius: 8px; background: #eaf2fb; color: #1d4f80; font-size: 14px; font-weight: 600; }
+.nodo-nuevo .agregar summary { padding-top: 8px; }
+#agregar-transbordo { scroll-margin-top: 90px; }
+@media (max-width: 520px) {
+  .nodo-tramo { grid-template-columns: 30px minmax(0, 1fr); gap: 0 10px; }
+  .numero-tramo { width: 30px; height: 30px; font-size: 15px; }
+  .nodo-tramo::before { left: 14px; top: 30px; }
+  .camion-tramo { padding: 10px; }
+  .ruta-tramo { display: block; margin-left: 0; }
+}
+@media print { .nodo-tramo { break-inside: avoid; } }
+.cabeza-camion { display: flex; justify-content: space-between; align-items: center; gap: 6px 12px; flex-wrap: wrap; }
