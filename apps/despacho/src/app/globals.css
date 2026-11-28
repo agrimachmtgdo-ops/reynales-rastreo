@@ -287,3 +287,6 @@ img, svg, video { max-width: 100%; }
 .seg-camiones li { border: 1px solid var(--borde); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; font-size: 15px; }
 .seg-contacto .boton { width: 100%; }
 @media (max-width: 480px) { .seg-pagina { padding: 12px; } .mapa-seguimiento { height: 300px; } }
+
+/* Encabezado de cada tramo cuando la misión tiene transbordo. */
+.tramo-encabezado { border-left: 6px solid var(--dorado, #E2A900); }

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ETAPAS, ETIQUETA_ETAPA } from '@reynales/shared';
 import { buscarMisiones, POR_PAGINA, type FiltrosMisiones } from '@/lib/misiones';
-import { formatoHora, haceCuanto } from '@/lib/tipos';
+import { enTransbordo, formatoHora, haceCuanto } from '@/lib/tipos';
 import FiltrosAutomaticos from '@/componentes/FiltrosAutomaticos';
 
 export const dynamic = 'force-dynamic';
@@ -73,7 +73,7 @@ export default async function PaginaMisiones({ searchParams }: { searchParams: P
                   {m.asignaciones.map((a) => a.vehiculo?.placa).filter(Boolean).join(', ') || '—'}
                 </td>
                 <td>{m.asignaciones.map((a) => a.conductor?.nombre).filter(Boolean).join(', ') || '—'}</td>
-                <td><span className={`etiqueta ${m.etapa}`}>{ETIQUETA_ETAPA[m.etapa]}</span></td>
+                <td><span className={`etiqueta ${m.etapa}`}>{enTransbordo(m.asignaciones, Math.max(1, ...m.tramos.map((t) => t.numero))) ? 'En transbordo' : ETIQUETA_ETAPA[m.etapa]}</span></td>
                 <td title={formatoHora(ultimaSenal(m))} style={{ whiteSpace: 'nowrap' }}>{ultimaSenal(m) ? haceCuanto(ultimaSenal(m)) : '—'}</td>
                 <td>{formatoHora(m.creado_en)}</td>
               </tr>

@@ -4,10 +4,21 @@ import { useState } from 'react';
 import Link from 'next/link';
 import type { CatalogosCamion } from '@/lib/catalogos';
 
-/** Transportista → filtra choferes y vehículos de ese transportista. */
-export default function CamposCamion({ catalogos }: { catalogos: CatalogosCamion }) {
+/**
+ * Transportista → filtra choferes y vehículos de ese transportista.
+ * Después de un transbordo se propone la empresa prevista del tramo y las toneladas son declaradas.
+ */
+export default function CamposCamion({
+  catalogos,
+  transportistaInicial,
+  declaradas = false,
+}: {
+  catalogos: CatalogosCamion;
+  transportistaInicial?: string | null;
+  declaradas?: boolean;
+}) {
   const unico = catalogos.transportistas.length === 1 ? catalogos.transportistas[0]!.id : '';
-  const [transportista, setTransportista] = useState(unico);
+  const [transportista, setTransportista] = useState(transportistaInicial ?? unico);
   const conductores = catalogos.conductores.filter((c) => c.transportista_id === transportista);
   const vehiculos = catalogos.vehiculos.filter((v) => v.transportista_id === transportista);
 
@@ -39,10 +50,17 @@ export default function CamposCamion({ catalogos }: { catalogos: CatalogosCamion
             {vehiculos.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
           </select>
         </label>
-        <label>
-          Toneladas cargadas (balanza)
-          <input name="toneladas_cargadas" inputMode="decimal" />
-        </label>
+        {declaradas ? (
+          <label>
+            Toneladas declaradas en el transbordo
+            <input name="toneladas_declaradas" inputMode="decimal" />
+          </label>
+        ) : (
+          <label>
+            Toneladas cargadas (balanza)
+            <input name="toneladas_cargadas" inputMode="decimal" />
+          </label>
+        )}
       </div>
       <label className="casilla">
         <input type="checkbox" name="asignar_igual" />

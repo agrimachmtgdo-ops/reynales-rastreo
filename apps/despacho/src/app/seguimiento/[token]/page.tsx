@@ -19,6 +19,8 @@ interface CamionPublico {
   etapa: Etapa;
   toneladas: number | null;
   parado: boolean;
+  /** Carga detenida a la espera de continuar el viaje (sin hora estimada). */
+  espera?: boolean;
   lat: number | null;
   lon: number | null;
   zona: string | null;
@@ -42,6 +44,8 @@ interface Seguimiento {
   dex: string | null;
   tipo_carga: string | null;
   tonelaje_objetivo: number | null;
+  /** Total pesado en fábrica (no cambia aunque la carga pase a otros camiones). */
+  toneladas_fabrica?: number | null;
   telefono_contacto: string | null;
   retraso_min: number;
   camiones: CamionPublico[];
@@ -112,7 +116,7 @@ export default async function PaginaSeguimiento({ params }: { params: Promise<{ 
   for (const h of s.hitos) horas[h.etapa] = h.hora;
   const enViaje = (e: Etapa) => e === 'cargado' || e === 'en_ruta' || e === 'en_frontera' || e === 'cruzo_frontera';
   const conMapa = s.camiones.some((c) => enViaje(c.etapa));
-  const totalTn = s.camiones.reduce((t, c) => t + (c.toneladas ?? 0), 0);
+  const totalTn = s.toneladas_fabrica ?? s.camiones.reduce((t, c) => t + (c.toneladas ?? 0), 0);
   const entregados = s.camiones.filter((c) => c.etapa === 'entregado').length;
   const whatsapp = enlaceWhatsApp(
     s.telefono_contacto,
@@ -167,7 +171,7 @@ export default async function PaginaSeguimiento({ params }: { params: Promise<{ 
         <h2>Camiones</h2>
         <ul className="seg-camiones">
           {s.camiones.map((c, i) => {
-            const rango = enViaje(c.etapa) ? rangoLlegada(c) : null;
+            const rango = enViaje(c.etapa) && !c.espera ? rangoLlegada(c) : null;
             return (
               <li key={`${c.nombre}-${i}`}>
                 <div className="seg-titulo">
@@ -181,7 +185,9 @@ export default async function PaginaSeguimiento({ params }: { params: Promise<{ 
                   <>
                     {c.parado && c.zona && <div>Detenido {c.zona}.</div>}
                     {c.km_al_destino !== null && <div>A unos {Math.round(c.km_al_destino * FACTOR_CARRETERA)} km del destino por carretera (aprox.).</div>}
-                    {rango ? (
+                    {c.espera ? (
+                      <div>La carga continuará su viaje en breve. La hora de llegada se mostrará cuando el camión reanude la marcha.</div>
+                    ) : rango ? (
                       <div>
                         Llegada estimada: <strong>entre {formatoHora(rango.desde, zona)} y {formatoHora(rango.hasta, zona)}</strong> ({nombreZona})
                         {s.destino_pais === 'PE' && (c.etapa === 'cargado' || c.etapa === 'en_ruta' || c.etapa === 'en_frontera') && ', sin contar la espera en frontera'}.

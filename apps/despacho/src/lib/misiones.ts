@@ -25,7 +25,8 @@ export interface FilaMision {
   cliente: { razon_social: string } | null;
   origen: { nombre: string } | null;
   destino: { nombre: string; pais: string } | null;
-  asignaciones: { ultima_senal: string | null; vehiculo: { placa: string } | null; conductor: { nombre: string } | null }[];
+  asignaciones: { ultima_senal: string | null; etapa: Etapa; tramo: number; vehiculo: { placa: string } | null; conductor: { nombre: string } | null }[];
+  tramos: { numero: number }[];
 }
 
 // Solo letras, números, espacios, guiones y puntos: el texto va dentro de un filtro de la API.
@@ -44,7 +45,8 @@ export async function buscarMisiones(
     .select(`id, codigo, etapa, factura, guia, dex, tonelaje_objetivo, creado_en,
              cliente:clientes(razon_social), origen:ubicaciones!misiones_origen_id_fkey(nombre),
              destino:ubicaciones!misiones_destino_id_fkey(nombre, pais),
-             asignaciones(ultima_senal, vehiculo:vehiculos(placa), conductor:conductores(nombre))`, { count: 'exact' })
+             asignaciones(ultima_senal, etapa, tramo, vehiculo:vehiculos(placa), conductor:conductores(nombre)),
+             tramos(numero)`, { count: 'exact' })
     .order('creado_en', { ascending: false })
     .range(desdeFila, desdeFila + limite - 1);
 
