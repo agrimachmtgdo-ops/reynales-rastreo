@@ -41,6 +41,8 @@ function leerGuardado(): Estilo | null {
 export default function CapaBase({ selector = true }: { selector?: boolean }) {
   const [estilo, setEstilo] = useState<Estilo>(HAY_CARRETERAS ? 'carreteras' : 'clasico');
   const caja = useRef<HTMLDivElement>(null);
+  const fallas = useRef(0);
+  const [sinCarreteras, setSinCarreteras] = useState(false);
 
   useEffect(() => {
     const g = leerGuardado();
@@ -58,11 +60,24 @@ export default function CapaBase({ selector = true }: { selector?: boolean }) {
     try { window.localStorage.setItem(GUARDADO, e); } catch { /* sin almacenamiento: solo esta vez */ }
   }
 
+  // Si las teselas de CARTO no cargan (clave rechazada, cupo agotado o servicio caído), se pasa solo al mapa clásico
+  // para no dejar el mapa en blanco. No se guarda la elección: la próxima vez se vuelve a intentar.
+  const alFallarTesela = () => {
+    if (estilo !== 'carreteras') return;
+    fallas.current += 1;
+    if (fallas.current >= 4) {
+      fallas.current = 0;
+      setSinCarreteras(true);
+      setEstilo('clasico');
+    }
+  };
+
   const capa = CAPAS[estilo];
   return (
     <>
-      <TileLayer key={estilo} url={capa.url} attribution={capa.atribucion} subdomains={capa.subdominios} referrerPolicy="strict-origin-when-cross-origin" />
-      {selector && HAY_CARRETERAS && (
+      <TileLayer key={estilo} url={capa.url} attribution={capa.atribucion} subdomains={capa.subdominios} referrerPolicy="strict-origin-when-cross-origin"
+        eventHandlers={{ tileerror: alFallarTesela, load: () => { fallas.current = 0; } }} />
+      {selector && HAY_CARRETERAS && !sinCarreteras && (
         <div ref={caja} className="selector-capa" role="group" aria-label="Tipo de mapa">
           {(['carreteras', 'clasico'] as const).map((e) => (
             <button key={e} type="button" aria-pressed={estilo === e} className={estilo === e ? 'activo' : undefined} onClick={() => elegir(e)}>
