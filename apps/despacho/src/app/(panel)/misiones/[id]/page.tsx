@@ -10,6 +10,9 @@ import {
 import CamposCamion from '@/componentes/CamposCamion';
 import CargaCamion from '@/componentes/CargaCamion';
 import InspeccionCamion from '@/componentes/InspeccionCamion';
+import PruebaEntrega from '@/componentes/PruebaEntrega';
+import { cargarPruebas } from '@/lib/entregaServidor';
+import { NOVEDAD, textoCantidad, type Novedad } from '@/lib/entrega';
 import { cargarInspecciones } from '@/lib/inspeccionServidor';
 import { cantidadLote, nombrePresentacion, TOLERANCIA_LOTES_PCT, type LoteCamion } from '@/lib/lotes';
 import SelectorProducto from '@/componentes/SelectorProducto';
@@ -133,6 +136,17 @@ function describirEvento(e: Evento, chofer: string, entregaEnTransbordo = false)
       : faltan.includes('inspeccion') ? 'inspección aprobada' : 'carga cerrada con precinto';
     return `Alerta: el camión salió de fábrica sin ${que}.`;
   }
+  if (d.accion === 'prueba_entrega') {
+    const quien = d.origen_prueba === 'chofer' ? chofer : 'Logística';
+    const cant = textoCantidad((d.presentacion as string | null) ?? null, (d.unidades as number | null) ?? null, Number(d.kg_recibidos));
+    const nov = d.novedad && d.novedad !== 'sin_novedad' ? ` Novedad: ${NOVEDAD[d.novedad as Novedad] ?? String(d.novedad)}${d.nota ? ` (${String(d.nota)})` : ''}.` : '';
+    return `${quien} ${d.corregida ? 'corrigió' : 'registró'} la prueba de entrega: recibió ${String(d.recibido_por)}, ${cant}.${nov}${d.sin_guia ? ' Sin guía firmada.' : ''}`;
+  }
+  if (e.tipo === 'incidencia' && d.motivo === 'entrega_con_novedad') {
+    const falta = d.faltante_kg != null ? ` Faltan ${Number(d.faltante_kg).toLocaleString('es-BO')} kg.` : '';
+    const nov = d.novedad && d.novedad !== 'sin_novedad' ? ` Novedad: ${NOVEDAD[d.novedad as Novedad] ?? String(d.novedad)}.` : '';
+    return `Alerta: entrega con novedad.${falta}${nov}`;
+  }
   if (e.tipo === 'nota') return `Nota${e.origen === 'despacho' ? ' de despacho' : ''}: ${String(d.nota ?? '')}`;
   const resto = Object.entries(d).map(([k, v]) => `${k}: ${String(v)}`).join(' · ');
   return `${e.tipo}${resto ? ` (${resto})` : ''}`;
@@ -211,6 +225,29 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
       .find((b) => b.id === asigId) ?? { ticket_balanza: null, peso_bruto_kg: null, tara_kg: null };
   const editaCarga = perfil === 'administrador' || perfil === 'logistica' || perfil === 'almacen';
   const { inspecciones, cierres, obligatoria } = await cargarInspecciones(supabase, idsFabrica);
+  // Prueba de entrega de los camiones del último tramo (null si la base aún no la tiene).
+  const idsFinales = asignaciones.filter((a) => !intermedio(a.id) && a.etapa === 'entregado').map((a) => a.id);
+  const [pruebas, { data: tolEntregaData }] = await Promise.all([
+    cargarPruebas(supabase, idsFinales),
+    supabase.from('configuracion').select('valor').eq('clave', 'entrega_tolerancia_pct').maybeSingle(),
+  ]);
+  const toleranciaEntrega = Number((tolEntregaData as { valor: unknown } | null)?.valor ?? 0.5) || 0.5;
+  // Lo que salió con cada camión: lotes (una sola presentación) o balanza; en tramos 2 y 3, lo declarado.
+  const salidaDe = (a: AsignacionEnVivo): { presentacion: string | null; unidades: number | null; kg: number | null } => {
+    if ((a.tramo ?? 1) > 1) {
+      return { presentacion: null, unidades: null, kg: a.toneladas_declaradas != null ? Number(a.toneladas_declaradas) * 1000 : null };
+    }
+    const lotes = lotesDe(a.id);
+    const presentaciones = [...new Set(lotes.map((l) => l.presentacion))];
+    if (lotes.length && presentaciones.length === 1) {
+      return {
+        presentacion: presentaciones[0] as string, kg: lotes.reduce((t, l) => t + Number(l.kg), 0),
+        unidades: presentaciones[0] === 'granel' ? null : lotes.reduce((t, l) => t + (l.unidades ?? 0), 0),
+      };
+    }
+    if (lotes.length) return { presentacion: null, unidades: null, kg: lotes.reduce((t, l) => t + Number(l.kg), 0) };
+    return { presentacion: null, unidades: null, kg: a.toneladas_cargadas != null ? Number(a.toneladas_cargadas) * 1000 : null };
+  };
   const toleranciaLotes = Number((tolData as { valor: unknown } | null)?.valor ?? TOLERANCIA_LOTES_PCT) || TOLERANCIA_LOTES_PCT;
 
   // Recorrido completo (simplificado) de cada camión con señal: una línea por camión.
@@ -348,6 +385,21 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
             tolerancia={toleranciaLotes}
           />
         )}
+        {pruebas && a.etapa === 'entregado' && !intermedio(a.id) && (() => {
+          const salida = salidaDe(a);
+          return (
+            <PruebaEntrega
+              prueba={pruebas.find((p) => p.asignacion_id === a.id) ?? null}
+              asignacionId={a.id}
+              misionId={id}
+              puedeEditar={perfil === 'administrador' || perfil === 'logistica'}
+              presentacion={salida.presentacion}
+              unidadesSalida={salida.unidades}
+              kgSalida={salida.kg}
+              tolerancia={toleranciaEntrega}
+            />
+          );
+        })()}
         {(a.tramo ?? 1) > 1 && (expediente || esInternacional(m.destino?.pais)) && a.etapa !== 'cancelado' && faltanDelCamion(a.id).length > 0 && (
           <p className="alerta">Falta {faltanDelCamion(a.id).map((t) => TIPO_DOCUMENTO[t] ?? t).join(' y ')} de este camión.</p>
         )}

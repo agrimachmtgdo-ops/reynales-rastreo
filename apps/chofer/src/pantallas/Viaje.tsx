@@ -12,6 +12,7 @@ import type { Viaje as TViaje } from '../tipos';
 import { mensajeSimple } from '../mensajes';
 import Emergencia from '../Emergencia';
 import AjustesTelefono from './AjustesTelefono';
+import Entrega from './Entrega';
 
 const VELOCIDAD_BLOQUEO_KMH = 10;
 // Una velocidad más vieja que esto no bloquea los botones (el GPS pudo perder señal con el camión en marcha).
@@ -41,6 +42,10 @@ export default function Viaje({
   const [error, setError] = useState<string | null>(null);
   // Paso obligatorio de revisión de ajustes antes de "Iniciar viaje".
   const [revisando, setRevisando] = useState(false);
+  // Pantalla de prueba de entrega (último tramo; el transbordo lo confirma el operador).
+  const [entregando, setEntregando] = useState(false);
+  // El servidor aún no tiene la prueba de entrega: se usa la confirmación simple.
+  const [sinPrueba, setSinPrueba] = useState(false);
 
   const refrescar = useCallback(async () => {
     const s = await leerEstado();
@@ -130,6 +135,10 @@ export default function Viaje({
       setRevisando(true); // primero los ajustes del teléfono, luego la confirmación
       return;
     }
+    if (nueva === 'entregado' && !viaje.transbordo && !sinPrueba) {
+      setEntregando(true);
+      return;
+    }
     setConfirmando({ etapa: nueva });
   }
 
@@ -197,6 +206,39 @@ export default function Viaje({
         : { texto: 'Enviando ubicación', color: MARCA.verde };
   const mb = ((estado?.bytesUsados ?? 0) / (1024 * 1024)).toFixed(2);
   const viajeAbierto = etapa !== 'entregado' && etapa !== 'cancelado' && !estado?.sinAcceso;
+
+  async function entregaRegistrada({ quedan, fotos }: { quedan: number; fotos: number }) {
+    await guardarEstado({ etapa: 'entregado' });
+    setEtapa('entregado');
+    await detenerRastreo();
+    await guardarEstado({ viaje: null });
+    const avisos = [
+      quedan > 0 ? `Quedan ${quedan} ubicaciones guardadas.` : null,
+      fotos > 0 ? `Quedan ${fotos === 1 ? '1 foto' : `${fotos} fotos`} por enviar.` : null,
+    ].filter(Boolean);
+    Alert.alert(
+      'Entrega registrada',
+      avisos.length
+        ? `Gracias. El rastreo se detuvo. ${avisos.join(' ')} Se enviarán solas la próxima vez que abra la app con señal.`
+        : 'Gracias. El rastreo se detuvo.',
+    );
+    alTerminar();
+  }
+
+  if (entregando) {
+    return (
+      <Entrega
+        viaje={viaje}
+        alVolver={() => setEntregando(false)}
+        alRegistrada={(r) => void entregaRegistrada(r)}
+        alSinPrueba={() => {
+          setEntregando(false);
+          setSinPrueba(true);
+          setConfirmando({ etapa: 'entregado' });
+        }}
+      />
+    );
+  }
 
   if (revisando) {
     return (

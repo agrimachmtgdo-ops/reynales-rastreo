@@ -12,6 +12,7 @@ import { MARCA, type Etapa } from '@reynales/shared';
 import { asegurarSesion, supabase } from './src/supabase';
 import { guardarEstado, leerEstado, reiniciarEstado } from './src/estado';
 import { enviarPendientes } from './src/envio';
+import { contarFotosPendientes, subirFotosPendientes } from './src/fotosEntrega';
 import { e } from './src/estilos';
 import Activar, { extraerCodigo } from './src/pantallas/Activar';
 import Consentimiento from './src/pantallas/Consentimiento';
@@ -36,6 +37,20 @@ export default function App() {
   const [viaje, setViaje] = useState<TViaje | null>(null);
   const [codigoEnlace, setCodigoEnlace] = useState<string | undefined>();
   const [aviso, setAviso] = useState<string | null>(null);
+  const [fotosPendientes, setFotosPendientes] = useState(0);
+  const [subiendoFotos, setSubiendoFotos] = useState(false);
+
+  // Fotos de entregas anteriores que no se pudieron enviar (sin señal en el momento).
+  const enviarFotos = useCallback(async () => {
+    setSubiendoFotos(true);
+    try {
+      setFotosPendientes(await subirFotosPendientes());
+    } catch {
+      setFotosPendientes(await contarFotosPendientes().catch(() => 0));
+    } finally {
+      setSubiendoFotos(false);
+    }
+  }, []);
 
   const mostrarViaje = useCallback((v: TViaje | null) => {
     if (v) void recordarViaje(v);
@@ -58,6 +73,7 @@ export default function App() {
       mostrarViaje(v);
       // Envía lo que haya quedado pendiente (por ejemplo, el último tramo de un viaje ya entregado).
       void enviarPendientes(true);
+      void enviarFotos();
     } catch {
       // Sin señal: si había un viaje en curso, se muestra desde el teléfono y el rastreo sigue.
       const s = await leerEstado();
@@ -70,7 +86,7 @@ export default function App() {
         setPantalla('activar');
       }
     }
-  }, [mostrarViaje]);
+  }, [mostrarViaje, enviarFotos]);
 
   useEffect(() => {
     void cargar();
@@ -95,6 +111,15 @@ export default function App() {
             <Text style={[e.texto, { padding: 12, backgroundColor: '#FBECC0' }]}>{aviso}</Text>
           </Pressable>
         )}
+        {fotosPendientes > 0 && pantalla === 'activar' && (
+          <Pressable onPress={() => void enviarFotos()} disabled={subiendoFotos} accessibilityRole="button">
+            <Text style={[e.texto, { padding: 12, backgroundColor: '#E3F3E8' }]}>
+              {subiendoFotos
+                ? 'Enviando fotos de la entrega…'
+                : `Hay ${fotosPendientes === 1 ? '1 foto' : `${fotosPendientes} fotos`} de la entrega por enviar. Toque aquí cuando tenga señal.`}
+            </Text>
+          </Pressable>
+        )}
         {pantalla === 'cargando' && (
           <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator size="large" color={MARCA.verde} /></View>
         )}
@@ -107,7 +132,7 @@ export default function App() {
         )}
         {pantalla === 'consentimiento' && viaje && <Consentimiento viaje={viaje} alAceptar={mostrarViaje} />}
         {pantalla === 'viaje' && viaje && (
-          <Viaje viaje={viaje} alTerminar={() => mostrarViaje(null)} alAbrirAjustes={() => setPantalla('ajustes')} />
+          <Viaje viaje={viaje} alTerminar={() => { mostrarViaje(null); void contarFotosPendientes().then(setFotosPendientes).catch(() => {}); }} alAbrirAjustes={() => setPantalla('ajustes')} />
         )}
         {pantalla === 'ajustes' && <AjustesTelefono alVolver={() => setPantalla('viaje')} />}
       </SafeAreaView>

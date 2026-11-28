@@ -125,6 +125,14 @@ async function VistaEnvios({ filtros, esAdmin }: { filtros: FiltrosCumplimiento;
             detalle={`${r.vencidos} ${r.vencidos === 1 ? 'vencido' : 'vencidos'} sin entregar · ${r.cancelados} ${r.cancelados === 1 ? 'cancelado' : 'cancelados'} por causa propia`} />
           <Cifra titulo="Atraso promedio" valor={r.diasAtrasoPromedio === null ? '—' : `${r.diasAtrasoPromedio.toFixed(1).replace('.', ',')} días`} detalle="de los envíos que llegaron tarde" />
           <Cifra titulo="Toneladas faltantes" valor={`${formatoTn(r.toneladasFaltantes)} TN`} detalle="en envíos incompletos" />
+          {(() => {
+            const entregados = envios.filter((e) => e.hito === 'entrega' && e.medicion === 'medido');
+            const confirmados = entregados.filter((e) => e.recibido_confirmado).length;
+            return entregados.length > 0 && envios.some((e) => e.recibido_confirmado !== undefined) ? (
+              <Cifra titulo="Recepción confirmada" valor={`${confirmados} de ${entregados.length}`}
+                detalle="envíos entregados con prueba de entrega; los demás se miden con el peso de fábrica" />
+            ) : null;
+          })()}
         </div>
         <p className="ayuda" style={{ marginBottom: 0 }}>
           Se mide contra la fecha y las toneladas comprometidas con el cliente; solo los cambios que pidió el cliente las mueven.
@@ -216,7 +224,7 @@ async function VistaEnvios({ filtros, esAdmin }: { filtros: FiltrosCumplimiento;
 function TablaEnvios({ envios }: { envios: EnvioCumplimiento[] }) {
   return (
     <div className="tabla-desplazable"><table className="tabla-tarjetas">
-      <thead><tr><th>Envío</th><th>Cliente</th><th>Entrega</th><th>Comprometida</th><th>Real</th><th>Resultado</th><th className="numero">TN comprometidas</th><th className="numero">TN pesadas</th><th>Causa</th><th>Misión</th></tr></thead>
+      <thead><tr><th>Envío</th><th>Cliente</th><th>Entrega</th><th>Comprometida</th><th>Real</th><th>Resultado</th><th className="numero">TN comprometidas</th><th className="numero">TN reales</th><th>Causa</th><th>Misión</th></tr></thead>
       <tbody>{envios.map((e) => (
         <tr key={e.envio_id}>
           <td><Link href={`/pedidos/${e.pedido_id}`}>{e.pedido_codigo}</Link> · envío {e.numero}</td>
@@ -226,7 +234,12 @@ function TablaEnvios({ envios }: { envios: EnvioCumplimiento[] }) {
           <td data-etiqueta="Real">{formatoFecha(e.fecha_real)}{e.embarque ? ` · embarque ${formatoFecha(e.embarque)}` : ''}</td>
           <td data-etiqueta="Resultado">{e.otif ? '✓ A tiempo y completo' : e.otif === null && e.a_tiempo ? 'A tiempo · falta el peso' : <span className="docs-faltan">{motivoFalla(e)}</span>}</td>
           <td data-etiqueta="TN comprometidas" className="numero">{formatoTn(Number(e.toneladas_comprometidas))}</td>
-          <td data-etiqueta="TN pesadas" className="numero">{e.toneladas_reales === null ? '—' : formatoTn(Number(e.toneladas_reales))}</td>
+          <td data-etiqueta="TN reales" className="numero">
+            {e.toneladas_reales === null ? '—' : formatoTn(Number(e.toneladas_reales))}
+            {e.toneladas_reales !== null && e.hito === 'entrega' && e.medicion === 'medido' && e.recibido_confirmado !== undefined && (
+              <span className="ayuda-campo" style={{ display: 'block' }}>{e.recibido_confirmado ? 'recibidas' : 'de fábrica · sin confirmar'}</span>
+            )}
+          </td>
           <td data-etiqueta="Causa">{e.otif ? '—' : textoCausa(e.causa)}</td>
           <td data-etiqueta="Misión">{e.mision_id ? <Link href={`/misiones/${e.mision_id}`}>{e.mision_codigo}</Link> : '—'}</td>
         </tr>
@@ -237,11 +250,17 @@ function TablaEnvios({ envios }: { envios: EnvioCumplimiento[] }) {
 
 async function VistaTransportistas({ filtros }: { filtros: FiltrosCumplimiento }) {
   const supabase = await crearClienteServidor();
-  const [{ lista, toleranciaMin, error }, viajes, { data: rechazosData }] = await Promise.all([
+  const [{ lista, toleranciaMin, error }, viajes, { data: rechazosData }, { data: mermasData, error: errorMermas }] = await Promise.all([
     cargarTransportistas(filtros),
     cargarReporte({ desde: filtros.desde, hasta: filtros.hasta }),
     supabase.rpc('rechazos_inspeccion', { p_desde: filtros.desde, p_hasta: filtros.hasta }),
+    supabase.rpc('mermas_entrega', { p_desde: filtros.desde, p_hasta: filtros.hasta }),
   ]);
+  // Faltantes en la entrega (null si la base aún no tiene la prueba de entrega).
+  const mermas = errorMermas ? null : ((mermasData ?? []) as {
+    transportista_id: string; transportista: string; destino: string; entregas: number; con_novedad: number;
+    kg_despachados: number | null; kg_recibidos: number | null; merma_kg: number | null;
+  }[]);
   const rechazos = new Map(((rechazosData ?? []) as { transportista_id: string; camiones_inspeccionados: number; camiones_rechazados: number; rechazos: number }[])
     .map((r) => [r.transportista_id, r]));
   if (error) return <section className="tarjeta mensaje-error">No se pudo calcular el cumplimiento de transportistas: {error}</section>;
@@ -292,6 +311,37 @@ async function VistaTransportistas({ filtros }: { filtros: FiltrosCumplimiento }
               );
             })}</tbody>
           </table></div>
+
+          {mermas && (
+            <>
+              <h3 style={{ marginTop: 24 }}>Faltantes en la entrega</h3>
+              <p className="ayuda">
+                Según las pruebas de entrega registradas en el período (chofer o logística): lo recibido por el cliente contra lo despachado.
+              </p>
+              {mermas.length === 0 ? <p>No hay pruebas de entrega en este período.</p> : (
+                <div className="tabla-desplazable"><table className="tabla-tarjetas tabla-mermas">
+                  <thead><tr><th>Transportista</th><th>Destino</th><th>Entregas</th><th>Con novedad</th><th className="numero">Kg despachados</th><th className="numero">Kg recibidos</th><th className="numero">Faltante</th></tr></thead>
+                  <tbody>{mermas.map((m) => {
+                    const pct = m.kg_despachados ? (Number(m.merma_kg ?? 0) / Number(m.kg_despachados)) * 100 : null;
+                    return (
+                      <tr key={`${m.transportista_id}-${m.destino}`}>
+                        <td>{m.transportista}</td>
+                        <td data-etiqueta="Destino">{m.destino}</td>
+                        <td data-etiqueta="Entregas">{m.entregas}</td>
+                        <td data-etiqueta="Con novedad" className={m.con_novedad > 0 ? 'docs-faltan' : undefined}>{m.con_novedad}</td>
+                        <td data-etiqueta="Kg despachados" className="numero">{m.kg_despachados == null ? '—' : Number(m.kg_despachados).toLocaleString('es-BO')}</td>
+                        <td data-etiqueta="Kg recibidos" className="numero">{m.kg_recibidos == null ? '—' : Number(m.kg_recibidos).toLocaleString('es-BO')}</td>
+                        <td data-etiqueta="Faltante" className={`numero${Number(m.merma_kg ?? 0) > 0 ? ' merma' : ''}`}>
+                          {m.merma_kg == null ? '—' : `${Number(m.merma_kg).toLocaleString('es-BO')} kg`}
+                          {pct != null && Number(m.merma_kg) > 0 && ` (${pct.toFixed(2).replace('.', ',')} %)`}
+                        </td>
+                      </tr>
+                    );
+                  })}</tbody>
+                </table></div>
+              )}
+            </>
+          )}
 
           {fichas.some((t) => t.detalle_ausencias.length > 0) && (
             <>
