@@ -4,6 +4,7 @@ import { crearClienteServidor } from '@/lib/supabase/server';
 import BotonCopiar from '@/componentes/BotonCopiar';
 import FormularioAccion from '@/componentes/FormularioAccion';
 import { Req } from '@/componentes/Obligatorio';
+import { enlaceWhatsApp } from '@/lib/tipos';
 import { ESTADO_ENVIO, formatoFecha, formatoToneladas, plural } from '@/lib/pedidos';
 import {
   ESTADO_SOLICITUD, fechaCarga, fechaHoraBolivia, formatoCosto, formatoTarifa, NOMBRE_SEMAFORO, semaforo,
@@ -18,7 +19,7 @@ export const dynamic = 'force-dynamic';
 
 interface Camion {
   id: string; etapa: string; solicitud_id: string | null; llegada_fabrica: string | null; ausencia_causa: string | null;
-  transportista_id: string;
+  transportista_id: string; toneladas_cargadas: number | null;
   vehiculo: { placa: string } | null; conductor: { nombre: string; telefono: string | null } | null;
 }
 interface Opcion { id: string; transportista_id: string; nombre: string }
@@ -55,7 +56,7 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
     gestiona && !f.mision_id ? supabase.from('ubicaciones').select('id, nombre').eq('tipo', 'fabrica').order('nombre') : Promise.resolve({ data: [] }),
     f.mision_id
       ? supabase.from('asignaciones')
-        .select('id, etapa, solicitud_id, llegada_fabrica, ausencia_causa, transportista_id, vehiculo:vehiculos(placa), conductor:conductores(nombre, telefono)')
+        .select('id, etapa, solicitud_id, llegada_fabrica, ausencia_causa, transportista_id, toneladas_cargadas, vehiculo:vehiculos(placa), conductor:conductores(nombre, telefono)')
         .eq('mision_id', f.mision_id).eq('tramo', 1).order('creado_en')
       : Promise.resolve({ data: [] }),
   ]);
@@ -69,6 +70,25 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
   const abiertas = new Set(solicitudes.filter((s) => s.estado === 'pedido' || s.estado === 'confirmado').map((s) => s.transportista_id));
   const faltan = Math.max(0, f.camiones_necesarios - f.camiones_confirmados);
   const sinPedir = Math.max(0, f.camiones_necesarios - f.camiones_pedidos);
+  const necesarios = Math.max(1, f.camiones_necesarios);
+  const pctConfirmados = Math.min(100, Math.round((f.camiones_confirmados / necesarios) * 100));
+  const pctPlaca = Math.min(100, Math.round((f.camiones_asignados / necesarios) * 100));
+
+  // Toneladas: programadas, enviadas (salieron de fábrica), entregadas y saldo por despachar.
+  // Sin peso de balanza, cada camión se estima con las toneladas del envío entre los camiones necesarios.
+  const programadas = Number(f.toneladas) || 0;
+  const porCamion = programadas / necesarios;
+  const salidos = camiones.filter((c) => c.etapa !== 'programado' && c.etapa !== 'cancelado');
+  const pesoDe = (c: Camion) => (c.toneladas_cargadas != null ? Number(c.toneladas_cargadas) : porCamion);
+  const sinPeso = salidos.filter((c) => c.toneladas_cargadas == null).length;
+  const enviadas = salidos.reduce((t, c) => t + pesoDe(c), 0);
+  const entregadas = salidos.filter((c) => c.etapa === 'entregado').reduce((t, c) => t + pesoDe(c), 0);
+  const enCamino = Math.max(0, enviadas - entregadas);
+  const saldo = Math.max(0, programadas - enviadas);
+  const camionesSaldo = porCamion > 0 ? Math.ceil(saldo / porCamion - 0.03) : 0;
+  const pct = (t: number) => (programadas > 0 ? Math.min(100, (t / programadas) * 100) : 0);
+  const pctEntregadas = pct(entregadas);
+  const pctEnCamino = Math.min(100 - pctEntregadas, pct(enCamino));
 
   return (
     <>
@@ -88,12 +108,69 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
           <div><dt>Carga en fábrica</dt><dd>{formatoFecha(fechaCarga(f))}{f.fecha_carga ? '' : ' (sin fecha de carga: se usa la de entrega)'}</dd></div>
           <div><dt>Entrega vigente</dt><dd>{formatoFecha(f.entrega_vigente)}{f.entrega_comprometida && f.entrega_comprometida !== f.entrega_vigente ? ` (comprometida ${formatoFecha(f.entrega_comprometida)})` : ''}</dd></div>
           <div><dt>Presentación en fábrica</dt><dd>{fechaHoraBolivia(f.presentacion)}</dd></div>
-          <div><dt>Camiones</dt><dd>{f.camiones_confirmados} de {f.camiones_necesarios} confirmados · {f.camiones_asignados} con placa</dd></div>
           <div><dt>Costo del flete</dt><dd>{formatoCosto(f.costo)}</dd></div>
           {f.incoterm === 'FOB' && <div><dt>Embarque (puerto)</dt><dd>{formatoFecha(f.embarque_fecha)}</dd></div>}
           <div><dt>Misión</dt><dd>{f.mision_id ? <Link href={`/misiones/${f.mision_id}`}>{f.mision_codigo}</Link> : 'Aún no creada'}</dd></div>
         </dl>
-        <p><Link href={`/pedidos/${f.pedido_id}`}>Ver el pedido completo</Link></p>
+
+        <div className="avance-camiones">
+          <div className="avance-cabecera">
+            <span className="avance-titulo">Camiones</span>
+            <span className="avance-cifra"><strong>{f.camiones_confirmados}</strong> de {f.camiones_necesarios} confirmados</span>
+          </div>
+          <div className="barra-avance" role="progressbar" aria-label="Camiones confirmados"
+            aria-valuemin={0} aria-valuemax={f.camiones_necesarios} aria-valuenow={f.camiones_confirmados}>
+            <span className="barra-confirmados" style={{ width: `${pctConfirmados}%` }} />
+            <span className="barra-placa" style={{ width: `${pctPlaca}%` }} />
+          </div>
+          <ul className="leyenda-avance">
+            <li><span className="muestra muestra-placa" aria-hidden="true" />{plural(f.camiones_asignados, 'camión', 'camiones')} con placa y chofer</li>
+            <li><span className="muestra muestra-confirmados" aria-hidden="true" />{plural(f.camiones_confirmados, 'confirmado', 'confirmados')} por transportistas</li>
+            <li><span className="muestra muestra-faltan" aria-hidden="true" />{faltan > 0 ? `faltan ${faltan}` : 'completo'}</li>
+          </ul>
+        </div>
+
+        <div className="avance-toneladas">
+          <span className="avance-titulo">Toneladas</span>
+          <div className="cifras-toneladas">
+            <div><span>Programadas</span><strong>{formatoToneladas(programadas)}</strong></div>
+            <div><span>Enviadas</span><strong>{formatoToneladas(enviadas)}</strong><small>{plural(salidos.length, 'camión salió', 'camiones salieron')} de fábrica</small></div>
+            <div><span>Entregadas</span><strong>{formatoToneladas(entregadas)}</strong>{enCamino > 0 && <small>{formatoToneladas(enCamino)} en camino</small>}</div>
+            <div className={saldo > 0 ? 'cifra-saldo' : 'cifra-saldo completo'}>
+              <span>Saldo por despachar</span><strong>{formatoToneladas(saldo)}</strong>
+              <small>{saldo > 0 ? `≈ ${plural(camionesSaldo, 'camión', 'camiones')} más` : 'Todo despachado'}</small>
+            </div>
+          </div>
+          <div className="barra-avance barra-toneladas" role="img"
+            aria-label={`${formatoToneladas(entregadas)} entregadas, ${formatoToneladas(enCamino)} en camino y ${formatoToneladas(saldo)} por despachar de ${formatoToneladas(programadas)}`}>
+            <span className="barra-entregadas" style={{ width: `${pctEntregadas}%` }} />
+            <span className="barra-en-camino" style={{ left: `${pctEntregadas}%`, width: `${pctEnCamino}%` }} />
+          </div>
+          <ul className="leyenda-avance">
+            <li><span className="muestra muestra-entregadas" aria-hidden="true" />Entregadas</li>
+            <li><span className="muestra muestra-en-camino" aria-hidden="true" />En camino</li>
+            <li><span className="muestra muestra-faltan" aria-hidden="true" />Por despachar</li>
+          </ul>
+          {sinPeso > 0 && (
+            <p className="nota-estimado">
+              {sinPeso === 1 ? '1 camión no tiene' : `${sinPeso} camiones no tienen`} peso de balanza registrado: se {sinPeso === 1 ? `estima en ${formatoToneladas(porCamion)}` : `estiman en ${formatoToneladas(porCamion)} cada uno`}.
+              Registre el peso en la misión para que el saldo sea exacto.
+            </p>
+          )}
+        </div>
+
+        {abierto && faltan > 0 && (
+          <div className="aviso-faltan" role="status">
+            <strong>Faltan {plural(faltan, 'camión', 'camiones')} por confirmar.</strong>{' '}
+            {gestiona
+              ? sinPedir > 0
+                ? <>Pida {plural(sinPedir, 'camión más', 'camiones más')} a un transportista. <a href="#pedir">Pedir camiones</a></>
+                : <>Ya se pidieron todos: registre la respuesta de cada transportista en el paso 2.</>
+              : <>Logística está gestionando los camiones que faltan.</>}
+          </div>
+        )}
+
+        <p className="pie-resumen"><Link className="enlace-secundario" href={`/pedidos/${f.pedido_id}`}>Ver el pedido completo</Link></p>
         {!esLogistica && <p className="ayuda">Logística pide y asigna los camiones. Aquí ve el avance y el costo total del flete.</p>}
       </section>
 
@@ -101,7 +178,7 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
         <section className="tarjeta">
           <h2>1. Requerimiento</h2>
           <FormularioAccion accion={guardarRequerimiento.bind(null, envio)} boton="Guardar requerimiento" claseBoton="boton secundario">
-            <div className="rejilla">
+            <div className="rejilla rejilla-corta">
               <label>Camiones necesarios
                 <input name="camiones" type="number" min={1} max={60} inputMode="numeric" defaultValue={f.camiones_necesarios} />
                 <span className="ayuda-campo">Estimado: 29 t por camión. Cámbielo si hace falta.</span>
@@ -116,7 +193,7 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
       )}
 
       {esLogistica && (
-        <section className="tarjeta">
+        <section className="tarjeta" id="pedidos">
           <h2>{gestiona ? '2. Pedidos a transportistas' : 'Pedidos a transportistas'}</h2>
           {solicitudes.length === 0 && <p>Todavía no se pidieron camiones para este envío.</p>}
           {solicitudes.map((s) => {
@@ -129,28 +206,35 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
                   <h3 style={{ margin: 0 }}>{s.transportista?.razon_social}</h3>
                   <span className={`etiqueta solicitud-${s.estado}`}>{ESTADO_SOLICITUD[s.estado]}</span>
                 </div>
-                <p className="ayuda" style={{ marginTop: 4 }}>
-                  Pedidos: {plural(s.camiones_pedidos, 'camión', 'camiones')}
-                  {s.camiones_confirmados != null && ` · confirmó ${s.camiones_confirmados}`}
-                  {' · '}{formatoTarifa(s)}
-                  {s.presentacion && ` · presentación ${fechaHoraBolivia(s.presentacion)}`}
-                  {s.transportista?.telefono && ` · ${s.transportista.contacto ? `${s.transportista.contacto} ` : ''}${s.transportista.telefono}`}
-                  {s.nota && ` · ${s.nota}`}
-                </p>
+                <dl className="datos-solicitud">
+                  <div><dt>Pedidos</dt><dd>{plural(s.camiones_pedidos, 'camión', 'camiones')}</dd></div>
+                  <div><dt>Confirmó</dt><dd>{s.camiones_confirmados != null ? s.camiones_confirmados : 'Sin respuesta'}</dd></div>
+                  <div><dt>Tarifa</dt><dd>{formatoTarifa(s)}</dd></div>
+                  {s.presentacion && <div><dt>Presentación</dt><dd>{fechaHoraBolivia(s.presentacion)}</dd></div>}
+                  {s.transportista?.telefono && (
+                    <div><dt>Contacto</dt><dd>
+                      {s.transportista.contacto ? `${s.transportista.contacto} · ` : ''}
+                      <a href={`tel:${s.transportista.telefono.replace(/[^0-9+]/g, '')}`}>{s.transportista.telefono}</a>
+                    </dd></div>
+                  )}
+                  {s.nota && <div className="dato-ancho"><dt>Nota</dt><dd>{s.nota}</dd></div>}
+                </dl>
 
                 {gestiona && s.estado !== 'anulado' && (
-                  <div className="rejilla-acciones">
+                  <div className="rejilla-acciones panel-acciones">
                     {s.estado === 'pedido' && (
                       <div>
                         <h4>Mensaje para WhatsApp</h4>
                         <pre className="mensaje-whatsapp">{textoWhatsApp(f, s, origen)}</pre>
-                        <BotonCopiar texto={textoWhatsApp(f, s, origen)} />
-                        {s.transportista?.telefono && (
-                          <a className="enlace-secundario" style={{ marginLeft: 12 }} target="_blank" rel="noreferrer"
-                            href={`https://wa.me/${s.transportista.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(textoWhatsApp(f, s, origen))}`}>
-                            Abrir WhatsApp
-                          </a>
-                        )}
+                        <div className="botones-mensaje">
+                          <BotonCopiar texto={textoWhatsApp(f, s, origen)} />
+                          {(() => {
+                            const wa = enlaceWhatsApp(s.transportista?.telefono, textoWhatsApp(f, s, origen));
+                            return wa
+                              ? <a className="enlace-secundario" target="_blank" rel="noreferrer" href={wa}>Abrir WhatsApp</a>
+                              : <span className="ayuda-campo">Sin teléfono con código de país: copie el mensaje.</span>;
+                          })()}
+                        </div>
                       </div>
                     )}
                     <div>
@@ -246,7 +330,7 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
           })}
 
           {gestiona && (
-            <details className="pedir-camiones" open={solicitudes.length === 0 || faltan > 0}>
+            <details id="pedir" className="pedir-camiones" open={solicitudes.length === 0 || faltan > 0}>
               <summary>Pedir camiones a un transportista{sinPedir > 0 ? ` (faltan pedir ${sinPedir})` : ''}</summary>
               <FormularioAccion accion={pedirCamiones.bind(null, envio)} boton="Registrar pedido">
                 <div className="rejilla">
