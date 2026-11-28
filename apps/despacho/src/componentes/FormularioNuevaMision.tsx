@@ -2,6 +2,7 @@
 import { startTransition, useActionState, useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { nombrePais } from '@reynales/shared';
 import { useErrorCampo, validarObligatorios } from './errorCampo';
 import SelectorArchivo from './SelectorArchivo';
 import {
@@ -171,7 +172,7 @@ export default function FormularioNuevaMision({
 
       <h2>Documentos</h2>
       <p className="lista-requeridos" aria-live="polite">
-        {pais ? <>Para {pais === 'PE' ? 'Perú' : 'Bolivia'}: </> : <>Elija el destino para ver los requeridos: </>}
+        {pais ? <>Para {nombrePais(pais)}: </> : <>Elija el destino para ver los requeridos: </>}
         {requeridos.map((r, i) => (
           <span key={r.clave} className={r.tiene ? 'requerido-listo' : ''}>
             {i > 0 && ' · '}{r.nombre}{r.obligatorio ? '' : ' (opcional)'} {r.tiene ? '☑' : '☐'}

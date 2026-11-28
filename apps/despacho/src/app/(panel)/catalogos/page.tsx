@@ -82,7 +82,7 @@ export default async function PaginaCatalogos({
       <>
         <label>Razón social <Req /><input name="razon_social" required defaultValue={v(f, 'razon_social')} /></label>
         <label>NIT / RUC<input name="nit_ruc" defaultValue={v(f, 'nit_ruc')} /></label>
-        <label>País<select name="pais" defaultValue={v(f, 'pais') ?? 'BO'}><option value="BO">Bolivia</option><option value="PE">Perú</option></select></label>
+        <label>País<select name="pais" defaultValue={v(f, 'pais') ?? 'BO'}><option value="BO">Bolivia</option><option value="PE">Perú</option><option value="CL">Chile</option></select></label>
         <label>Contacto<input name="contacto" defaultValue={v(f, 'contacto')} /></label>
         <label>WhatsApp<input name="whatsapp" inputMode="tel" placeholder="+51987654321" defaultValue={v(f, 'whatsapp')} /></label>
         <label>Correo<input name="correo" type="email" defaultValue={v(f, 'correo')} /></label>
@@ -118,7 +118,7 @@ export default async function PaginaCatalogos({
       <>
         <label>Nombre <Req /><input name="nombre" required defaultValue={v(f, 'nombre')} /></label>
         <label>Ciudad<input name="ciudad" defaultValue={v(f, 'ciudad')} /></label>
-        <label>País<select name="pais" defaultValue={v(f, 'pais') ?? 'BO'}><option value="BO">Bolivia</option><option value="PE">Perú</option></select></label>
+        <label>País<select name="pais" defaultValue={v(f, 'pais') ?? 'BO'}><option value="BO">Bolivia</option><option value="PE">Perú</option><option value="CL">Chile</option></select></label>
         <label>Tipo <Req />
           <select name="tipo" required defaultValue={v(f, 'tipo') ?? 'destino'}>
             {Object.entries(TIPO_UBICACION).map(([k, t]) => <option key={k} value={k}>{t}</option>)}

@@ -18,7 +18,7 @@ export default async function PaginaMisiones({ searchParams }: { searchParams: P
   const soloFiltros = Object.entries(filtros).filter(([k, v]) => k !== 'pagina' && typeof v === 'string' && v !== '') as [string, string][];
   const parametros = new URLSearchParams(soloFiltros).toString();
   const enlacePagina = (n: number) => `/misiones?${new URLSearchParams([...soloFiltros, ['pagina', String(n)]]).toString()}`;
-  // Documentos obligatorios que faltan (factura; DEX si va a Perú).
+  // Documentos obligatorios que faltan (factura; DEX si sale de Bolivia).
   const faltanDocs = (m: (typeof misiones)[number]) =>
     estadoDocumentos((m.documentos ?? []).filter((d) => !d.reemplazado_por).map((d) => claveDe(d.tipo, d.etiqueta)), m.destino?.pais)
       .filter((e) => e.obligatorio && !e.tiene).map((e) => e.nombre);

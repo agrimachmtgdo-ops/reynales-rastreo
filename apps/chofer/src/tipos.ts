@@ -7,7 +7,7 @@ export interface Viaje {
   etapa: Etapa;
   origen: string;
   destino: string;
-  destino_pais: 'BO' | 'PE';
+  destino_pais: 'BO' | 'PE' | 'CL';
   /** Tramo del viaje (1 = desde fábrica). Servidor con transbordo (2026-12). */
   tramo?: number;
   /** true si este camión termina en un transbordo y no en el destino final. */

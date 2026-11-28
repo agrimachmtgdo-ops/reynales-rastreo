@@ -71,9 +71,10 @@ export default function ContenidoReporte({ filtros, filas, filasAnteriores, clie
           <label>
             País de destino
             <select name="pais" defaultValue={filtros.pais ?? ''}>
-              <option value="">Bolivia y Perú</option>
+              <option value="">Todos</option>
               <option value="BO">Bolivia</option>
               <option value="PE">Perú</option>
+              <option value="CL">Chile</option>
             </select>
           </label>
           <label>
@@ -103,7 +104,7 @@ export default function ContenidoReporte({ filtros, filas, filasAnteriores, clie
             cambio={variacion(r.fronteraMediana, ra.fronteraMediana)} />
           <Cifra titulo="Entregas a tiempo" valor={formatoPct(puntualidad)}
             detalle={r.conCompromiso ? `${r.aTiempo} de ${r.conCompromiso} con fecha comprometida` : 'ninguna misión tiene «Entrega comprometida»'} />
-          <Cifra titulo="Documentos completos" valor={`${r.docsCompletos} de ${r.entregas}`} ayuda="factura; y DEX si va a Perú" />
+          <Cifra titulo="Documentos completos" valor={`${r.docsCompletos} de ${r.entregas}`} ayuda="factura; y DEX si sale de Bolivia" />
           <Cifra titulo="Con incidencias" valor={`${r.conIncidencias} de ${r.entregas}`} ayuda="alertas o emergencias en el viaje" />
         </div>
       </section>

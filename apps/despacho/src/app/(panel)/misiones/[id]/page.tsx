@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { ETAPAS, ETIQUETA_ETAPA, type Etapa } from '@reynales/shared';
+import { ETAPAS, ETIQUETA_ETAPA, esInternacional, type Etapa } from '@reynales/shared';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import { cargarCatalogosCamion } from '@/lib/catalogos';
 import { SELECT_ASIGNACION_EN_VIVO } from '@/lib/consultas';
@@ -63,7 +63,7 @@ function describirEvento(e: Evento, chofer: string, entregaEnTransbordo = false)
   }
   if (e.tipo === 'incidencia' && d.motivo === 'sin_documentos_transbordo') {
     const faltan = Array.isArray(d.faltan) ? (d.faltan as string[]).map((t) => TIPO_DOCUMENTO[t] ?? t).join(' y ') : 'documentos';
-    return `Alerta: el camión salió hacia Perú sin ${faltan}. Pida al operador del transbordo que los suba.`;
+    return `Alerta: el camión salió hacia la frontera sin ${faltan}. Pida al operador del transbordo que los suba.`;
   }
   if (e.tipo === 'incidencia' && d.motivo === 'sin_documentos_carga') {
     const faltan = Array.isArray(d.faltan) ? (d.faltan as string[]).map((t) => TIPO_DOCUMENTO[t] ?? t).join(' y ') : 'documentos';
@@ -83,7 +83,7 @@ function describirEvento(e: Evento, chofer: string, entregaEnTransbordo = false)
     if (e.origen === 'chofer') return `${chofer} marcó ${etapa} desde la app${antes}.`;
     if (e.origen === 'despacho') return `Despacho cambió la etapa a ${etapa}${antes}${d.nota ? `. Nota: ${String(d.nota)}` : ''}.`;
     if (d.motivo === 'salio_de_origen') return `El sistema detectó que el camión salió de fábrica: ${etapa}${antes}.`;
-    if (d.motivo === 'cruce_sin_parada') return `El sistema detectó que el camión cruzó a Perú por ${String(d.frontera)} sin detenerse en la frontera${antes}.`;
+    if (d.motivo === 'cruce_sin_parada') return `El sistema detectó que el camión cruzó la frontera por ${String(d.frontera)} sin detenerse en la frontera${antes}.`;
     if (d.frontera) return `El sistema detectó ${etapa} en ${String(d.frontera)}${antes}.`;
     return `El sistema cambió la etapa a ${etapa}${antes}.`;
   }
@@ -236,7 +236,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
             : (a.toneladas_cargadas ? `${a.toneladas_cargadas} TN cargadas` : 'TN sin registrar')}
           {a.precinto && ` · Precinto ${a.precinto}`}
         </p>
-        {(a.tramo ?? 1) > 1 && m.destino?.pais === 'PE' && a.etapa !== 'cancelado' && documentosFaltantes(documentos, a.id).length > 0 && (
+        {(a.tramo ?? 1) > 1 && esInternacional(m.destino?.pais) && a.etapa !== 'cancelado' && documentosFaltantes(documentos, a.id).length > 0 && (
           <p className="alerta">Falta {documentosFaltantes(documentos, a.id).map((t) => TIPO_DOCUMENTO[t]).join(' y ')} de este camión.</p>
         )}
         {(() => {
@@ -255,7 +255,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
                   <span>Faltan aprox.: <strong>{Math.round(estimacion.kmRestantes)} km</strong></span>
                   <span title={`Distancia en línea recta × 1,25 a ${VELOCIDAD_PROMEDIO_KMH} km/h promedio, desde la última señal`}>
                     Llegada estimada: <strong>{formatoHora(estimacion.llegada)}</strong>
-                    {m.destino?.pais === 'PE' && (a.etapa === 'cargado' || a.etapa === 'en_ruta' || a.etapa === 'en_frontera') && ' (sin contar la espera en frontera)'}
+                    {esInternacional(m.destino?.pais) && (a.etapa === 'cargado' || a.etapa === 'en_ruta' || a.etapa === 'en_frontera') && ' (sin contar la espera en frontera)'}
                   </span>
                 </>
               )}
