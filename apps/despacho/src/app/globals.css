@@ -1046,6 +1046,17 @@ textarea { line-height: 1.5; }
 .acciones-camion { padding-left: 0; margin-left: 0; }
 .pie-form .boton, .pie-form .boton-cancelar { white-space: nowrap; }
 
+/* Carga del camión: balanza y lotes (ola 1, entrega 1) */
+.carga-camion { border-top: 1px solid var(--borde); padding-top: 8px; margin-top: 8px; }
+.carga-camion > summary { gap: 8px; flex-wrap: wrap; }
+.carga-camion h5 { margin: 12px 0 4px; font-size: 14px; }
+.carga-camion p { margin: 4px 0; }
+.tabla-lotes { font-size: 14px; }
+.tabla-lotes th, .tabla-lotes td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--borde); }
+.tabla-lotes tfoot td { border-bottom: none; font-weight: 400; }
+.tabla-lotes form { margin: 0; }
+.busqueda-lote { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
+.busqueda-lote input { min-width: 220px; }
 /* ---- Catálogos → Productos: cabecera, formulario por secciones y tabla ---- */
 .cabecera-catalogo { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .cabecera-catalogo h2 { margin: 0; font-size: 20px; color: var(--cafe); }

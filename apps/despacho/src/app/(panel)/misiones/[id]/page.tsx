@@ -8,6 +8,8 @@ import {
   VELOCIDAD_PROMEDIO_KMH, type AsignacionEnVivo,
 } from '@/lib/tipos';
 import CamposCamion from '@/componentes/CamposCamion';
+import CargaCamion from '@/componentes/CargaCamion';
+import { cantidadLote, nombrePresentacion, TOLERANCIA_LOTES_PCT, type LoteCamion } from '@/lib/lotes';
 import SelectorProducto from '@/componentes/SelectorProducto';
 import { cargarProductos } from '@/lib/productosServidor';
 import FormularioAccion from '@/componentes/FormularioAccion';
@@ -105,6 +107,11 @@ function describirEvento(e: Evento, chofer: string, entregaEnTransbordo = false)
   if (e.tipo === 'incidencia' && d.motivo === 'salto_ubicacion') {
     return `Alerta: el teléfono envió ${String(d.cantidad ?? 'algunas')} ubicaciones imposibles (saltos de más de 150 km/h). No se usaron para el mapa ni las etapas.`;
   }
+  if (e.tipo === 'nota' && typeof d.accion === 'string' && d.accion.startsWith('lote_')) {
+    const que = d.accion === 'lote_agregado' ? 'agregó' : d.accion === 'lote_corregido' ? 'corrigió' : 'quitó';
+    const cantidad = cantidadLote({ presentacion: String(d.presentacion) as LoteCamion['presentacion'], unidades: d.unidades == null ? null : Number(d.unidades), kg: Number(d.kg) });
+    return `Despacho ${que} el lote ${String(d.lote)} (${nombrePresentacion(String(d.presentacion))}): ${cantidad}.`;
+  }
   if (e.tipo === 'nota') return `Nota${e.origen === 'despacho' ? ' de despacho' : ''}: ${String(d.nota ?? '')}`;
   const resto = Object.entries(d).map(([k, v]) => `${k}: ${String(v)}`).join(' · ');
   return `${e.tipo}${resto ? ` (${resto})` : ''}`;
@@ -163,6 +170,26 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
         .in('asignacion_id', ids).order('ocurrido_en', { ascending: false }).order('creado_en', { ascending: false }).limit(50)
     : { data: [] };
   const eventos = (eventosData ?? []) as Evento[];
+
+  // Carga de los camiones del tramo 1: balanza y lotes. Solo administrador y logística los editan.
+  const idsFabrica = asignaciones.filter((a) => (a.tramo ?? 1) === 1).map((a) => a.id);
+  const [{ data: lotesData }, { data: balanzaData }, { data: perfil }, { data: tolData }] = await Promise.all([
+    idsFabrica.length
+      ? supabase.from('cargas_lote').select('id, asignacion_id, producto_id, lote, fecha_produccion, presentacion, unidades, kg, producto:productos(nombre)')
+          .in('asignacion_id', idsFabrica).order('creado_en')
+      : Promise.resolve({ data: [] }),
+    idsFabrica.length
+      ? supabase.from('asignaciones').select('id, ticket_balanza, peso_bruto_kg, tara_kg').in('id', idsFabrica)
+      : Promise.resolve({ data: [] }),
+    supabase.rpc('perfil_actual'),
+    supabase.from('configuracion').select('valor').eq('clave', 'lotes_tolerancia_pct').maybeSingle(),
+  ]);
+  const lotesDe = (asigId: string) => ((lotesData ?? []) as unknown as LoteCamion[]).filter((l) => l.asignacion_id === asigId);
+  const balanzaDe = (asigId: string) =>
+    ((balanzaData ?? []) as { id: string; ticket_balanza: string | null; peso_bruto_kg: number | null; tara_kg: number | null }[])
+      .find((b) => b.id === asigId) ?? { ticket_balanza: null, peso_bruto_kg: null, tara_kg: null };
+  const editaCarga = perfil === 'administrador' || perfil === 'logistica';
+  const toleranciaLotes = Number((tolData as { valor: unknown } | null)?.valor ?? TOLERANCIA_LOTES_PCT) || TOLERANCIA_LOTES_PCT;
 
   // Recorrido completo (simplificado) de cada camión con señal: una línea por camión.
   const conSenal = asignaciones.filter((a) => a.ultima_senal);
@@ -271,6 +298,17 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
               </label>
             </FormularioAccion>
           </div>
+        )}
+        {(a.tramo ?? 1) === 1 && a.etapa !== 'cancelado' && (
+          <CargaCamion
+            camion={{ ...a, ...balanzaDe(a.id), id: a.id }}
+            misionId={id}
+            lotes={lotesDe(a.id)}
+            productos={productos}
+            productoMision={m.producto_id}
+            puedeEditar={editaCarga}
+            tolerancia={toleranciaLotes}
+          />
         )}
         {(a.tramo ?? 1) > 1 && esInternacional(m.destino?.pais) && a.etapa !== 'cancelado' && documentosFaltantes(documentos, a.id).length > 0 && (
           <p className="alerta">Falta {documentosFaltantes(documentos, a.id).map((t) => TIPO_DOCUMENTO[t]).join(' y ')} de este camión.</p>

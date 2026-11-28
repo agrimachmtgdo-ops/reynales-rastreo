@@ -20,6 +20,8 @@ export interface AsignacionEnVivo {
   toneladas_declaradas?: number | null;
   /** N.º de precinto (obligatorio después de un transbordo). */
   precinto?: string | null;
+  /** Suma de kg de los lotes del camión (null = sin lotes registrados). */
+  kg_lotes?: number | null;
   emergencia_en: string | null;
   emergencia_motivo: string | null;
   /** Desde cuándo el camión no se mueve más de 300 m (lo calcula la base de datos). */
