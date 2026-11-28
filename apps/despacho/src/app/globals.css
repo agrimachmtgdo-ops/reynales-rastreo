@@ -512,3 +512,19 @@ tr.fila-error td { background: #fdf1ef; }
   .selector-capa button { padding: 6px 9px; font-size: 13px; min-height: 44px; }
   .leyenda { gap: 4px 10px; font-size: 11px; right: 12px; }
 }
+
+/* Tablas que en el celular se ven como tarjetas (Pedidos, Misiones, envíos de un pedido) */
+.solo-movil { display: none; }
+.etiqueta.carga-pasada { background: #f3d6d2; color: var(--rojo); margin-left: 6px; text-decoration: none; white-space: nowrap; }
+a.etiqueta.carga-pasada:hover { text-decoration: underline; }
+@media (max-width: 700px) {
+  .solo-movil { display: inline; }
+  .tabla-tarjetas thead { display: none; }
+  .tabla-tarjetas, .tabla-tarjetas tbody, .tabla-tarjetas tr, .tabla-tarjetas td { display: block; width: 100%; }
+  .tabla-tarjetas tr { border-bottom: 1px solid var(--borde); padding: 10px 0; }
+  .tabla-tarjetas td { border: 0; padding: 3px 0; text-align: left; white-space: normal !important; }
+  .tabla-tarjetas td:first-child { font-weight: 700; font-size: 17px; padding-bottom: 6px; }
+  .tabla-tarjetas td[data-etiqueta]::before { content: attr(data-etiqueta) ": "; color: var(--gris); font-size: 14px; font-weight: 400; }
+  .tabla-tarjetas td:empty { display: none; }
+  .tabla-tarjetas .boton { margin-top: 6px; }
+}

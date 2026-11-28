@@ -63,7 +63,7 @@ export default async function PaginaMisiones({ searchParams }: { searchParams: P
           : `Mostrando ${(pagina - 1) * POR_PAGINA + 1}–${(pagina - 1) * POR_PAGINA + misiones.length} de ${total} ${total === 1 ? 'misión' : 'misiones'}${hayFiltros ? ' encontradas' : ''}, de la más nueva a la más antigua`}
       </p>
       <div className="tabla-desplazable">
-        <table>
+        <table className="tabla-tarjetas">
           <thead>
             <tr><th>Código</th><th>Cliente</th><th>Destino</th><th>Factura</th><th>Docs</th><th>Camiones</th><th>Chofer</th><th>Etapa</th><th>Última señal</th><th>Creada</th></tr>
           </thead>
@@ -71,21 +71,21 @@ export default async function PaginaMisiones({ searchParams }: { searchParams: P
             {misiones.map((m) => (
               <tr key={m.id}>
                 <td><Link href={`/misiones/${m.id}`}>{m.codigo}</Link></td>
-                <td>{m.cliente?.razon_social}</td>
-                <td>{m.destino?.nombre} ({m.destino?.pais})</td>
-                <td>{m.factura}</td>
-                <td style={{ whiteSpace: 'nowrap' }}>
+                <td data-etiqueta="Cliente">{m.cliente?.razon_social}</td>
+                <td data-etiqueta="Destino">{m.destino?.nombre} ({m.destino?.pais})</td>
+                <td data-etiqueta="Factura">{m.factura || '—'}</td>
+                <td data-etiqueta="Docs" style={{ whiteSpace: 'nowrap' }}>
                   {faltanDocs(m).length === 0
                     ? <span title="Documentos obligatorios completos">✓ Completos</span>
                     : <span className="docs-faltan" title={`Faltan: ${faltanDocs(m).join(' y ')}`}>Falta {faltanDocs(m).join(' y ')}</span>}
                 </td>
-                <td title={m.asignaciones.map((a) => a.vehiculo?.placa).join(', ')}>
+                <td data-etiqueta="Camiones" title={m.asignaciones.map((a) => a.vehiculo?.placa).join(', ')}>
                   {m.asignaciones.map((a) => a.vehiculo?.placa).filter(Boolean).join(', ') || '—'}
                 </td>
-                <td>{m.asignaciones.map((a) => a.conductor?.nombre).filter(Boolean).join(', ') || '—'}</td>
-                <td><span className={`etiqueta ${m.etapa}`}>{enTransbordo(m.asignaciones, Math.max(1, ...m.tramos.map((t) => t.numero))) ? 'En transbordo' : ETIQUETA_ETAPA[m.etapa]}</span></td>
-                <td title={formatoHora(ultimaSenal(m))} style={{ whiteSpace: 'nowrap' }}>{ultimaSenal(m) ? haceCuanto(ultimaSenal(m)) : '—'}</td>
-                <td>{formatoHora(m.creado_en)}</td>
+                <td data-etiqueta="Chofer">{m.asignaciones.map((a) => a.conductor?.nombre).filter(Boolean).join(', ') || '—'}</td>
+                <td data-etiqueta="Etapa"><span className={`etiqueta ${m.etapa}`}>{enTransbordo(m.asignaciones, Math.max(1, ...m.tramos.map((t) => t.numero))) ? 'En transbordo' : ETIQUETA_ETAPA[m.etapa]}</span></td>
+                <td data-etiqueta="Última señal" title={formatoHora(ultimaSenal(m))} style={{ whiteSpace: 'nowrap' }}>{ultimaSenal(m) ? haceCuanto(ultimaSenal(m)) : '—'}</td>
+                <td data-etiqueta="Creada">{formatoHora(m.creado_en)}</td>
               </tr>
             ))}
           </tbody>
