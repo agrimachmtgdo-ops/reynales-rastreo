@@ -335,6 +335,9 @@ export default function TableroEnVivo({
                   <span className="detalle">Etapa del viaje: {ETIQUETA_ETAPA[a.etapa]}</span>
                 )}
                 {a.emergencia_en && <span className="etiqueta emergencia">EMERGENCIA: {textoEmergencia(a.emergencia_motivo)}</span>}
+                {(a.tramo ?? 1) === 1 && a.toneladas_cargadas == null && a.etapa !== 'programado' && a.etapa !== 'cancelado' && (
+                  <span className="etiqueta sin-peso">Sin peso de balanza</span>
+                )}
               </button>
                 <span className="acciones-camion">
                   <Link className="ver-mision accion-camion" href={`/misiones/${a.mision_id}`}>

@@ -888,3 +888,5 @@ textarea { line-height: 1.5; }
 .peso-en-linea input { width: 84px; min-height: 40px; margin: 0; }
 .peso-en-linea .mensaje-ok, .peso-en-linea .mensaje-error { flex-basis: 100%; margin: 0; padding: 4px 8px; font-size: 13px; }
 .boton.boton-chico { min-height: 40px; padding: 6px 12px; font-size: 14px; }
+.alerta-sin-peso { margin: 8px 0 12px; padding: 10px 12px; border-radius: 10px; background: #fdecea; border: 1px solid #f3c1bb; border-left: 4px solid var(--rojo); color: #7a1f14; font-size: 15px; }
+.camion .etiqueta.sin-peso { display: inline-block; margin-top: 4px; align-self: flex-start; }

@@ -251,18 +251,18 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
                   <div className="camiones-solicitud">
                     <h4>Camiones ({vivos.length} de {s.camiones_confirmados ?? 0})</h4>
                     {propios.length > 0 && (
-                      <div className="tabla-desplazable"><table>
+                      <div className="tabla-desplazable"><table className="tabla-tarjetas">
                         <thead><tr><th>Placa</th><th>Chofer</th><th>Estado</th><th>Llegada a fábrica</th><th>Peso de balanza</th>{gestiona && <th><span className="solo-lector">Acciones</span></th>}</tr></thead>
                         <tbody>{propios.map((c) => (
                           <tr key={c.id} className={c.etapa === 'cancelado' ? 'inactivo' : undefined}>
                             <td>{c.vehiculo?.placa}</td>
-                            <td>{c.conductor?.nombre}</td>
-                            <td>
+                            <td data-etiqueta="Chofer">{c.conductor?.nombre}</td>
+                            <td data-etiqueta="Estado">
                               <span className={`etiqueta ${c.etapa}`}>{c.ausencia_causa ? 'No se presentó' : ETAPA_CAMION[c.etapa] ?? c.etapa}</span>
                               {c.ausencia_causa && <div className="ayuda-campo">{c.ausencia_causa}</div>}
                             </td>
-                            <td>{c.llegada_fabrica ? fechaHoraBolivia(c.llegada_fabrica) : '—'}</td>
-                            <td>
+                            <td data-etiqueta="Llegada a fábrica">{c.llegada_fabrica ? fechaHoraBolivia(c.llegada_fabrica) : '—'}</td>
+                            <td data-etiqueta="Peso de balanza">
                               {c.etapa === 'cancelado' ? '—' : (
                                 <>
                                   {c.toneladas_cargadas != null

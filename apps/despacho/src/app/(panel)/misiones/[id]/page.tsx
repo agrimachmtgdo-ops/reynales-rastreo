@@ -9,6 +9,7 @@ import {
 } from '@/lib/tipos';
 import CamposCamion from '@/componentes/CamposCamion';
 import FormularioAccion from '@/componentes/FormularioAccion';
+import { registrarPeso } from '../../programa/acciones';
 import InvitacionChofer from '@/componentes/InvitacionChofer';
 import MapaMision from '@/componentes/MapaMision';
 import RefrescoEnVivo from '@/componentes/RefrescoEnVivo';
@@ -113,7 +114,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
 
   const { data: mision } = await supabase
     .from('misiones')
-    .select(`id, codigo, etapa, factura, guia, dex, tipo_carga, tonelaje_objetivo, telefono_coordinador, notas, entrega_comprometida,
+    .select(`id, codigo, etapa, factura, guia, dex, tipo_carga, tonelaje_objetivo, telefono_coordinador, notas, entrega_comprometida, envio_id,
              cliente:clientes(razon_social, pais, whatsapp),
              origen:ubicaciones!misiones_origen_id_fkey(nombre),
              destino:ubicaciones!misiones_destino_id_fkey(nombre, pais, lat, lon)`)
@@ -181,7 +182,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
   const m = mision as unknown as {
     codigo: string; etapa: Etapa; factura: string | null; guia: string | null; dex: string | null;
     tipo_carga: string | null; tonelaje_objetivo: number | null; telefono_coordinador: string | null; notas: string | null;
-    entrega_comprometida: string | null;
+    entrega_comprometida: string | null; envio_id: string | null;
     cliente: { razon_social: string; pais: string; whatsapp: string | null } | null; origen: { nombre: string } | null; destino: { nombre: string; pais: string; lat: number; lon: number } | null;
   };
   const puntoDestino: [number, number] | null = m.destino ? [m.destino.lat, m.destino.lon] : null;
@@ -236,6 +237,16 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
             : (a.toneladas_cargadas ? `${a.toneladas_cargadas} TN cargadas` : 'TN sin registrar')}
           {a.precinto && ` · Precinto ${a.precinto}`}
         </p>
+        {(a.tramo ?? 1) === 1 && a.toneladas_cargadas == null && a.etapa !== 'programado' && a.etapa !== 'cancelado' && (
+          <div className="alerta-sin-peso" role="alert">
+            <strong>Salió sin peso de balanza.</strong> Registre el peso del ticket de balanza para que el saldo y el cumplimiento sean exactos.
+            <FormularioAccion accion={registrarPeso.bind(null, a.id, m.envio_id ?? '')} boton="Guardar peso" claseBoton="boton boton-chico" clase="peso-en-linea">
+              <label><span className="solo-lector">Peso de balanza en toneladas</span>
+                <input name="peso" inputMode="decimal" placeholder="t" size={6} />
+              </label>
+            </FormularioAccion>
+          </div>
+        )}
         {(a.tramo ?? 1) > 1 && esInternacional(m.destino?.pais) && a.etapa !== 'cancelado' && documentosFaltantes(documentos, a.id).length > 0 && (
           <p className="alerta">Falta {documentosFaltantes(documentos, a.id).map((t) => TIPO_DOCUMENTO[t]).join(' y ')} de este camión.</p>
         )}
