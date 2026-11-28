@@ -14,11 +14,13 @@ function color(etapa: AsignacionEnVivo['etapa']) {
   return MARCA.verde;
 }
 
-function Enfocar({ punto }: { punto: [number, number] | null }) {
+/** Vuela al camión solo cuando cambia la selección (no en cada actualización de posición). */
+function Enfocar({ seleccion, lat, lon }: { seleccion: string | null | undefined; lat: number | null; lon: number | null }) {
   const mapa = useMap();
   useEffect(() => {
-    if (punto) mapa.flyTo(punto, 11, { duration: 0.8 });
-  }, [mapa, punto]);
+    if (seleccion && lat !== null && lon !== null) mapa.flyTo([lat, lon], 11, { duration: 0.8 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapa, seleccion]);
   return null;
 }
 
@@ -95,7 +97,7 @@ export default function MapaFlota({
           </CircleMarker>
         ))}
         <Encuadrar puntos={puntos} />
-        <Enfocar punto={punto} />
+        <Enfocar seleccion={seleccion} lat={punto ? punto[0] : null} lon={punto ? punto[1] : null} />
       </MapContainer>
       <Leyenda />
     </div>

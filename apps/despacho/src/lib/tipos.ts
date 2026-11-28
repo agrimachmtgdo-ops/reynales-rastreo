@@ -15,7 +15,7 @@ export interface AsignacionEnVivo {
   ultima_senal: string | null;
   toneladas_cargadas: number | null;
   mision: { codigo: string; cliente: { razon_social: string } | null; destino: { nombre: string } | null } | null;
-  conductor: { nombre: string } | null;
+  conductor: { nombre: string; telefono?: string | null } | null;
   vehiculo: { placa: string } | null;
 }
 
@@ -67,4 +67,11 @@ export function grupoDe(a: Pick<AsignacionEnVivo, 'etapa' | 'ultima_senal'>, aho
   if (min === null || min > 30) return 'sin_senal';
   if (a.etapa === 'en_frontera') return 'en_frontera';
   return 'en_ruta';
+}
+
+/** Enlace de WhatsApp a un número (o null si no hay número usable). */
+export function enlaceWhatsApp(telefono: string | null | undefined, texto?: string): string | null {
+  const numero = (telefono ?? '').replace(/[^0-9]/g, '');
+  if (numero.length < 8) return null;
+  return `https://wa.me/${numero}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`;
 }

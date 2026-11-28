@@ -89,7 +89,7 @@ th { color: var(--cafe); font-size: 12px; text-transform: uppercase; letter-spac
 .camion .fila { display: flex; justify-content: space-between; align-items: center; }
 .camion .placa { font-weight: 700; color: var(--cafe); }
 .camion .detalle { font-size: 13px; color: var(--gris); }
-.camion .ver-mision { font-size: 13px; font-weight: 600; margin-left: 12px; }
+.camion .ver-mision { font-size: 13px; font-weight: 600; }
 
 /* Foco visible para teclado en todo control. */
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
@@ -158,3 +158,18 @@ td.acciones { white-space: nowrap; text-align: right; }
 td.acciones a { margin-right: 12px; }
 tr.inactivo td { color: var(--gris); }
 tr.evento-alerta td { background: #fff4e5; }
+
+/* ---- Tablero: estado de conexión y avisos ---- */
+.barra-tablero { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; font-size: 14px; }
+.conexion.conectado { color: var(--verde-oscuro); font-weight: 600; }
+.conexion.reconectando { color: #b3261e; font-weight: 600; }
+.conexion.conectando { color: var(--gris); }
+.acciones-camion { display: flex; gap: 4px; flex-wrap: wrap; padding: 0 12px 10px; }
+
+/* Detalle de misión: indicador de actualización en vivo */
+.refresco-en-vivo { font-size: 13px; color: var(--gris); display: inline-flex; align-items: center; gap: 6px; }
+.punto-vivo { width: 8px; height: 8px; border-radius: 50%; background: var(--verde, #00963F); display: inline-block; }
+@media (prefers-reduced-motion: no-preference) {
+  .punto-vivo { animation: latido 2s ease-in-out infinite; }
+}
+@keyframes latido { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }

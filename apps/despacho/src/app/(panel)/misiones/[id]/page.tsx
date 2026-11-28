@@ -8,6 +8,7 @@ import CamposCamion from '@/componentes/CamposCamion';
 import FormularioAccion from '@/componentes/FormularioAccion';
 import InvitacionChofer from '@/componentes/InvitacionChofer';
 import MapaMision from '@/componentes/MapaMision';
+import RefrescoEnVivo from '@/componentes/RefrescoEnVivo';
 import { agregarCamion, cambiarEtapaManual, crearInvitacion } from '../acciones';
 
 export const dynamic = 'force-dynamic';
@@ -60,10 +61,10 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
   if (!mision) notFound();
 
   const [{ data: asigData }, catalogos] = await Promise.all([
-    supabase.from('asignaciones').select(`${SELECT_ASIGNACION_EN_VIVO}, conductor_det:conductores(telefono)`).eq('mision_id', id).order('creado_en'),
+    supabase.from('asignaciones').select(SELECT_ASIGNACION_EN_VIVO).eq('mision_id', id).order('creado_en'),
     cargarCatalogosCamion(),
   ]);
-  const asignaciones = (asigData ?? []) as unknown as (AsignacionEnVivo & { conductor_det: { telefono: string | null } | null })[];
+  const asignaciones = (asigData ?? []) as unknown as AsignacionEnVivo[];
   const ids = asignaciones.map((a) => a.id);
 
   // Invitación más reciente (no anulada) de cada camión, para mostrarla al recargar la página.
@@ -102,7 +103,10 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
       <section className="tarjeta">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ margin: 0 }}>Misión {m.codigo}</h1>
-          <span className={`etiqueta ${m.etapa}`}>{ETIQUETA_ETAPA[m.etapa]}</span>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <RefrescoEnVivo misionId={id} />
+            <span className={`etiqueta ${m.etapa}`}>{ETIQUETA_ETAPA[m.etapa]}</span>
+          </div>
         </div>
         <p>
           <strong>{m.cliente?.razon_social}</strong> · {m.origen?.nombre} → {m.destino?.nombre} ({m.destino?.pais})
@@ -132,7 +136,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
                   <h3>Acceso del chofer</h3>
                   <InvitacionChofer
                     nombreChofer={a.conductor?.nombre ?? ''}
-                    telefonoChofer={a.conductor_det?.telefono ?? null}
+                    telefonoChofer={a.conductor?.telefono ?? null}
                     codigoMision={m.codigo}
                     generar={crearInvitacion.bind(null, a.id)}
                     vigente={invitacionDe(a.id)}
@@ -140,7 +144,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
                 </div>
                 <div>
                   <h3>Modo manual (si falla la app)</h3>
-                  <FormularioAccion accion={cambiarEtapaManual.bind(null, a.id, id)} boton="Cambiar etapa" claseBoton="boton secundario">
+                  <FormularioAccion accion={cambiarEtapaManual.bind(null, a.id, id)} boton="Cambiar etapa" claseBoton="boton secundario" confirmarCierre>
                     <div className="rejilla">
                       <label>
                         Nueva etapa
@@ -148,7 +152,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
                           {ETAPAS.map((e) => <option key={e} value={e}>{ETIQUETA_ETAPA[e]}</option>)}
                         </select>
                       </label>
-                      <label>Nota<input name="nota" placeholder="Ej. chofer avisó por teléfono" /></label>
+                      <label>Nota (obligatoria para Entregado o Cancelado)<input name="nota" placeholder="Ej. chofer avisó por teléfono" /></label>
                     </div>
                   </FormularioAccion>
                 </div>
