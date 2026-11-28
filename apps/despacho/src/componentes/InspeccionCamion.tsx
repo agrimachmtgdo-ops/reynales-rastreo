@@ -29,7 +29,7 @@ export default function InspeccionCamion({
   const puedeCerrar = puedeCargar && cierre.etapa !== 'cancelado' && (estado === 'cargando' || estado === 'liberado' || estado === 'cerrada');
 
   return (
-    <details className="carga-camion agregar inspeccion-camion" open={abierto || salioSinCierre || estado === 'rechazado'}>
+    <details className="carga-camion agregar inspeccion-camion" open={abierto || estado === 'rechazado'}>
       <summary>
         Inspección y cierre: <strong>{TEXTO_ESTADO_CARGA[estado]}</strong>
         {cierre.precinto && <> · precinto <strong>{cierre.precinto}</strong></>}
