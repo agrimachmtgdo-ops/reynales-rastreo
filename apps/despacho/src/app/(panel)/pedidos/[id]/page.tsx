@@ -91,7 +91,7 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
       <section className="tarjeta">
         <h2>Programa de envíos</h2>
         <p className="ayuda" style={{ marginTop: 0 }}>
-          Un envío por camión. Los envíos planificados se cambian libremente; al confirmar el programa, su fecha queda como compromiso con el cliente.
+          Cada envío es un lote que se entrega en una fecha y puede llevar varios camiones. Los envíos planificados se cambian libremente; al confirmar el programa, su fecha queda como compromiso con el cliente.
           «Comprometida» solo cambia si el cliente pide el cambio; «Vigente» es la fecha con la que se trabaja hoy.
         </p>
         {programable && (

@@ -63,7 +63,7 @@ export default function ImportarPedidos({ clientes, ubicaciones }: { clientes: C
       <section className="tarjeta">
         <ol className="pasos-importar">
           <li>Use la <a href="/plantilla-pedidos.xlsx" download>plantilla de pedidos</a> o su propia planilla: se reconocen títulos como «OC», «Cliente», «NIT», «Producto», «Destino», «Incoterm», «Toneladas» y «Fecha de entrega».</li>
-          <li>Cada fila es un envío (un camión). Las filas con el mismo cliente y la misma orden de compra forman un solo pedido.</li>
+          <li>Cada fila es un envío (un lote que se entrega en una fecha). Las filas con el mismo cliente y la misma orden de compra forman un solo pedido.</li>
           <li>El cliente y el destino deben existir en Catálogos. Cada pedido se crea en borrador con la suma de sus filas como cantidad y las filas como programa planificado, para que lo revise y confirme.</li>
         </ol>
         <label className="selector-excel">

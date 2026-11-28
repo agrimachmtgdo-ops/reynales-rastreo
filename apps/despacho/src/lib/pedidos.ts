@@ -68,7 +68,7 @@ export function proximaEntrega(envios: Pick<EnvioPedido, 'entrega_vigente' | 'es
 
 /** Lo programado puede superar lo pedido hasta 3 % (peso real de cada camión). */
 export const TOLERANCIA = 0.03;
-/** Toneladas que suele llevar un camión (valor inicial de «Dividir en camiones»). */
+/** Toneladas que suele llevar un camión (para estimar cuántos camiones lleva un envío). */
 export const TONELADAS_POR_CAMION = 29;
 
 export const plural = (n: number, uno: string, varios: string) => `${n.toLocaleString('es-BO', { maximumFractionDigits: 2 })} ${n === 1 ? uno : varios}`;
