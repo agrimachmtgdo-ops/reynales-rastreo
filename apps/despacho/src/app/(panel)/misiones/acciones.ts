@@ -350,6 +350,7 @@ export async function guardarLote(asignacionId: string, misionId: string, loteId
   });
   if (error) return { ok: false, mensaje: error.message };
   revalidatePath(`/misiones/${misionId}`);
+  revalidatePath('/almacen', 'layout');
   return { ok: true, mensaje: loteId ? 'Lote corregido.' : 'Lote agregado.' };
 }
 
@@ -359,6 +360,7 @@ export async function quitarLote(loteId: string, misionId: string, _: Resultado 
   const { error } = await supabase.rpc('quitar_lote', { p_lote_id: loteId });
   if (error) return { ok: false, mensaje: error.message };
   revalidatePath(`/misiones/${misionId}`);
+  revalidatePath('/almacen', 'layout');
   return { ok: true, mensaje: 'Lote quitado.' };
 }
 
@@ -382,5 +384,6 @@ export async function registrarBalanza(asignacionId: string, misionId: string, _
   });
   if (error) return { ok: false, mensaje: error.message };
   revalidatePath(`/misiones/${misionId}`);
+  revalidatePath('/almacen', 'layout');
   return { ok: true, mensaje: `Balanza guardada: neto ${Number(data).toLocaleString('es-BO', { maximumFractionDigits: 2 })} t.` };
 }

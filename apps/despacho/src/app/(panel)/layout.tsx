@@ -49,7 +49,7 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
           <div className="tarjeta">
             <h1>Cuenta pendiente de activación</h1>
             <p>
-              Su cuenta existe, pero un administrador debe asignarle un perfil (administrador, logística, comercial o gerencia) antes de
+              Su cuenta existe, pero un administrador debe asignarle un perfil (administrador, logística, comercial, almacén o gerencia) antes de
               ver la información de los camiones.
             </p>
           </div>

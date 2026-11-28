@@ -236,10 +236,14 @@ function TablaEnvios({ envios }: { envios: EnvioCumplimiento[] }) {
 }
 
 async function VistaTransportistas({ filtros }: { filtros: FiltrosCumplimiento }) {
-  const [{ lista, toleranciaMin, error }, viajes] = await Promise.all([
+  const supabase = await crearClienteServidor();
+  const [{ lista, toleranciaMin, error }, viajes, { data: rechazosData }] = await Promise.all([
     cargarTransportistas(filtros),
     cargarReporte({ desde: filtros.desde, hasta: filtros.hasta }),
+    supabase.rpc('rechazos_inspeccion', { p_desde: filtros.desde, p_hasta: filtros.hasta }),
   ]);
+  const rechazos = new Map(((rechazosData ?? []) as { transportista_id: string; camiones_inspeccionados: number; camiones_rechazados: number; rechazos: number }[])
+    .map((r) => [r.transportista_id, r]));
   if (error) return <section className="tarjeta mensaje-error">No se pudo calcular el cumplimiento de transportistas: {error}</section>;
   const fichas = fichasCumplimiento(lista);
   const porViaje = new Map(fichasTransportistas(viajes.filas).map((f) => [f.id, f]));
@@ -250,14 +254,15 @@ async function VistaTransportistas({ filtros }: { filtros: FiltrosCumplimiento }
       <p className="ayuda">
         De peor a mejor presentación. Confirmación = camiones confirmados sobre los pedidos que respondieron. Presentación = camiones
         que llegaron a fábrica sobre los cargados con placa. Puntual = llegó hasta {toleranciaMin} min después de la hora de presentación.
-        Viajes y señal GPS: misiones entregadas en el período (de Reportes).
+        Viajes y señal GPS: misiones entregadas en el período (de Reportes). Rechazos: camiones que almacén rechazó en la inspección
+        (piso sucio, olores, lona rota…) sobre los inspeccionados en el período.
       </p>
       {fichas.length === 0 ? <p>No se pidieron camiones para envíos con carga en este período.</p> : (
         <>
           <div className="tabla-desplazable"><table className="tabla-tarjetas">
             <thead><tr>
               <th>Transportista</th><th>Camiones pedidos</th><th>Confirmación</th><th>Sin respuesta</th><th>Presentación</th>
-              <th>Puntualidad</th><th>Ausencias</th><th>Viajes</th><th>Duración (mediana)</th><th>Señal GPS</th>
+              <th>Puntualidad</th><th>Ausencias</th><th>Viajes</th><th>Duración (mediana)</th><th>Señal GPS</th><th>Rechazos en inspección</th>
             </tr></thead>
             <tbody>{fichas.map((t) => {
               const v = porViaje.get(t.transportista_id);
@@ -275,6 +280,14 @@ async function VistaTransportistas({ filtros }: { filtros: FiltrosCumplimiento }
                   <td data-etiqueta="Viajes">{v?.viajes ?? 0}</td>
                   <td data-etiqueta="Duración (mediana)">{formatoHoras(v?.duracionMediana)}</td>
                   <td data-etiqueta="Señal GPS">{formatoPct(v?.pctSenal)}</td>
+                  {(() => {
+                    const r = rechazos.get(t.transportista_id);
+                    return (
+                      <td data-etiqueta="Rechazos en inspección" className={r && r.camiones_rechazados > 0 ? 'docs-faltan' : undefined}>
+                        {r ? <>{r.camiones_rechazados} <span className="ayuda-campo" style={{ display: 'inline' }}>(de {r.camiones_inspeccionados} inspeccionados)</span></> : '—'}
+                      </td>
+                    );
+                  })()}
                 </tr>
               );
             })}</tbody>
