@@ -29,6 +29,19 @@ export default function Activar({ codigoInicial, alActivar }: { codigoInicial?: 
       const dispositivo = Application.getAndroidId() ?? 'desconocido';
       const { data, error } = await supabase.rpc('activar_invitacion', { p_codigo: valor, p_dispositivo: dispositivo });
       if (error) throw error;
+      if (!data) {
+        // Código incorrecto, vencido o ya usado en otro teléfono: el servidor no dice cuál (seguridad).
+        const { data: estado } = await supabase.rpc('estado_activacion', { p_dispositivo: dispositivo });
+        const restantes = (estado as { intentos_restantes?: number } | null)?.intentos_restantes;
+        setError(
+          restantes === 0
+            ? 'Demasiados intentos. Espere una hora o pida ayuda a despacho.'
+            : `Código no válido o vencido. Revíselo o pida uno nuevo a despacho.${
+                restantes !== undefined && restantes <= 2 ? ` Le quedan ${restantes} intentos.` : ''
+              }`,
+        );
+        return;
+      }
       await alActivar(data as Viaje);
     } catch (err) {
       setError(mensajeSimple(err, 'No se pudo activar el código. Revíselo o pida uno nuevo a despacho.'));

@@ -10,6 +10,7 @@ export function mensajeSimple(err: unknown, porDefecto = 'No se pudo completar. 
   if (/JWT|token|Sesi[oó]n no iniciada|session/i.test(texto)) return 'La sesión se cerró. Cierre la app, ábrala de nuevo e intente otra vez.';
   if (/Sin acceso/i.test(texto)) return 'Este teléfono perdió el acceso al viaje. Avise a despacho.';
   if (/No se puede pasar/i.test(texto)) return 'Esta etapa ya estaba registrada. La pantalla se actualizó.';
+  if (/Identificador de tel/i.test(texto)) return 'No se pudo identificar este teléfono. Avise a despacho.';
   if (/Debe aceptar la pol/i.test(texto)) return 'Primero debe aceptar las condiciones de rastreo.';
   // Mensajes técnicos (código, nombres de funciones): no se muestran al chofer.
   if (/PGRST|syntax|function|relation|column|violates|[a-z]+_[a-z]+\(/i.test(texto)) return porDefecto;

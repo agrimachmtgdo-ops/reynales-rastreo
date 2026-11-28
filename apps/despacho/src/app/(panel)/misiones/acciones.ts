@@ -27,8 +27,32 @@ function datosAsignacion(f: FormData) {
   };
 }
 
+/**
+ * Si el chofer o el camión ya están en otro viaje activo, devuelve un aviso
+ * (salvo que despacho haya marcado «Asignar igual»).
+ */
+async function avisoOcupado(f: FormData): Promise<Resultado | null> {
+  if (f.get('asignar_igual') === 'on') return null;
+  const conductor = texto(f, 'conductor_id');
+  const vehiculo = texto(f, 'vehiculo_id');
+  if (!conductor || !vehiculo) return null;
+  const supabase = await crearClienteServidor();
+  const { data } = await supabase.rpc('viajes_activos_de', { p_conductor: conductor, p_vehiculo: vehiculo });
+  const lista = (data ?? []) as { mision_codigo: string; placa: string; chofer: string; por_chofer: boolean; por_vehiculo: boolean }[];
+  if (lista.length === 0) return null;
+  const detalle = lista
+    .map((v) => (v.por_chofer && v.por_vehiculo ? `${v.chofer} y ${v.placa}` : v.por_chofer ? `el chofer ${v.chofer}` : `el camión ${v.placa}`) + ` (misión ${v.mision_codigo})`)
+    .join('; ');
+  return {
+    ok: false,
+    mensaje: `Atención: ya está en un viaje activo ${detalle}. Si es correcto, marque «Asignar igual» y vuelva a guardar.`,
+  };
+}
+
 /** Crea la misión con su primer camión y abre el detalle. */
 export async function crearMision(_: Resultado | null, f: FormData): Promise<Resultado> {
+  const ocupado = await avisoOcupado(f);
+  if (ocupado) return ocupado;
   const supabase = await crearClienteServidor();
   const { data: mision, error } = await supabase
     .from('misiones')
@@ -56,7 +80,30 @@ export async function crearMision(_: Resultado | null, f: FormData): Promise<Res
   redirect(`/misiones/${mision.id}`);
 }
 
+export async function editarMision(misionId: string, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const supabase = await crearClienteServidor();
+  const tonelaje = numero(f, 'tonelaje_objetivo');
+  if (tonelaje !== null && (Number.isNaN(tonelaje) || tonelaje < 0)) return { ok: false, mensaje: 'El tonelaje debe ser un número.' };
+  const { error } = await supabase
+    .from('misiones')
+    .update({
+      factura: texto(f, 'factura'),
+      guia: texto(f, 'guia'),
+      dex: texto(f, 'dex'),
+      tipo_carga: texto(f, 'tipo_carga'),
+      tonelaje_objetivo: tonelaje,
+      telefono_coordinador: texto(f, 'telefono_coordinador'),
+      notas: texto(f, 'notas'),
+    })
+    .eq('id', misionId);
+  if (error) return { ok: false, mensaje: `No se pudo guardar: ${error.message}` };
+  revalidatePath(`/misiones/${misionId}`);
+  return { ok: true, mensaje: 'Datos de la misión actualizados.' };
+}
+
 export async function agregarCamion(misionId: string, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const ocupado = await avisoOcupado(f);
+  if (ocupado) return ocupado;
   const supabase = await crearClienteServidor();
   const { error } = await supabase.from('asignaciones').insert({ mision_id: misionId, ...datosAsignacion(f) });
   if (error) return { ok: false, mensaje: `No se pudo agregar el camión: ${error.message}` };
