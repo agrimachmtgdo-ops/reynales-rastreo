@@ -3,6 +3,12 @@ import { redirect } from 'next/navigation';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import { nombrePerfil } from '@/lib/perfiles';
 
+/** Iniciales para el círculo del usuario (máximo dos letras). */
+function iniciales(nombre: string) {
+  const partes = nombre.replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean);
+  return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '?';
+}
+
 export default async function LayoutPanel({ children }: { children: React.ReactNode }) {
   const supabase = await crearClienteServidor();
   const { data } = await supabase.auth.getClaims();
@@ -25,12 +31,16 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="Industrias Reynales" />
         <Navegacion esAdmin={perfilActual === 'administrador'} />
-        <span className="usuario">
-          {perfil?.nombre ?? user.email} · {nombrePerfil(perfilActual as string | null)}
-        </span>
-        <form action="/auth/salir" method="post">
-          <button className="boton secundario">Salir</button>
-        </form>
+        <div className="usuario">
+          <span className="avatar" aria-hidden="true">{iniciales(perfil?.nombre ?? user.email ?? '')}</span>
+          <span className="usuario-texto">
+            <span className="usuario-nombre">{perfil?.nombre ?? user.email}</span>
+            <span className="usuario-perfil">{nombrePerfil(perfilActual as string | null)}</span>
+          </span>
+          <form action="/auth/salir" method="post">
+            <button className="boton-salir">Salir</button>
+          </form>
+        </div>
       </header>
       <main className="contenido">
         {perfil?.activo ? (

@@ -9,7 +9,7 @@ import { fijarDiasAnticipacion } from './acciones';
 export const dynamic = 'force-dynamic';
 
 const esFecha = (v: string | undefined): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
-const ORDEN: Semaforo[] = ['rojo', 'amarillo', 'a_tiempo', 'listo', 'en_curso'];
+const ORDEN: Semaforo[] = ['rojo', 'parcial', 'amarillo', 'a_tiempo', 'listo', 'en_curso'];
 
 /** Programa de despachos: envíos confirmados por fecha de carga, con el semáforo de camiones. */
 export default async function PaginaPrograma({ searchParams }: { searchParams: Promise<{ desde?: string; hasta?: string }> }) {

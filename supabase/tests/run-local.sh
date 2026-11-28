@@ -8,6 +8,8 @@ PSQL=(psql -v ON_ERROR_STOP=1 -q -X)
 "${PSQL[@]}" -d postgres -c "drop database if exists $DB" -c "create database $DB"
 "${PSQL[@]}" -d "$DB" -f tests/00_simular_supabase.sql
 for f in migrations/*.sql; do
+  # El envío completo (C3b) se aplica más abajo, junto con sus pruebas.
+  [[ "$f" == *20261215000100_envio_completo.sql ]] && continue
   echo "→ $f"
   "${PSQL[@]}" -d "$DB" -f "$f"
 done
@@ -41,16 +43,23 @@ echo "→ ida y vuelta de la reversión de pedidos"
 "${PSQL[@]}" -d "$DB" -f migrations/20261211000100_pedido_programa.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261212000100_requerimiento_unidades.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261213000100_fecha_carga.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261215000100_envio_completo.sql
 "${PSQL[@]}" -d "$DB" -f tests/90_requerimiento_unidades.sql
 echo "→ ida y vuelta de la reversión de la fecha de carga (con datos)"
 "${PSQL[@]}" -d "$DB" -f revertir/20261213000100_fecha_carga.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261213000100_fecha_carga.sql
 echo "→ ida y vuelta de la reversión del requerimiento de unidades (con datos)"
+"${PSQL[@]}" -d "$DB" -f revertir/20261215000100_envio_completo.sql
 "${PSQL[@]}" -d "$DB" -f revertir/20261212000100_requerimiento_unidades.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261212000100_requerimiento_unidades.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261215000100_envio_completo.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261214000100_cumplimiento.sql
 "${PSQL[@]}" -d "$DB" -f tests/95_cumplimiento.sql
 echo "→ ida y vuelta de la reversión del cumplimiento"
 "${PSQL[@]}" -d "$DB" -f revertir/20261214000100_cumplimiento.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261214000100_cumplimiento.sql
+"${PSQL[@]}" -d "$DB" -f tests/96_envio_completo.sql
+echo "→ ida y vuelta de la reversión del envío completo"
+"${PSQL[@]}" -d "$DB" -f revertir/20261215000100_envio_completo.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261215000100_envio_completo.sql
 echo "✔ Todas las pruebas pasaron"

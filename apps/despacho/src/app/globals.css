@@ -528,3 +528,265 @@ a.etiqueta.carga-pasada:hover { text-decoration: underline; }
   .tabla-tarjetas td:empty { display: none; }
   .tabla-tarjetas .boton { margin-top: 6px; }
 }
+
+/* =====================================================================
+   Diseño v2 — aspecto profesional en todo el panel.
+   Superficies neutras, sombras suaves, un solo color por estado
+   (el mismo en indicadores, etiquetas, tarjetas y mapa), botones
+   secundarios con borde, texto secundario con buen contraste.
+   ===================================================================== */
+:root {
+  --fondo: #f6f4ef;
+  --superficie: #ffffff;
+  --superficie-suave: #faf8f4;
+  --borde: #e5ddd0;
+  --borde-fuerte: #d3c8b6;
+  --gris: #5f574d;           /* texto secundario: 7,1 a 1 sobre blanco */
+  --tinta: #22180e;
+  --sombra-1: 0 1px 2px rgba(43, 29, 16, .06), 0 1px 3px rgba(43, 29, 16, .05);
+  --sombra-2: 0 4px 12px rgba(43, 29, 16, .10);
+  --radio: 12px;
+  /* Colores por estado del camión (iguales a los del mapa). */
+  --st-en_ruta: #00963f;
+  --st-en_frontera: #e2a900;
+  --st-cruzo_frontera: #1d4f80;
+  --st-detenido: #7d3c98;
+  --st-sin_senal: #8a8a8a;
+  --st-programado: #c9b79c;
+  --st-emergencia: #c0392b;
+}
+body { background: var(--fondo); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+h1 { font-size: 24px; letter-spacing: -.01em; }
+h2 { font-size: 18px; }
+h1, h2, h3 { line-height: 1.25; }
+
+/* Encabezado: barra blanca fija, menú con pastillas, usuario a la derecha. */
+.encabezado {
+  position: sticky; top: 0; z-index: 1100;
+  border-bottom: 1px solid var(--borde); box-shadow: 0 1px 0 rgba(226, 169, 0, .55), var(--sombra-1);
+  padding: 8px 24px; gap: 20px; min-height: 64px;
+}
+.encabezado img { height: 42px; }
+.encabezado nav { gap: 2px; align-items: center; flex-wrap: wrap; }
+.encabezado nav a {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 8px;
+  border: 0; color: var(--cafe); font-size: 15px; transition: background-color .15s ease, color .15s ease;
+}
+.encabezado nav a:hover { background: var(--superficie-suave); }
+.encabezado nav a.activo { background: #fbf0cf; color: var(--tinta); box-shadow: inset 0 -3px 0 var(--dorado); }
+.encabezado .usuario { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--gris); }
+.encabezado .usuario form { margin: 0; }
+.avatar {
+  flex: none; width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--cafe); color: #fff; font-weight: 700; font-size: 14px; letter-spacing: .02em;
+}
+.usuario-texto { display: flex; flex-direction: column; line-height: 1.25; }
+.usuario-nombre { color: var(--tinta); font-weight: 600; font-size: 14px; }
+.usuario-perfil { color: var(--gris); font-size: 12px; }
+.boton-salir {
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--cafe); background: var(--superficie);
+  border: 1px solid var(--borde-fuerte); border-radius: 8px; padding: 0 14px; min-height: 40px; cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.boton-salir:hover { background: var(--superficie-suave); border-color: var(--cafe); }
+
+.contenido { padding: 24px; }
+.tarjeta { border-radius: var(--radio); box-shadow: var(--sombra-1); padding: 20px; }
+
+/* Botones: principal verde relleno; secundario con borde; transiciones suaves. */
+.boton { border-radius: 10px; padding: 0 18px; gap: 8px; transition: background-color .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.boton:hover:not(:disabled) { background: #00692c; box-shadow: var(--sombra-1); }
+.boton.secundario { background: var(--superficie); color: var(--cafe); border: 1px solid var(--borde-fuerte); }
+.boton.secundario:hover:not(:disabled) { background: var(--superficie-suave); border-color: var(--cafe); }
+.boton.dorado:hover:not(:disabled) { background: #cc9900; }
+.boton.peligro:hover:not(:disabled) { background: #a5301f; }
+.encabezado-transbordo .boton.secundario { min-height: 40px; }
+
+/* Campos y tablas. */
+input, select, textarea { border-color: var(--borde-fuerte); border-radius: 8px; transition: border-color .15s ease, box-shadow .15s ease; }
+input:focus, select:focus, textarea:focus { border-color: var(--dorado); box-shadow: 0 0 0 3px rgba(226, 169, 0, .25); outline: none; }
+label { color: var(--tinta); }
+th { background: var(--superficie-suave); color: var(--gris); font-weight: 700; padding: 10px 8px; }
+tbody tr { transition: background-color .12s ease; }
+tbody tr:hover td { background: var(--superficie-suave); }
+.etiqueta { padding: 3px 10px; line-height: 1.4; white-space: nowrap; }
+.ayuda, .ayuda-campo, .cifra-detalle, .cifra-titulo { color: var(--gris); }
+.cifra { border-radius: 10px; background: var(--superficie-suave); }
+.agregar > summary { color: var(--cafe); }
+
+/* ---- Tablero en vivo ---- */
+.barra-tablero { margin-bottom: 16px; }
+.titulo-con-estado { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.titulo-tablero { margin: 0; }
+.conexion {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
+  padding: 4px 10px; border-radius: 999px; background: #e3f4e9; color: #006b2d;
+}
+.conexion.reconectando { background: #fbe4e1; color: #a5301f; }
+.conexion.conectando { background: #eeeae3; color: var(--gris); }
+.conexion .punto-estado { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+@media (prefers-reduced-motion: no-preference) {
+  .conexion.conectado .punto-estado { animation: latido 2s ease-in-out infinite; }
+}
+.boton-avisos {
+  display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 14px; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--cafe);
+  background: var(--superficie); border: 1px solid var(--borde-fuerte); border-radius: 10px;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.boton-avisos:hover { background: var(--superficie-suave); border-color: var(--cafe); }
+.boton-avisos.activos { background: #e3f4e9; border-color: #9fd3b2; color: #006b2d; }
+
+/* Indicadores: tarjetas iguales, con el punto de color del estado. */
+.resumen { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.indicador {
+  flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; min-height: 72px; text-align: left;
+  border-radius: var(--radio); box-shadow: var(--sombra-1); color: var(--gris); font-size: 14px;
+  border: 1px solid var(--borde); transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+.indicador:hover { border-color: var(--borde-fuerte); box-shadow: var(--sombra-2); }
+.indicador .numero { font-size: 26px; line-height: 1.1; color: var(--tinta); font-variant-numeric: tabular-nums; }
+.indicador.activo { border: 1px solid var(--cafe); background: #fdf8ec; box-shadow: inset 0 0 0 1px var(--cafe); }
+.texto-indicador { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.indicador .punto-estado { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.indicador.en_ruta .punto-estado { background: var(--st-en_ruta); }
+.indicador.en_frontera .punto-estado { background: var(--st-en_frontera); }
+.indicador.detenido .punto-estado { background: var(--st-detenido); }
+.indicador.sin_senal .punto-estado { background: var(--st-sin_senal); }
+.indicador.programado .punto-estado { background: var(--st-programado); }
+.indicador.en_ruta .numero, .indicador.en_frontera .numero, .indicador.programado .numero { color: var(--tinta); }
+.indicador.detenido .numero { color: var(--st-detenido); }
+.indicador.sin_senal .numero { color: var(--rojo); }
+
+/* Lista de camiones: franja de color del estado a la izquierda. */
+.tablero { gap: 16px; height: calc(100dvh - 300px); }
+.tablero .lista { padding: 0; display: flex; flex-direction: column; }
+.titulo-lista {
+  position: sticky; top: 0; z-index: 2; background: var(--superficie); margin: 0;
+  padding: 14px 16px; border-bottom: 1px solid var(--borde); display: flex; align-items: center; gap: 8px; font-size: 16px;
+}
+.titulo-lista .contador { background: #f1ece3; color: var(--cafe); border-radius: 999px; padding: 1px 9px; font-size: 13px; }
+.camion { position: relative; padding: 0 0 10px; border-bottom: 1px solid var(--borde); transition: background-color .12s ease; }
+.camion::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 4px; border-radius: 0 4px 4px 0; background: var(--st-programado); }
+.camion.grupo-en_ruta::before { background: var(--st-en_ruta); }
+.camion.grupo-en_frontera::before { background: var(--st-en_frontera); }
+.camion.grupo-cruzo_frontera::before { background: var(--st-cruzo_frontera); }
+.camion.grupo-detenido::before { background: var(--st-detenido); }
+.camion.grupo-sin_senal::before { background: var(--st-sin_senal); }
+.camion.grupo-emergencia::before { background: var(--st-emergencia); }
+.camion:hover { background: var(--superficie-suave); }
+.camion.seleccionado { background: #fdf8ec; box-shadow: inset 0 0 0 2px var(--dorado); }
+.camion-principal { padding: 12px 16px 4px 20px; gap: 4px; }
+.camion .placa { font-size: 17px; letter-spacing: .02em; color: var(--tinta); }
+.camion .detalle { font-size: 13.5px; color: var(--gris); }
+.camion .alerta { color: var(--rojo); }
+.etiqueta.en_ruta, .etiqueta.cargado { background: #e3f4e9; color: #006b2d; }
+.etiqueta.en_frontera { background: #fcf1cf; color: #6b4e00; }
+.etiqueta.cruzo_frontera { background: #e1ecf7; color: #1d4f80; }
+.etiqueta.detenido { background: #f1e6f6; color: #5b2c6f; }
+.etiqueta.sin_senal { background: #ececec; color: #3d3d3d; }
+.etiqueta.programado { background: #f2ece2; color: #5a371b; }
+.acciones-camion { padding: 4px 16px 0 20px; gap: 8px; }
+.accion-camion, .acciones-camion .ver-mision {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px;
+  border: 1px solid var(--borde-fuerte); border-radius: 8px; background: var(--superficie);
+  font-size: 13px; font-weight: 600; color: var(--cafe); text-decoration: none;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.accion-camion:hover, .acciones-camion .ver-mision:hover { background: var(--superficie-suave); border-color: var(--cafe); }
+.acciones-camion .aviso-sin-whatsapp { border-color: #f0c4be; background: #fdf1ef; color: #a5301f; }
+
+/* Mapa: controles y leyenda con el mismo estilo de tarjeta. */
+.tablero .mapa { border-radius: var(--radio); box-shadow: var(--sombra-1); }
+.leyenda {
+  left: 12px; bottom: 12px; gap: 6px 14px; padding: 8px 12px; font-size: 12.5px; color: var(--tinta);
+  background: rgba(255, 255, 255, .96); border-radius: 10px; box-shadow: var(--sombra-2); border-color: var(--borde);
+}
+.leyenda .punto { width: 10px; height: 10px; border: 0; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .9), 0 0 0 2.5px rgba(0, 0, 0, .15); }
+.ver-todos-mapa, .selector-capa { border: 1px solid var(--borde-fuerte); border-radius: 10px; box-shadow: var(--sombra-2); }
+.ver-todos-mapa { min-height: 40px; font-size: 14px; padding: 0 14px; }
+.leaflet-bar { border: 1px solid var(--borde-fuerte) !important; border-radius: 10px !important; box-shadow: var(--sombra-2) !important; overflow: hidden; }
+.leaflet-bar a, .leaflet-touch .leaflet-bar a { width: 40px !important; height: 40px !important; line-height: 40px !important; color: var(--cafe) !important; }
+.leaflet-tooltip.placa-mapa { border-radius: 6px; border-color: var(--borde-fuerte); box-shadow: var(--sombra-1); }
+.leaflet-popup-content-wrapper { border-radius: 10px; box-shadow: var(--sombra-2); }
+
+@media (max-width: 1200px) { .resumen { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 900px) {
+  .tablero { height: auto; }
+  .tablero .lista { max-height: 70vh; overflow-y: auto; }
+  .encabezado nav { order: 3; flex-basis: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -4px; }
+  .encabezado nav::-webkit-scrollbar { display: none; }
+  .encabezado nav a { flex: none; }
+  .encabezado .usuario { margin-left: auto; }
+}
+@media (max-width: 700px) {
+  .encabezado { padding: 8px 12px; gap: 8px 12px; position: static; }
+  .encabezado img { height: 36px; }
+  .usuario-texto { display: none; }
+  .contenido { padding: 12px; }
+  .tarjeta { padding: 14px; }
+  .tablero .mapa { height: 380px; }
+}
+@media (max-width: 480px) {
+  .resumen { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .resumen .indicador:first-child { grid-column: 1 / -1; flex-direction: row; align-items: baseline; gap: 8px; min-height: 48px; }
+  .indicador { min-height: 64px; padding: 10px 12px; flex: initial; }
+  .indicador .numero { font-size: 22px; }
+  h1 { font-size: 21px; }
+  .boton-avisos { width: 100%; justify-content: center; }
+  .leyenda { font-size: 11.5px; gap: 4px 10px; right: 12px; }
+}
+@media print {
+  .encabezado { position: static; box-shadow: none; }
+  .tarjeta { box-shadow: none; }
+}
+
+/* ---- Diseño v2: formularios, filtros y enlaces de acción ---- */
+label { font-size: 14px; }
+/* Filtros: el botón queda alineado con los campos (sin margen bajo las etiquetas). */
+.filtros-misiones, .filtros-reporte { align-items: end; gap: 12px 16px; margin-bottom: 16px; }
+.filtros-misiones > label, .filtros-reporte > label { margin-bottom: 0; }
+.filtros-misiones .acciones-filtro, .filtros-reporte .acciones-filtro { min-height: 44px; display: flex; align-items: center; gap: 8px; }
+/* Encabezado de sección: título y botones en la misma línea. */
+.cabecera-seccion { margin-bottom: 20px; }
+.cabecera-seccion h1, .cabecera-seccion h2 { margin: 0; }
+/* Enlaces que son acciones: aspecto de botón sin relleno (no de texto subrayado). */
+.enlace-secundario, .enlace-cancelar {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; margin-left: 0;
+  border-radius: 10px; text-decoration: none; font-weight: 600; transition: background-color .15s ease;
+}
+.enlace-secundario { color: var(--verde-oscuro); }
+.enlace-cancelar { color: var(--cafe); }
+.enlace-secundario:hover, .enlace-cancelar:hover { background: #efe9de; }
+.enlace-secundario[download]::before {
+  content: ''; width: 18px; height: 18px; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12m0 0-4-4m4 4 4-4M5 21h14'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12m0 0-4-4m4 4 4-4M5 21h14'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+/* Tablas: códigos en negrita, números alineados a la derecha también en el título. */
+th.numero { text-align: right; }
+td:first-child > a:first-child { font-weight: 700; text-decoration: none; color: var(--cafe); }
+td:first-child > a:first-child:hover { text-decoration: underline; }
+td { vertical-align: middle; }
+/* Formulario de pedido: los campos ocupan todo el ancho; acciones juntas abajo. */
+.tarjeta:has(> .formulario-pedido) { max-width: 1100px; margin-left: auto; margin-right: auto; }
+.formulario-pedido .rejilla { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 4px 16px; }
+.formulario-pedido fieldset { border-radius: var(--radio); padding: 16px 20px 8px; margin-bottom: 20px; background: var(--superficie-suave); }
+.formulario-pedido legend { font-size: 16px; padding: 0 8px; }
+.formulario-pedido textarea { min-height: 96px; resize: vertical; }
+.formulario-pedido > .boton { margin-right: 4px; }
+.formulario-pedido > .ayuda { margin-top: 12px; }
+fieldset input, fieldset select, fieldset textarea { background: var(--superficie); }
+textarea { line-height: 1.5; }
+.migas { margin-bottom: 4px; }
+.migas a { text-decoration: none; }
+.migas a:hover { text-decoration: underline; }
+@media (max-width: 520px) {
+  .cabecera-seccion .botones { width: 100%; }
+  .cabecera-seccion .botones .boton { flex: 1 1 auto; }
+  .formulario-pedido fieldset { padding: 12px 12px 4px; }
+}
+
+/* Envío entregado o en camino con menos camiones de los necesarios. */
+.luz-parcial { background: #d35400; }
+.semaforo.luz-parcial { background: none; border: 0; color: #a04000; }

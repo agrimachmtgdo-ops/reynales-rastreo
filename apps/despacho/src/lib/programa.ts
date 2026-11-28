@@ -54,12 +54,13 @@ export const ESTADO_SOLICITUD: Record<string, string> = {
   anulado: 'Anulado',
 };
 
-export type Semaforo = 'listo' | 'rojo' | 'amarillo' | 'a_tiempo' | 'en_curso';
+export type Semaforo = 'listo' | 'rojo' | 'amarillo' | 'a_tiempo' | 'parcial' | 'en_curso';
 export const NOMBRE_SEMAFORO: Record<Semaforo, string> = {
   listo: 'Camiones completos',
   rojo: 'Urgente: faltan camiones',
   amarillo: 'Pedir camiones ya',
   a_tiempo: 'A tiempo',
+  parcial: 'Entrega parcial: faltan camiones',
   en_curso: 'Despachado',
 };
 
@@ -76,7 +77,9 @@ export const fechaCarga = (f: Pick<FilaPrograma, 'fecha_carga' | 'entrega_vigent
  * amarillo si faltan dentro de los días de anticipación; verde si están completos.
  */
 export function semaforo(f: FilaPrograma, hoy: string, diasAnticipacion: number): Semaforo {
-  if (f.estado === 'en_curso' || f.estado === 'cumplido') return 'en_curso';
+  if (f.estado === 'cumplido') return 'en_curso';
+  // En camino o entregado con menos camiones de los necesarios: faltan camiones por mandar.
+  if (f.estado === 'en_curso') return f.camiones_asignados < f.camiones_necesarios ? 'parcial' : 'en_curso';
   if (f.camiones_confirmados >= f.camiones_necesarios) return 'listo';
   const dias = diasEntre(hoy, fechaCarga(f));
   if (dias <= 2) return 'rojo';

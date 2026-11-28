@@ -45,6 +45,19 @@ function pitar() {
 type EstadoConexion = 'conectando' | 'conectado' | 'reconectando';
 
 /** Campana (con o sin tachado) para el botón de avisos. Decorativa: el texto del botón la describe. */
+/** Íconos de línea (decorativos: el texto del enlace los describe). */
+function Icono({ d }: { d: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d={d} />
+    </svg>
+  );
+}
+const ICONO_MISION = 'M5 12h14M13 6l6 6-6 6';
+const ICONO_MENSAJE = 'M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3 21l2-5.6A8.4 8.4 0 1 1 21 11.5z';
+const ICONO_AVISO = 'M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z';
+
 function IconoCampana({ activa }: { activa: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -240,14 +253,17 @@ export default function TableroEnVivo({
 
   return (
     <>
-      <h1 className="titulo-tablero">Tablero en vivo</h1>
       <div className="barra-tablero">
-        <span className={`conexion ${conexion}`} role="status">
-          {conexion === 'conectado' ? '● En vivo' : conexion === 'reconectando' ? '● Reconectando… los datos pueden estar atrasados' : '● Conectando…'}
-        </span>
-        <button type="button" className="enlace-boton" onClick={() => void alternarAvisos()} aria-pressed={avisos}>
+        <div className="titulo-con-estado">
+          <h1 className="titulo-tablero">Tablero en vivo</h1>
+          <span className={`conexion ${conexion}`} role="status">
+            <span className="punto-estado" aria-hidden="true" />
+            {conexion === 'conectado' ? 'En vivo' : conexion === 'reconectando' ? 'Reconectando… los datos pueden estar atrasados' : 'Conectando…'}
+          </span>
+        </div>
+        <button type="button" className={`boton-avisos ${avisos ? 'activos' : ''}`} onClick={() => void alternarAvisos()} aria-pressed={avisos}>
           <IconoCampana activa={avisos} />
-          {avisos ? 'Avisos de sin señal: activados' : 'Activar avisos de sin señal'}
+          {avisos ? 'Avisos de sin señal activados' : 'Activar avisos de sin señal'}
         </button>
       </div>
       {emergencias.length > 0 && (
@@ -272,13 +288,13 @@ export default function TableroEnVivo({
             onClick={() => setFiltro(r.grupo)}
           >
             <span className="numero">{conteo[r.grupo]}</span>
-            <span>{r.texto}</span>
+            <span className="texto-indicador">{r.clase && <span className="punto-estado" aria-hidden="true" />}{r.texto}</span>
           </button>
         ))}
       </div>
       <div className="tablero">
         <section className="tarjeta lista" style={{ padding: 0 }}>
-          <h2 style={{ padding: '12px 12px 0' }}>Camiones en curso ({visibles.length})</h2>
+          <h2 className="titulo-lista">Camiones en curso <span className="contador">{visibles.length}</span></h2>
           {ordenadas.length === 0 && (
             <div style={{ padding: 12 }}>
               <p>No hay camiones en viaje.</p>
@@ -290,7 +306,7 @@ export default function TableroEnVivo({
             const grupo = grupoDe(a, ahora, minDetenido);
             const sinSenal = grupo === 'sin_senal';
             return (
-              <div key={a.id} className={`camion ${seleccion === a.id ? 'seleccionado' : ''}`}>
+              <div key={a.id} className={`camion grupo-${a.emergencia_en ? 'emergencia' : grupo === 'en_ruta' && a.etapa === 'cruzo_frontera' ? 'cruzo_frontera' : grupo} ${seleccion === a.id ? 'seleccionado' : ''}`}>
               <button
                 type="button"
                 className="camion-principal"
@@ -321,8 +337,8 @@ export default function TableroEnVivo({
                 {a.emergencia_en && <span className="etiqueta emergencia">EMERGENCIA: {textoEmergencia(a.emergencia_motivo)}</span>}
               </button>
                 <span className="acciones-camion">
-                  <Link className="ver-mision" href={`/misiones/${a.mision_id}`}>
-                    Ver misión →
+                  <Link className="ver-mision accion-camion" href={`/misiones/${a.mision_id}`}>
+                    Ver misión <Icono d={ICONO_MISION} />
                   </Link>
                   {!enlaceWhatsApp(a.conductor?.telefono) && (
                     <Link
@@ -330,17 +346,17 @@ export default function TableroEnVivo({
                       href={a.conductor?.id ? `/catalogos?pestana=conductores&editar=${a.conductor.id}` : '/catalogos?pestana=conductores'}
                       title={a.conductor?.telefono ? `Número guardado sin código de país: ${a.conductor.telefono}` : 'El chofer no tiene teléfono registrado'}
                     >
-                      Sin WhatsApp registrado · editar chofer
+                      <Icono d={ICONO_AVISO} /> Sin WhatsApp · editar chofer
                     </Link>
                   )}
                   {enlaceWhatsApp(a.conductor?.telefono) && (
                     <a
-                      className="ver-mision"
+                      className="ver-mision accion-camion"
                       href={enlaceWhatsApp(a.conductor?.telefono, `Hola ${a.conductor?.nombre ?? ''}, le escribimos de despacho de Industrias Reynales sobre el camión ${a.vehiculo?.placa ?? ''}.`)!}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      WhatsApp al chofer
+                      <Icono d={ICONO_MENSAJE} /> WhatsApp al chofer
                     </a>
                   )}
                 </span>

@@ -92,7 +92,7 @@ export default async function PaginaPedidos({ searchParams }: { searchParams: Pr
       {pedidos.length > 0 && (
         <div className="tabla-desplazable">
           <table className="tabla-pedidos tabla-tarjetas">
-            <thead><tr><th>Código</th><th>Cliente</th><th>Orden de compra</th><th>Producto</th><th>Destino</th><th>Pedido</th><th>Programado</th><th>Fecha límite</th><th>Próxima entrega</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Código</th><th>Cliente</th><th>Orden de compra</th><th>Producto</th><th>Destino</th><th className="numero">Pedido</th><th className="numero">Programado</th><th>Fecha límite</th><th>Próxima entrega</th><th>Estado</th></tr></thead>
             <tbody>{pedidos.map((p) => {
               const proxima = proximaEntrega(p.envios);
               const programado = toneladasVivas(p.envios);
