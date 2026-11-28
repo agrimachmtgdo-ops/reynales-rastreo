@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ETIQUETA_ETAPA } from '@reynales/shared';
 import { crearClienteNavegador } from '@/lib/supabase/client';
 import { SELECT_ASIGNACION_EN_VIVO } from '@/lib/consultas';
+import { salioSinLotes } from '@/lib/lotes';
 import {
   duracion, enlaceWhatsApp, formatoHora, grupoDe, haceCuanto, minutosDetenido, MINUTOS_DETENIDO, prioridad, textoEmergencia,
   type AsignacionEnVivo, type Grupo,
@@ -338,6 +339,7 @@ export default function TableroEnVivo({
                 {(a.tramo ?? 1) === 1 && a.toneladas_cargadas == null && a.etapa !== 'programado' && a.etapa !== 'cancelado' && (
                   <span className="etiqueta sin-peso">Sin peso de balanza</span>
                 )}
+                {salioSinLotes(a) && <span className="etiqueta sin-peso">Sin lotes</span>}
               </button>
                 <span className="acciones-camion">
                   <Link className="ver-mision accion-camion" href={`/misiones/${a.mision_id}`}>

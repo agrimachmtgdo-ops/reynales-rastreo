@@ -326,3 +326,61 @@ export async function registrarDocumentoDespacho(misionId: string, d: DatosDocum
   revalidatePath(`/misiones/${misionId}`);
   return { ok: true, mensaje: 'Documento guardado.' };
 }
+
+/** Agrega (o corrige, con loteId) un lote de producción del camión que sale de fábrica. */
+export async function guardarLote(asignacionId: string, misionId: string, loteId: string | null, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const presentacion = texto(f, 'presentacion');
+  const unidades = numero(f, 'unidades');
+  const kg = numero(f, 'kg');
+  if (!texto(f, 'producto_id')) return { ok: false, mensaje: 'Elija el producto del lote.', campo: 'producto_id', errorCampo: 'Dato obligatorio.' };
+  if (!texto(f, 'lote')) return { ok: false, mensaje: 'Escriba el número de lote.', campo: 'lote', errorCampo: 'Dato obligatorio.' };
+  if (presentacion === 'granel') {
+    if (kg === null || Number.isNaN(kg) || kg <= 0) return { ok: false, mensaje: 'En granel escriba el peso del lote en kg.', campo: 'kg', errorCampo: 'Por ejemplo 12500.' };
+  } else if (unidades === null || !Number.isInteger(unidades) || unidades <= 0) {
+    return { ok: false, mensaje: 'Escriba cuántos sacos o big bags del lote van en el camión.', campo: 'unidades', errorCampo: 'Un número entero, por ejemplo 400.' };
+  }
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc('guardar_lote', {
+    p_asignacion: asignacionId,
+    p_lote_id: loteId,
+    p_datos: {
+      producto_id: texto(f, 'producto_id'), lote: texto(f, 'lote'), fecha_produccion: texto(f, 'fecha_produccion'),
+      presentacion, unidades: presentacion === 'granel' ? null : unidades, kg: presentacion === 'granel' ? kg : null,
+    },
+  });
+  if (error) return { ok: false, mensaje: error.message };
+  revalidatePath(`/misiones/${misionId}`);
+  return { ok: true, mensaje: loteId ? 'Lote corregido.' : 'Lote agregado.' };
+}
+
+/** Quita un lote cargado por error (queda en el historial del camión). */
+export async function quitarLote(loteId: string, misionId: string, _: Resultado | null, _f: FormData): Promise<Resultado> {
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc('quitar_lote', { p_lote_id: loteId });
+  if (error) return { ok: false, mensaje: error.message };
+  revalidatePath(`/misiones/${misionId}`);
+  return { ok: true, mensaje: 'Lote quitado.' };
+}
+
+/** Ticket de balanza: con peso bruto y tara (kg), o solo el neto (t). */
+export async function registrarBalanza(asignacionId: string, misionId: string, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const bruto = numero(f, 'peso_bruto_kg');
+  const tara = numero(f, 'tara_kg');
+  const neto = numero(f, 'neto_t');
+  for (const [campo, v] of [['peso_bruto_kg', bruto], ['tara_kg', tara], ['neto_t', neto]] as const) {
+    if (v !== null && (Number.isNaN(v) || v <= 0)) return { ok: false, mensaje: 'Revise los pesos: deben ser números positivos.', campo, errorCampo: 'Número no válido.' };
+  }
+  if ((bruto === null) !== (tara === null)) {
+    return { ok: false, mensaje: 'Escriba el peso bruto y la tara, o solo el neto.', campo: bruto === null ? 'peso_bruto_kg' : 'tara_kg', errorCampo: 'Falta este dato.' };
+  }
+  if (bruto === null && neto === null) {
+    return { ok: false, mensaje: 'Escriba el peso bruto y la tara del ticket (o el neto en toneladas).', campo: 'peso_bruto_kg', errorCampo: 'Dato obligatorio.' };
+  }
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('registrar_balanza', {
+    p_asignacion: asignacionId, p_ticket: texto(f, 'ticket_balanza'), p_bruto_kg: bruto, p_tara_kg: tara, p_neto_t: bruto === null ? neto : null,
+  });
+  if (error) return { ok: false, mensaje: error.message };
+  revalidatePath(`/misiones/${misionId}`);
+  return { ok: true, mensaje: `Balanza guardada: neto ${Number(data).toLocaleString('es-BO', { maximumFractionDigits: 2 })} t.` };
+}
