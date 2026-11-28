@@ -180,3 +180,11 @@ tr.evento-alerta td { background: #fff4e5; }
 .franja-emergencia a { color: var(--blanco); font-weight: 700; text-decoration: underline; }
 .tarjeta.emergencia { border: 2px solid var(--rojo); }
 .aviso-emergencia { background: #fbe3e0; border-left: 4px solid var(--rojo); padding: 12px; border-radius: 8px; margin: 8px 0 12px; }
+
+/* Botón «Ver todos» sobre el mapa */
+.ver-todos-mapa {
+  position: absolute; top: 10px; right: 10px; z-index: 1000;
+  background: var(--blanco); color: var(--cafe); border: 2px solid rgba(0, 0, 0, 0.2); border-radius: 6px;
+  padding: 6px 12px; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; min-height: 36px;
+}
+.ver-todos-mapa:hover { background: var(--crema); }
