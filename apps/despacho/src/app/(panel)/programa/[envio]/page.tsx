@@ -60,6 +60,10 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
         .eq('mision_id', f.mision_id).eq('tramo', 1).order('creado_en')
       : Promise.resolve({ data: [] }),
   ]);
+  const { data: tramosData } = f.mision_id
+    ? await supabase.from('tramos').select('numero, lugar_inicio, transportista:transportistas(razon_social)').eq('mision_id', f.mision_id).gt('numero', 1).order('numero')
+    : { data: [] };
+  const tramosTransbordo = (tramosData ?? []) as unknown as { numero: number; lugar_inicio: string | null; transportista: { razon_social: string } | null }[];
   const solicitudes = (sol ?? []) as unknown as Solicitud[];
   const transportistas = (trans ?? []) as { id: string; razon_social: string }[];
   const conductores = (cond ?? []) as Opcion[];
@@ -388,7 +392,27 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
               El envío se despacha con la misión <Link href={`/misiones/${f.mision_id}`}>{f.mision_codigo}</Link>.
               Allí están el seguimiento, la invitación para cada chofer y los documentos.
             </p>
-          ) : (
+          ) : null}
+          {f.mision_id && (
+            tramosTransbordo.length > 0 ? (
+              <div className="estado-transbordo">
+                <strong>Con transbordo</strong>
+                <ul>{tramosTransbordo.map((t) => (
+                  <li key={t.numero}>Tramo {t.numero}: {t.transportista?.razon_social ?? 'empresa por definir'}{t.lugar_inicio ? ` · desde ${t.lugar_inicio}` : ''}</li>
+                ))}</ul>
+                <Link className="enlace-secundario" href={`/misiones/${f.mision_id}`}>Ver o agregar camiones del transbordo</Link>
+              </div>
+            ) : (
+              <div className={f.destino_pais === 'PE' ? 'aviso-transbordo' : 'estado-transbordo'}>
+                <div>
+                  <strong>{f.destino_pais === 'PE' ? '¿La carga pasa a otro camión en El Alto?' : 'Sin transbordo'}</strong>
+                  <span>Si la carga cambia de camión en el camino, registre el transbordo con la empresa del tramo 2 antes de que el camión llegue.</span>
+                </div>
+                <Link className="boton secundario" href={`/misiones/${f.mision_id}?transbordo=1#agregar-transbordo`}>Agregar transbordo</Link>
+              </div>
+            )
+          )}
+          {!f.mision_id && (
             <FormularioAccion accion={crearMisionEnvio.bind(null, envio, f.pedido_id)} boton="Crear misión">
               <p className="ayuda" style={{ marginTop: 0 }}>Toma el cliente, destino, producto, toneladas y fecha comprometida del envío. Se crea una sola misión por envío.</p>
               {fabricas.length > 1 && (
