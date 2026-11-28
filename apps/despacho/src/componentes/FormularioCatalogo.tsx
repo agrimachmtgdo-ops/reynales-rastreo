@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useActionState, useEffect, useRef } from 'react';
+import { startTransition, useActionState, useEffect, useRef, type FormEvent } from 'react';
 
 type Resultado = { ok: boolean; mensaje: string };
 
@@ -23,8 +23,15 @@ export default function FormularioCatalogo({
     if (estado?.ok) formulario.current?.reset();
   }, [estado]);
 
+  // onSubmit en lugar de action=: React no vacía los campos si el guardado falla.
+  function alEnviar(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const datos = new FormData(e.currentTarget);
+    startTransition(() => enviar(datos));
+  }
+
   return (
-    <form ref={formulario} action={enviar} style={{ marginBottom: 16 }}>
+    <form ref={formulario} onSubmit={alEnviar} style={{ marginBottom: 16 }}>
       {estado && <div role="status" className={estado.ok ? 'mensaje-ok' : 'mensaje-error'}>{estado.mensaje}</div>}
       <div className="rejilla">{children}</div>
       <button className="boton" disabled={pendiente}>{pendiente ? 'Guardando…' : boton}</button>

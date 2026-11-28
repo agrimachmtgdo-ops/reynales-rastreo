@@ -5,6 +5,7 @@ import * as Application from 'expo-application';
 import { supabase, asegurarSesion } from '../supabase';
 import { Boton } from '../componentes';
 import { e } from '../estilos';
+import { mensajeSimple } from '../mensajes';
 import type { Viaje } from '../tipos';
 
 /** Extrae el código de "reynaleschofer://activar?codigo=XXXX" o del texto escrito. */
@@ -13,7 +14,7 @@ export function extraerCodigo(texto: string): string {
   return (coincide?.[1] ?? texto).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 }
 
-export default function Activar({ codigoInicial, alActivar }: { codigoInicial?: string; alActivar: (v: Viaje) => void }) {
+export default function Activar({ codigoInicial, alActivar }: { codigoInicial?: string; alActivar: (v: Viaje) => void | Promise<void> }) {
   const [codigo, setCodigo] = useState(codigoInicial ?? '');
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -27,10 +28,10 @@ export default function Activar({ codigoInicial, alActivar }: { codigoInicial?: 
       await asegurarSesion();
       const dispositivo = Application.getAndroidId() ?? 'desconocido';
       const { data, error } = await supabase.rpc('activar_invitacion', { p_codigo: valor, p_dispositivo: dispositivo });
-      if (error) throw new Error(error.message);
-      alActivar(data as Viaje);
+      if (error) throw error;
+      await alActivar(data as Viaje);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo activar.');
+      setError(mensajeSimple(err, 'No se pudo activar el código. Revíselo o pida uno nuevo a despacho.'));
     } finally {
       setCargando(false);
     }

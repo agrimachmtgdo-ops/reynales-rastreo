@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import QRCode from 'qrcode';
 import { formatoHora } from '@/lib/tipos';
 
@@ -57,12 +58,31 @@ export default function InvitacionChofer({ nombreChofer, telefonoChofer, codigoM
 
   const enlaceApp = process.env.NEXT_PUBLIC_ENLACE_APP_CHOFER ?? '';
   const mensaje = codigo
-    ? `Hola ${nombreChofer}, le saluda despacho de Industrias Reynales. Para la misión ${codigoMision} instale la app de rastreo${
-        enlaceApp ? ` (${enlaceApp})` : ''
-      } y escriba este código: ${codigo}. El código vence el ${formatoHora(vence)}. La app solo registra su ubicación entre "Iniciar viaje" y "Entregado".`
+    ? [
+        `Hola ${nombreChofer}, le saluda despacho de Industrias Reynales.`,
+        `Para la misión ${codigoMision}:`,
+        enlaceApp
+          ? `1) Instale la app de rastreo desde este enlace: ${enlaceApp}`
+          : '1) Instale la app de rastreo que le enviaremos (archivo APK).',
+        '   Si el teléfono dice "bloqueado por seguridad", toque Configuración y active "Permitir de esta fuente". Si aparece Play Protect, toque "Instalar de todas formas".',
+        `2) Abra la app y escriba este código: ${codigo} (vence el ${formatoHora(vence)}).`,
+        '3) Permita la ubicación "Todo el tiempo" y quite el ahorro de batería para la app.',
+        'La app solo registra su ubicación entre "Iniciar viaje" y "Entregado". Ante cualquier duda, responda a este mensaje.',
+      ].join('\n')
     : '';
   const numero = (telefonoChofer ?? '').replace(/[^0-9]/g, '');
-  const enlaceWhatsapp = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+  const enlaceWhatsapp = numero.length >= 8 ? `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}` : null;
+  const [copiado, setCopiado] = useState(false);
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(mensaje);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      window.prompt('Copie el mensaje:', mensaje);
+    }
+  }
 
   return (
     <div>
@@ -84,9 +104,17 @@ export default function InvitacionChofer({ nombreChofer, telefonoChofer, codigoM
               <div style={{ fontSize: 13, color: 'var(--gris)' }}>Pendiente de activar · vence: {formatoHora(vence)}</div>
             )}
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-              {!activadaEn && <a className="boton" href={enlaceWhatsapp} target="_blank" rel="noreferrer">Enviar por WhatsApp</a>}
+              {!activadaEn && enlaceWhatsapp && <a className="boton" href={enlaceWhatsapp} target="_blank" rel="noreferrer">Enviar por WhatsApp</a>}
+              {!activadaEn && (
+                <button type="button" className="boton secundario" onClick={copiar}>{copiado ? 'Mensaje copiado ✓' : 'Copiar mensaje'}</button>
+              )}
               <button type="button" className="boton secundario" onClick={crear}>Nuevo código</button>
             </div>
+            {!activadaEn && !enlaceWhatsapp && (
+              <p className="alerta" style={{ marginTop: 8 }}>
+                Este chofer no tiene WhatsApp registrado. Agréguelo en <Link href="/catalogos?pestana=conductores">Catálogos → Choferes</Link> o use «Copiar mensaje».
+              </p>
+            )}
           </div>
         </div>
       )}

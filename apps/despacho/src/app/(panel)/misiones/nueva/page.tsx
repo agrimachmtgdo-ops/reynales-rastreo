@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import { cargarCatalogosCamion } from '@/lib/catalogos';
 import CamposCamion from '@/componentes/CamposCamion';
@@ -19,24 +20,34 @@ export default async function PaginaNuevaMision() {
   return (
     <section className="tarjeta">
       <h1>Nueva misión</h1>
+      {((clientes.data ?? []).length === 0 || origenes.length === 0 || destinos.length === 0) && (
+        <p className="alerta">
+          Faltan datos en <Link href="/catalogos?pestana=clientes">Catálogos</Link>:{' '}
+          {[(clientes.data ?? []).length === 0 && 'clientes', origenes.length === 0 && 'una fábrica (origen)', destinos.length === 0 && 'un destino']
+            .filter(Boolean).join(', ')}.
+        </p>
+      )}
       <FormularioAccion accion={crearMision} boton="Crear misión">
         <h2>Envío</h2>
         <div className="rejilla">
           <label>
             Cliente
-            <select name="cliente_id" required>
+            <select name="cliente_id" required defaultValue="">
+              <option value="" disabled>Seleccione…</option>
               {(clientes.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.razon_social}</option>)}
             </select>
           </label>
           <label>
             Origen
-            <select name="origen_id" required>
+            <select name="origen_id" required defaultValue="">
+              <option value="" disabled>Seleccione…</option>
               {origenes.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
             </select>
           </label>
           <label>
             Destino
-            <select name="destino_id" required>
+            <select name="destino_id" required defaultValue="">
+              <option value="" disabled>Seleccione…</option>
               {destinos.map((u) => <option key={u.id} value={u.id}>{u.nombre} ({u.pais})</option>)}
             </select>
           </label>

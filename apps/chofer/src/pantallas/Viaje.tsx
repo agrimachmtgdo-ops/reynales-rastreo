@@ -9,19 +9,14 @@ import { guardarEstado, leerEstado, type EstadoRastreo } from '../estado';
 import { enviarTodo } from '../envio';
 import { detenerRastreo, iniciarRastreo, rastreoActivo, type ResultadoPermisos } from '../rastreo';
 import type { Viaje as TViaje } from '../tipos';
+import { mensajeSimple } from '../mensajes';
+import Emergencia from '../Emergencia';
+import AjustesTelefono from './AjustesTelefono';
 
 const VELOCIDAD_BLOQUEO_KMH = 10;
 // Una velocidad más vieja que esto no bloquea los botones (el GPS pudo perder señal con el camión en marcha).
 const VELOCIDAD_VIGENTE_MS = 2 * 60 * 1000;
 
-/** Traduce errores técnicos a frases para el chofer. */
-function mensajeSimple(err: unknown): string {
-  const texto = err instanceof Error ? err.message : String(err ?? '');
-  if (/network|fetch|abort|timeout|conex/i.test(texto)) return 'No hay señal. Intente de nuevo cuando tenga cobertura.';
-  if (/No se puede pasar/i.test(texto)) return 'Esta etapa ya estaba registrada. La pantalla se actualizó.';
-  if (/Sin acceso/i.test(texto)) return 'Este teléfono perdió el acceso al viaje. Avise a despacho.';
-  return texto || 'No se pudo registrar. Intente de nuevo.';
-}
 
 const MENSAJE_PERMISOS: Record<Exclude<ResultadoPermisos, 'ok'>, string> = {
   gps_apagado: 'El GPS está apagado. Enciéndalo e intente de nuevo.',
@@ -44,6 +39,8 @@ export default function Viaje({
   const [activo, setActivo] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Paso obligatorio de revisión de ajustes antes de "Iniciar viaje".
+  const [revisando, setRevisando] = useState(false);
 
   const refrescar = useCallback(async () => {
     const s = await leerEstado();
@@ -111,7 +108,7 @@ export default function Viaje({
         await detenerRastreo();
         await vaciarCola();
       }
-      setError(mensajeSimple(err));
+      setError(mensajeSimple(err, 'No se pudo registrar. Intente de nuevo.'));
     } finally {
       setCargando(false);
       await refrescar();
@@ -124,6 +121,10 @@ export default function Viaje({
 
   function pedir(nueva: EtapaChofer) {
     setError(null);
+    if (nueva === 'cargado') {
+      setRevisando(true); // primero los ajustes del teléfono, luego la confirmación
+      return;
+    }
     setConfirmando({ etapa: nueva });
   }
 
@@ -183,6 +184,19 @@ export default function Viaje({
         ? { texto: 'Esperando enviar ubicación', color: MARCA.dorado }
         : { texto: 'Enviando ubicación', color: MARCA.verde };
   const mb = ((estado?.bytesUsados ?? 0) / (1024 * 1024)).toFixed(2);
+  const viajeAbierto = etapa !== 'entregado' && etapa !== 'cancelado' && !estado?.sinAcceso;
+
+  if (revisando) {
+    return (
+      <AjustesTelefono
+        alVolver={() => setRevisando(false)}
+        alContinuar={() => {
+          setRevisando(false);
+          setConfirmando({ etapa: 'cargado' });
+        }}
+      />
+    );
+  }
 
   return (
     <View style={e.pantalla}>
@@ -203,6 +217,8 @@ export default function Viaje({
             <Text style={e.textoChico}>Datos usados en este viaje: {mb} MB{estado?.modoPeru ? ' · modo Perú (ahorro de roaming)' : ''}</Text>
           </View>
         </View>
+
+        {viajeAbierto && <Emergencia viaje={viaje} enPeru={etapa === 'cruzo_frontera' || !!estado?.modoPeru} />}
 
         {error && <Text style={e.error}>{error}</Text>}
 
