@@ -21,7 +21,7 @@ export const e = StyleSheet.create({
     paddingVertical: 14, paddingHorizontal: 16, fontFamily: F.negrita, fontSize: 26, letterSpacing: 6,
     textAlign: 'center', color: MARCA.cafe,
   },
-  boton: { backgroundColor: MARCA.verde, borderRadius: 12, paddingVertical: 18, alignItems: 'center' },
+  boton: { backgroundColor: MARCA.verdeOscuro, borderRadius: 12, paddingVertical: 18, alignItems: 'center' },
   botonDorado: { backgroundColor: MARCA.dorado },
   botonCafe: { backgroundColor: MARCA.cafe },
   botonDeshabilitado: { opacity: 0.5 },

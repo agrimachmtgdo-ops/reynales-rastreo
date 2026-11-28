@@ -22,6 +22,29 @@ interface Evento {
   detalle: Record<string, unknown>;
 }
 
+const nombreEtapa = (etapa: unknown) => (typeof etapa === 'string' ? ETIQUETA_ETAPA[etapa as Etapa] ?? etapa : '');
+
+/** Convierte un evento en una frase que despacho entienda sin conocer el sistema. */
+function describirEvento(e: Evento, chofer: string): string {
+  const d = e.detalle ?? {};
+  const antes = d.etapa_anterior ? ` (antes: ${nombreEtapa(d.etapa_anterior)})` : '';
+  if (e.tipo === 'cambio_etapa' && e.etapa_nueva) {
+    const etapa = `«${nombreEtapa(e.etapa_nueva)}»`;
+    if (e.origen === 'chofer') return `${chofer} marcó ${etapa} desde la app${antes}.`;
+    if (e.origen === 'despacho') return `Despacho cambió la etapa a ${etapa}${antes}${d.nota ? `. Nota: ${String(d.nota)}` : ''}.`;
+    if (d.motivo === 'salio_de_origen') return `El sistema detectó que el camión salió de fábrica: ${etapa}${antes}.`;
+    if (d.frontera) return `El sistema detectó ${etapa} en ${String(d.frontera)}${antes}.`;
+    return `El sistema cambió la etapa a ${etapa}${antes}.`;
+  }
+  if (e.tipo === 'incidencia' && d.motivo === 'ubicacion_simulada') {
+    return `Alerta: el teléfono envió ${String(d.cantidad ?? 'algunas')} ubicaciones simuladas (posible GPS falso). Se descartaron.`;
+  }
+  if (e.tipo === 'emergencia') return `Emergencia reportada por ${chofer}${d.nota ? `: ${String(d.nota)}` : ''}.`;
+  if (e.tipo === 'nota') return `Nota${e.origen === 'despacho' ? ' de despacho' : ''}: ${String(d.nota ?? '')}`;
+  const resto = Object.entries(d).map(([k, v]) => `${k}: ${String(v)}`).join(' · ');
+  return `${e.tipo}${resto ? ` (${resto})` : ''}`;
+}
+
 export default async function PaginaDetalleMision({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await crearClienteServidor();
@@ -43,6 +66,15 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
   const asignaciones = (asigData ?? []) as unknown as (AsignacionEnVivo & { conductor_det: { telefono: string | null } | null })[];
   const ids = asignaciones.map((a) => a.id);
 
+  // Invitación más reciente (no anulada) de cada camión, para mostrarla al recargar la página.
+  const { data: invitacionesData } = ids.length
+    ? await supabase.from('invitaciones_chofer').select('asignacion_id, codigo, vence_en, usado_en, creado_en')
+        .in('asignacion_id', ids).eq('revocada', false).order('creado_en', { ascending: false })
+    : { data: [] };
+  const invitacionDe = (asigId: string) =>
+    ((invitacionesData ?? []) as { asignacion_id: string; codigo: string; vence_en: string; usado_en: string | null }[])
+      .find((i) => i.asignacion_id === asigId) ?? null;
+
   const { data: eventosData } = ids.length
     ? await supabase.from('eventos').select('id, asignacion_id, tipo, etapa_nueva, origen, ocurrido_en, detalle')
         .in('asignacion_id', ids).order('ocurrido_en', { ascending: false }).limit(50)
@@ -63,6 +95,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
     cliente: { razon_social: string; pais: string } | null; origen: { nombre: string } | null; destino: { nombre: string; pais: string } | null;
   };
   const placaDe = (asigId: string) => asignaciones.find((a) => a.id === asigId)?.vehiculo?.placa ?? '';
+  const choferDe = (asigId: string) => asignaciones.find((a) => a.id === asigId)?.conductor?.nombre ?? 'El chofer';
 
   return (
     <>
@@ -102,6 +135,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
                     telefonoChofer={a.conductor_det?.telefono ?? null}
                     codigoMision={m.codigo}
                     generar={crearInvitacion.bind(null, a.id)}
+                    vigente={invitacionDe(a.id)}
                   />
                 </div>
                 <div>
@@ -125,24 +159,24 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
       })}
 
       <section className="tarjeta">
-        <h2>Agregar otro camión</h2>
-        <FormularioAccion accion={agregarCamion.bind(null, id)} boton="Agregar camión">
-          <CamposCamion catalogos={catalogos} />
-        </FormularioAccion>
+        <details className="agregar" open={asignaciones.length === 0}>
+          <summary>+ Agregar {asignaciones.length === 0 ? 'un camión' : 'otro camión'}</summary>
+          <FormularioAccion accion={agregarCamion.bind(null, id)} boton="Agregar camión">
+            <CamposCamion catalogos={catalogos} />
+          </FormularioAccion>
+        </details>
       </section>
 
       <section className="tarjeta">
         <h2>Eventos</h2>
         <table>
-          <thead><tr><th>Hora</th><th>Camión</th><th>Evento</th><th>Origen</th><th>Detalle</th></tr></thead>
+          <thead><tr><th>Hora</th><th>Camión</th><th>Qué pasó</th></tr></thead>
           <tbody>
             {eventos.map((e) => (
-              <tr key={e.id}>
-                <td>{formatoHora(e.ocurrido_en)}</td>
+              <tr key={e.id} className={e.tipo === 'emergencia' || e.tipo === 'incidencia' ? 'evento-alerta' : undefined}>
+                <td style={{ whiteSpace: 'nowrap' }}>{formatoHora(e.ocurrido_en)}</td>
                 <td>{placaDe(e.asignacion_id)}</td>
-                <td>{e.etapa_nueva ? ETIQUETA_ETAPA[e.etapa_nueva] : e.tipo}</td>
-                <td>{e.origen}</td>
-                <td style={{ fontSize: 12, color: 'var(--gris)' }}>{Object.entries(e.detalle).map(([k, v]) => `${k}: ${String(v)}`).join(' · ')}</td>
+                <td>{describirEvento(e, choferDe(e.asignacion_id))}</td>
               </tr>
             ))}
           </tbody>

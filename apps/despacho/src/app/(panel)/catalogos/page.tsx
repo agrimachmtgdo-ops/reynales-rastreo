@@ -1,142 +1,230 @@
+import Link from 'next/link';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import FormularioCatalogo from '@/componentes/FormularioCatalogo';
-import { crearCliente, crearConductor, crearTransportista, crearUbicacion, crearVehiculo } from './acciones';
+import SelectorUbicacion from '@/componentes/SelectorUbicacion';
+import {
+  actualizarRegistro,
+  alternarActivo,
+  crearCliente,
+  crearConductor,
+  crearTransportista,
+  crearUbicacion,
+  crearVehiculo,
+} from './acciones';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PaginaCatalogos() {
+type Pestana = 'clientes' | 'transportistas' | 'conductores' | 'vehiculos' | 'ubicaciones';
+const PESTANAS: { id: Pestana; titulo: string }[] = [
+  { id: 'clientes', titulo: 'Clientes' },
+  { id: 'transportistas', titulo: 'Transportistas' },
+  { id: 'conductores', titulo: 'Choferes' },
+  { id: 'vehiculos', titulo: 'Vehículos' },
+  { id: 'ubicaciones', titulo: 'Ubicaciones' },
+];
+const TIPO_UBICACION: Record<string, string> = {
+  fabrica: 'Fábrica',
+  frontera: 'Frontera',
+  destino: 'Destino',
+  punto_ruta: 'Punto de ruta',
+};
+
+type Fila = Record<string, unknown> & { id: string };
+const v = (f: Fila | undefined, k: string) => (f?.[k] == null ? undefined : String(f[k]));
+const nombreTransportista = (f: Fila) => (f.transportista as { razon_social: string } | null)?.razon_social ?? '';
+const Req = () => <span className="obligatorio" aria-hidden="true">*</span>;
+
+export default async function PaginaCatalogos({
+  searchParams,
+}: {
+  searchParams: Promise<{ pestana?: string; editar?: string; guardado?: string }>;
+}) {
+  const sp = await searchParams;
+  const pestana: Pestana = PESTANAS.some((p) => p.id === sp.pestana) ? (sp.pestana as Pestana) : 'clientes';
   const supabase = await crearClienteServidor();
-  const [clientes, transportistas, conductores, vehiculos, ubicaciones] = await Promise.all([
-    supabase.from('clientes').select('id, razon_social, nit_ruc, pais, whatsapp').order('razon_social'),
-    supabase.from('transportistas').select('id, razon_social, nit, telefono, clausula_rastreo_aceptada_en').order('razon_social'),
-    supabase.from('conductores').select('id, nombre, telefono, transportista:transportistas(razon_social)').order('nombre'),
-    supabase.from('vehiculos').select('id, placa, marca, capacidad_tn, transportista:transportistas(razon_social)').order('placa'),
-    supabase.from('ubicaciones').select('id, nombre, ciudad, pais, tipo, radio_m').order('tipo').order('nombre'),
+
+  // Los transportistas se necesitan siempre (listas de choferes y vehículos).
+  const consultas = {
+    clientes: () => supabase.from('clientes').select('*').order('razon_social'),
+    transportistas: () => supabase.from('transportistas').select('*').order('razon_social'),
+    conductores: () => supabase.from('conductores').select('*, transportista:transportistas(razon_social)').order('activo', { ascending: false }).order('nombre'),
+    vehiculos: () => supabase.from('vehiculos').select('*, transportista:transportistas(razon_social)').order('placa'),
+    ubicaciones: () => supabase.from('ubicaciones').select('*').order('activo', { ascending: false }).order('tipo').order('nombre'),
+  };
+  const [{ data: filasData, error }, { data: transportistasData }] = await Promise.all([
+    consultas[pestana](),
+    supabase.from('transportistas').select('id, razon_social').order('razon_social'),
   ]);
-  const opcionesTransportista = (transportistas.data ?? []).map((t) => (
+  const filas = (filasData ?? []) as Fila[];
+  const editando = sp.editar ? filas.find((f) => f.id === sp.editar) : undefined;
+  const opcionesTransportista = (transportistasData ?? []).map((t) => (
     <option key={t.id} value={t.id}>{t.razon_social}</option>
   ));
+  const url = (extra = '') => `/catalogos?pestana=${pestana}${extra}`;
+  const enlaceEditar = (f: Fila) => <Link href={url(`&editar=${f.id}`)} scroll>Editar</Link>;
+  const botonActivo = (tabla: 'conductores' | 'ubicaciones', f: Fila) => (
+    <form action={alternarActivo.bind(null, tabla, f.id, !f.activo)} style={{ display: 'inline' }}>
+      <button className="enlace-boton">{f.activo ? 'Desactivar' : 'Activar'}</button>
+    </form>
+  );
+  const claseFila = (f: Fila) => (f.activo === false ? 'inactivo' : undefined);
+
+  // ---- Campos de cada formulario (sirven para agregar y para editar) ----
+  const campos: Record<Pestana, (f?: Fila) => React.ReactNode> = {
+    clientes: (f) => (
+      <>
+        <label>Razón social <Req /><input name="razon_social" required defaultValue={v(f, 'razon_social')} /></label>
+        <label>NIT / RUC<input name="nit_ruc" defaultValue={v(f, 'nit_ruc')} /></label>
+        <label>País<select name="pais" defaultValue={v(f, 'pais') ?? 'BO'}><option value="BO">Bolivia</option><option value="PE">Perú</option></select></label>
+        <label>Contacto<input name="contacto" defaultValue={v(f, 'contacto')} /></label>
+        <label>WhatsApp<input name="whatsapp" placeholder="+51…" defaultValue={v(f, 'whatsapp')} /></label>
+        <label>Correo<input name="correo" type="email" defaultValue={v(f, 'correo')} /></label>
+      </>
+    ),
+    transportistas: (f) => (
+      <>
+        <label>Razón social o nombre del dueño <Req /><input name="razon_social" required defaultValue={v(f, 'razon_social')} /></label>
+        <label>NIT<input name="nit" defaultValue={v(f, 'nit')} /></label>
+        <label>Contacto<input name="contacto" defaultValue={v(f, 'contacto')} /></label>
+        <label>Teléfono<input name="telefono" defaultValue={v(f, 'telefono')} /></label>
+        <label>Aceptó condiciones de rastreo el<input name="clausula_rastreo_aceptada_en" type="date" defaultValue={v(f, 'clausula_rastreo_aceptada_en')} /></label>
+      </>
+    ),
+    conductores: (f) => (
+      <>
+        <label>Transportista <Req /><select name="transportista_id" required defaultValue={v(f, 'transportista_id')}>{opcionesTransportista}</select></label>
+        <label>Nombre completo <Req /><input name="nombre" required defaultValue={v(f, 'nombre')} /></label>
+        <label>CI (uso interno)<input name="ci" defaultValue={v(f, 'ci')} /></label>
+        <label>Teléfono (uso interno)<input name="telefono" placeholder="+591…" defaultValue={v(f, 'telefono')} /></label>
+        <label>Licencia<input name="licencia" defaultValue={v(f, 'licencia')} /></label>
+      </>
+    ),
+    vehiculos: (f) => (
+      <>
+        <label>Transportista <Req /><select name="transportista_id" required defaultValue={v(f, 'transportista_id')}>{opcionesTransportista}</select></label>
+        <label>Placa <Req /><input name="placa" required placeholder="1234ABC" defaultValue={v(f, 'placa')} /></label>
+        <label>Marca<input name="marca" defaultValue={v(f, 'marca')} /></label>
+        <label>Capacidad (TN)<input name="capacidad_tn" inputMode="decimal" defaultValue={v(f, 'capacidad_tn')} /></label>
+      </>
+    ),
+    ubicaciones: (f) => (
+      <>
+        <label>Nombre <Req /><input name="nombre" required defaultValue={v(f, 'nombre')} /></label>
+        <label>Ciudad<input name="ciudad" defaultValue={v(f, 'ciudad')} /></label>
+        <label>País<select name="pais" defaultValue={v(f, 'pais') ?? 'BO'}><option value="BO">Bolivia</option><option value="PE">Perú</option></select></label>
+        <label>Tipo <Req />
+          <select name="tipo" required defaultValue={v(f, 'tipo') ?? 'destino'}>
+            {Object.entries(TIPO_UBICACION).map(([k, t]) => <option key={k} value={k}>{t}</option>)}
+          </select>
+        </label>
+        <SelectorUbicacion lat={v(f, 'lat')} lon={v(f, 'lon')} radio={v(f, 'radio_m') ?? '500'} />
+      </>
+    ),
+  };
+
+  const crear = { clientes: crearCliente, transportistas: crearTransportista, conductores: crearConductor, vehiculos: crearVehiculo, ubicaciones: crearUbicacion }[pestana];
+  const singular = { clientes: 'cliente', transportistas: 'transportista', conductores: 'chofer', vehiculos: 'vehículo', ubicaciones: 'ubicación' }[pestana];
+
+  // ---- Tabla de cada catálogo ----
+  const tablas: Record<Pestana, React.ReactNode> = {
+    clientes: (
+      <table>
+        <thead><tr><th>Razón social</th><th>NIT/RUC</th><th>País</th><th>WhatsApp</th><th></th></tr></thead>
+        <tbody>{filas.map((c) => (
+          <tr key={c.id}><td>{v(c, 'razon_social')}</td><td>{v(c, 'nit_ruc')}</td><td>{v(c, 'pais')}</td><td>{v(c, 'whatsapp')}</td><td className="acciones">{enlaceEditar(c)}</td></tr>
+        ))}</tbody>
+      </table>
+    ),
+    transportistas: (
+      <table>
+        <thead><tr><th>Transportista</th><th>NIT</th><th>Teléfono</th><th>Condiciones aceptadas</th><th></th></tr></thead>
+        <tbody>{filas.map((t) => (
+          <tr key={t.id}>
+            <td>{v(t, 'razon_social')}</td><td>{v(t, 'nit')}</td><td>{v(t, 'telefono')}</td>
+            <td>{v(t, 'clausula_rastreo_aceptada_en') ?? <span className="alerta">Pendiente</span>}</td>
+            <td className="acciones">{enlaceEditar(t)}</td>
+          </tr>
+        ))}</tbody>
+      </table>
+    ),
+    conductores: (
+      <table>
+        <thead><tr><th>Chofer</th><th>Transportista</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead>
+        <tbody>{filas.map((c) => (
+          <tr key={c.id} className={claseFila(c)}>
+            <td>{v(c, 'nombre')}</td><td>{nombreTransportista(c)}</td><td>{v(c, 'telefono')}</td>
+            <td>{c.activo ? 'Activo' : 'Inactivo'}</td>
+            <td className="acciones">{enlaceEditar(c)} {botonActivo('conductores', c)}</td>
+          </tr>
+        ))}</tbody>
+      </table>
+    ),
+    vehiculos: (
+      <table>
+        <thead><tr><th>Placa</th><th>Marca</th><th>Capacidad</th><th>Transportista</th><th></th></tr></thead>
+        <tbody>{filas.map((x) => (
+          <tr key={x.id}>
+            <td>{v(x, 'placa')}</td><td>{v(x, 'marca')}</td><td>{x.capacidad_tn ? `${v(x, 'capacidad_tn')} TN` : ''}</td>
+            <td>{nombreTransportista(x)}</td><td className="acciones">{enlaceEditar(x)}</td>
+          </tr>
+        ))}</tbody>
+      </table>
+    ),
+    ubicaciones: (
+      <table>
+        <thead><tr><th>Nombre</th><th>Tipo</th><th>Ciudad</th><th>País</th><th>Radio</th><th>Estado</th><th></th></tr></thead>
+        <tbody>{filas.map((u) => (
+          <tr key={u.id} className={claseFila(u)}>
+            <td>{v(u, 'nombre')}</td><td>{TIPO_UBICACION[String(u.tipo)] ?? v(u, 'tipo')}</td><td>{v(u, 'ciudad')}</td><td>{v(u, 'pais')}</td>
+            <td>{v(u, 'radio_m')} m</td><td>{u.activo ? 'Activa' : 'Inactiva'}</td>
+            <td className="acciones">{enlaceEditar(u)} {botonActivo('ubicaciones', u)}</td>
+          </tr>
+        ))}</tbody>
+      </table>
+    ),
+  };
 
   return (
     <>
       <h1>Catálogos</h1>
+      <nav className="pestanas" aria-label="Catálogos">
+        {PESTANAS.map((p) => (
+          <Link key={p.id} href={`/catalogos?pestana=${p.id}`} className={p.id === pestana ? 'activa' : undefined} aria-current={p.id === pestana ? 'page' : undefined}>
+            {p.titulo}
+          </Link>
+        ))}
+      </nav>
 
       <section className="tarjeta">
-        <h2>Clientes</h2>
-        <FormularioCatalogo accion={crearCliente} boton="Agregar cliente">
-          <label>Razón social<input name="razon_social" required /></label>
-          <label>NIT / RUC<input name="nit_ruc" /></label>
-          <label>País<select name="pais"><option value="BO">Bolivia</option><option value="PE">Perú</option></select></label>
-          <label>Contacto<input name="contacto" /></label>
-          <label>WhatsApp<input name="whatsapp" placeholder="+51…" /></label>
-          <label>Correo<input name="correo" type="email" /></label>
-        </FormularioCatalogo>
-        <table>
-          <thead><tr><th>Razón social</th><th>NIT/RUC</th><th>País</th><th>WhatsApp</th></tr></thead>
-          <tbody>
-            {(clientes.data ?? []).map((c) => (
-              <tr key={c.id}><td>{c.razon_social}</td><td>{c.nit_ruc}</td><td>{c.pais}</td><td>{c.whatsapp}</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+        {sp.guardado && !editando && <div role="status" className="mensaje-ok">Cambios guardados.</div>}
+        {error && <div className="mensaje-error">No se pudo cargar la lista: {error.message}</div>}
 
-      <section className="tarjeta">
-        <h2>Transportistas</h2>
-        <FormularioCatalogo accion={crearTransportista} boton="Agregar transportista">
-          <label>Razón social o nombre del dueño<input name="razon_social" required /></label>
-          <label>NIT<input name="nit" /></label>
-          <label>Contacto<input name="contacto" /></label>
-          <label>Teléfono<input name="telefono" /></label>
-          <label>Aceptó condiciones de rastreo el<input name="clausula_rastreo_aceptada_en" type="date" /></label>
-        </FormularioCatalogo>
-        <table>
-          <thead><tr><th>Transportista</th><th>NIT</th><th>Teléfono</th><th>Condiciones aceptadas</th></tr></thead>
-          <tbody>
-            {(transportistas.data ?? []).map((t) => (
-              <tr key={t.id}>
-                <td>{t.razon_social}</td><td>{t.nit}</td><td>{t.telefono}</td>
-                <td>{t.clausula_rastreo_aceptada_en ?? <span className="alerta">Pendiente</span>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+        {editando ? (
+          <div className="edicion">
+            <h2>Editar {singular}</h2>
+            <FormularioCatalogo
+              key={editando.id}
+              accion={actualizarRegistro.bind(null, pestana, editando.id)}
+              boton="Guardar cambios"
+              cancelar={url()}
+            >
+              {campos[pestana](editando)}
+            </FormularioCatalogo>
+          </div>
+        ) : (
+          <details className="agregar">
+            <summary>+ Agregar {singular}</summary>
+            {pestana === 'ubicaciones' && (
+              <p className="ayuda">El radio define la geocerca (fábrica ~800 m, frontera ~1.500 m).</p>
+            )}
+            <FormularioCatalogo accion={crear} boton={`Guardar ${singular}`}>
+              {campos[pestana]()}
+            </FormularioCatalogo>
+          </details>
+        )}
+        <p className="ayuda"><span className="obligatorio">*</span> Dato obligatorio.</p>
 
-      <section className="tarjeta">
-        <h2>Choferes</h2>
-        <FormularioCatalogo accion={crearConductor} boton="Agregar chofer">
-          <label>Transportista<select name="transportista_id" required>{opcionesTransportista}</select></label>
-          <label>Nombre completo<input name="nombre" required /></label>
-          <label>CI (uso interno)<input name="ci" /></label>
-          <label>Teléfono (uso interno)<input name="telefono" placeholder="+591…" /></label>
-          <label>Licencia<input name="licencia" /></label>
-        </FormularioCatalogo>
-        <table>
-          <thead><tr><th>Chofer</th><th>Transportista</th><th>Teléfono</th></tr></thead>
-          <tbody>
-            {(conductores.data ?? []).map((c) => (
-              <tr key={c.id}>
-                <td>{c.nombre}</td>
-                <td>{(c.transportista as unknown as { razon_social: string } | null)?.razon_social}</td>
-                <td>{c.telefono}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <section className="tarjeta">
-        <h2>Vehículos</h2>
-        <FormularioCatalogo accion={crearVehiculo} boton="Agregar vehículo">
-          <label>Transportista<select name="transportista_id" required>{opcionesTransportista}</select></label>
-          <label>Placa<input name="placa" required placeholder="1234ABC" /></label>
-          <label>Marca<input name="marca" /></label>
-          <label>Capacidad (TN)<input name="capacidad_tn" inputMode="decimal" /></label>
-        </FormularioCatalogo>
-        <table>
-          <thead><tr><th>Placa</th><th>Marca</th><th>Capacidad</th><th>Transportista</th></tr></thead>
-          <tbody>
-            {(vehiculos.data ?? []).map((v) => (
-              <tr key={v.id}>
-                <td>{v.placa}</td><td>{v.marca}</td><td>{v.capacidad_tn ? `${v.capacidad_tn} TN` : ''}</td>
-                <td>{(v.transportista as unknown as { razon_social: string } | null)?.razon_social}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <section className="tarjeta">
-        <h2>Ubicaciones y geocercas</h2>
-        <p style={{ fontSize: 13, color: 'var(--gris)' }}>
-          Para obtener latitud y longitud: en Google Maps, mantenga presionado el punto y copie los dos números que aparecen.
-          El radio define la geocerca (fábrica ~800 m, frontera ~1.500 m).
-        </p>
-        <FormularioCatalogo accion={crearUbicacion} boton="Agregar ubicación">
-          <label>Nombre<input name="nombre" required /></label>
-          <label>Ciudad<input name="ciudad" /></label>
-          <label>País<select name="pais"><option value="BO">Bolivia</option><option value="PE">Perú</option></select></label>
-          <label>Tipo
-            <select name="tipo" required>
-              <option value="destino">Destino</option>
-              <option value="fabrica">Fábrica</option>
-              <option value="frontera">Frontera</option>
-              <option value="punto_ruta">Punto de ruta</option>
-            </select>
-          </label>
-          <label>Latitud<input name="lat" required inputMode="decimal" placeholder="-19.8050" /></label>
-          <label>Longitud<input name="lon" required inputMode="decimal" placeholder="-63.9560" /></label>
-          <label>Radio de geocerca (m)<input name="radio_m" inputMode="numeric" defaultValue={500} /></label>
-        </FormularioCatalogo>
-        <table>
-          <thead><tr><th>Nombre</th><th>Tipo</th><th>Ciudad</th><th>País</th><th>Radio</th></tr></thead>
-          <tbody>
-            {(ubicaciones.data ?? []).map((u) => (
-              <tr key={u.id}><td>{u.nombre}</td><td>{u.tipo}</td><td>{u.ciudad}</td><td>{u.pais}</td><td>{u.radio_m} m</td></tr>
-            ))}
-          </tbody>
-        </table>
+        {filas.length === 0 ? <p>Todavía no hay registros. Use «Agregar {singular}».</p> : tablas[pestana]}
       </section>
     </>
   );
