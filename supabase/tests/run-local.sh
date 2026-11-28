@@ -17,4 +17,5 @@ echo "→ pruebas"
 "${PSQL[@]}" -d "$DB" -f tests/10_flujo_viaje.sql
 "${PSQL[@]}" -d "$DB" -f tests/20_transbordo.sql
 "${PSQL[@]}" -d "$DB" -f tests/30_operador_transbordo.sql
+"${PSQL[@]}" -d "$DB" -f tests/40_documentos_mision.sql
 echo "✔ Todas las pruebas pasaron"

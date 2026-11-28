@@ -2,8 +2,7 @@ import Link from 'next/link';
 import { ETIQUETA_ETAPA, type Etapa } from '@reynales/shared';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import { enlaceWhatsApp, formatoHora, minutosSinSenal, TOLERANCIA_PESO } from '@/lib/tipos';
-import { documentosFaltantes, TIPO_DOCUMENTO, type DocumentoVigente } from '@/lib/documentos';
-import { enlacesDocumentos } from '@/lib/enlacesDocumentos';
+import { documentosFaltantes, nombreDocumento, TIPO_DOCUMENTO, type DocumentoVigente } from '@/lib/documentos';
 import FormularioAccion from '@/componentes/FormularioAccion';
 import InvitacionChofer from '@/componentes/InvitacionChofer';
 import CamposCamionOperador from '@/componentes/CamposCamionOperador';
@@ -30,6 +29,8 @@ interface Carga {
 
 const EN_VIAJE: Etapa[] = ['cargado', 'en_ruta', 'en_frontera', 'cruzo_frontera'];
 const tn = (n: number | null | undefined) => (n ?? 0).toLocaleString('es-BO');
+/** Toneladas de un camión: «sin registrar» si todavía no se anotaron (no «0 TN»). */
+const tnCamion = (n: number | null | undefined) => (n === null || n === undefined ? 'toneladas sin registrar' : `${tn(n)} TN`);
 
 /** Detalle de una carga en el transbordo: lo que llega, los camiones propios y los documentos. */
 export default async function PaginaCargaTransbordo({ params }: { params: Promise<{ id: string }> }) {
@@ -51,7 +52,6 @@ export default async function PaginaCargaTransbordo({ params }: { params: Promis
   const catalogo = (catalogoData ?? { conductores: [], vehiculos: [] }) as {
     conductores: { id: string; nombre: string }[]; vehiculos: { id: string; placa: string }[];
   };
-  const enlaces = await enlacesDocumentos(supabase, c.documentos);
   const cerrada = c.etapa === 'entregado' || c.etapa === 'cancelado';
   const declaradas = c.mis_camiones.reduce((t, a) => t + (a.toneladas ?? 0), 0);
   const fabrica = c.toneladas_fabrica ?? 0;
@@ -79,7 +79,7 @@ export default async function PaginaCargaTransbordo({ params }: { params: Promis
           <dt>Guía</dt><dd>{c.guia ?? '—'}</dd>
           <dt>DEX</dt><dd>{c.dex ?? '—'}</dd>
           {c.tipo_carga && (<><dt>Carga</dt><dd>{c.tipo_carga}</dd></>)}
-          <dt>Pesado en fábrica</dt><dd><strong>{tn(fabrica)} TN</strong></dd>
+          <dt>Pesado en fábrica</dt><dd><strong>{fabrica > 0 ? `${tn(fabrica)} TN` : 'sin registrar'}</strong></dd>
         </dl>
         {c.telefono_coordinador && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
@@ -103,7 +103,7 @@ export default async function PaginaCargaTransbordo({ params }: { params: Promis
                 <span className={`etiqueta ${a.etapa}`}>{etiqueta(a, false)}</span>
               </div>
               <p style={{ margin: '4px 0' }}>
-                {a.chofer} · {llamar(a.telefono)} · {tn(a.toneladas)} TN
+                {a.chofer} · {llamar(a.telefono)} · {tnCamion(a.toneladas)}
                 {a.ultima_senal && <><br /><span className="ayuda">Última señal: {formatoHora(a.ultima_senal)}{min !== null ? ` (hace ${min} min)` : ''}</span></>}
               </p>
               {EN_VIAJE.includes(a.etapa) && (
@@ -139,7 +139,7 @@ export default async function PaginaCargaTransbordo({ params }: { params: Promis
                 <span className={`etiqueta ${a.etapa}`}>{etiqueta(a, true)}</span>
               </div>
               <p style={{ margin: '4px 0' }}>
-                {a.chofer} · {llamar(a.telefono)} · {tn(a.toneladas)} TN · Precinto {a.precinto ?? '—'}
+                {a.chofer} · {llamar(a.telefono)} · {tnCamion(a.toneladas)} · Precinto {a.precinto ?? '—'}
               </p>
               {faltan.length > 0 ? (
                 <p className="alerta">Falta subir: {faltan.map((t) => TIPO_DOCUMENTO[t]).join(' y ')}.</p>
@@ -180,8 +180,8 @@ export default async function PaginaCargaTransbordo({ params }: { params: Promis
       </section>
 
       <section className="tarjeta">
-        <h2>3. Documentos (CRT, MIC/DTA y fotos)</h2>
-        <ListaDocumentos documentos={c.documentos} enlaces={enlaces} />
+        <h2>3. Documentos (DEX, lista de empaque, CRT, MIC/DTA y fotos)</h2>
+        <ListaDocumentos documentos={c.documentos} />
         {!cerrada && (
           <>
             <h3 style={{ marginTop: 16 }}>Subir documento</h3>
@@ -189,7 +189,7 @@ export default async function PaginaCargaTransbordo({ params }: { params: Promis
               misionId={c.id}
               tipos={['crt', 'mic_dta', 'otro']}
               camiones={c.mis_camiones.filter((a) => a.etapa !== 'cancelado').map((a) => ({ id: a.id, placa: a.placa }))}
-              reemplazables={c.documentos.map((d) => ({ id: d.id, texto: `${TIPO_DOCUMENTO[d.tipo] ?? d.tipo}${d.numero ? ` ${d.numero}` : ''} · ${d.placa ?? 'toda la carga'}` }))}
+              reemplazables={c.documentos.map((d) => ({ id: d.id, texto: `${nombreDocumento(d.tipo, d.etiqueta)}${d.numero ? ` ${d.numero}` : ''} · ${d.placa ?? 'toda la carga'}` }))}
               registrar={registrarDocumentoOperador.bind(null, c.id)}
             />
           </>

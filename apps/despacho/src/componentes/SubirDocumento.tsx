@@ -1,14 +1,14 @@
 'use client';
-import { useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { crearClienteNavegador } from '@/lib/supabase/client';
-import { prepararArchivo } from '@/lib/comprimir';
-import { TIPO_DOCUMENTO, type DatosDocumento } from '@/lib/documentos';
+import { PIDEN_NUMERO, TIPO_DOCUMENTO, type ClaveDocumento, type DatosDocumento } from '@/lib/documentos';
+import { subirDocumento, textoEstado, type EstadoSubida } from '@/lib/subir';
+import SelectorArchivo from './SelectorArchivo';
 
 interface Props {
   misionId: string;
-  /** Tipos que se pueden subir desde esta pantalla. */
-  tipos: string[];
+  /** Tipos que se pueden subir desde esta pantalla (claves de documento). */
+  tipos: ClaveDocumento[];
   camiones: { id: string; placa: string }[];
   /** Documentos vigentes que se pueden reemplazar por una versión nueva. */
   reemplazables: { id: string; texto: string }[];
@@ -16,82 +16,69 @@ interface Props {
 }
 
 /**
- * Sube un CRT, MIC/DTA, foto u otro documento: el archivo va directo al almacenamiento
- * privado (carpeta de la misión) y después se registra en la base de datos.
+ * Sube un documento a una misión que ya existe: el archivo va directo al almacenamiento
+ * privado (carpeta de la misión) con su avance a la vista, y después se registra.
+ * Si falla, el formulario conserva lo elegido para reintentar.
  */
 export default function SubirDocumento({ misionId, tipos, camiones, reemplazables, registrar }: Props) {
   const router = useRouter();
-  const formulario = useRef<HTMLFormElement>(null);
-  const [tipo, setTipo] = useState(tipos[0] ?? 'otro');
-  const [estado, setEstado] = useState<{ ok: boolean; mensaje: string } | null>(null);
-  const [enviando, setEnviando] = useState(false);
-  const pideNumero = tipo === 'crt' || tipo === 'mic_dta';
+  const [clave, setClave] = useState<ClaveDocumento>(tipos[0] ?? 'otro');
+  const [numero, setNumero] = useState('');
+  const [camion, setCamion] = useState(camiones.length === 1 ? camiones[0]!.id : '');
+  const [reemplaza, setReemplaza] = useState('');
+  const [archivos, setArchivos] = useState<File[]>([]);
+  const [estado, setEstado] = useState<EstadoSubida | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const pideNumero = PIDEN_NUMERO.includes(clave);
+  const ocupado = estado !== null && ['preparando', 'subiendo', 'guardando'].includes(estado.fase);
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const datos = new FormData(e.currentTarget);
-    const archivo = datos.get('archivo');
-    if (!(archivo instanceof File) || archivo.size === 0) {
-      setEstado({ ok: false, mensaje: 'Elija la foto o el PDF del documento.' });
+    setAviso(null);
+    if (archivos.length === 0) {
+      setAviso('Tome la foto o elija el PDF del documento.');
       return;
     }
-    const numero = String(datos.get('numero') ?? '').trim();
-    if (pideNumero && !numero) {
-      setEstado({ ok: false, mensaje: `Escriba el número del ${TIPO_DOCUMENTO[tipo]}.` });
+    if (pideNumero && !numero.trim()) {
+      setAviso(`Escriba el número del ${TIPO_DOCUMENTO[clave]}.`);
       return;
     }
-    setEnviando(true);
-    setEstado({ ok: true, mensaje: 'Preparando el archivo…' });
-    try {
-      const listo = await prepararArchivo(archivo);
-      const ruta = `${misionId}/${crypto.randomUUID()}.${listo.extension}`;
-      setEstado({ ok: true, mensaje: 'Subiendo…' });
-      const { error } = await crearClienteNavegador().storage.from('documentos')
-        .upload(ruta, listo.blob, { contentType: listo.tipo, upsert: false });
-      if (error) throw new Error(`No se pudo subir el archivo: ${error.message}. Revise la señal e intente de nuevo.`);
-      const r = await registrar({
-        tipo,
-        numero: numero || null,
-        ruta,
-        nombre: archivo.name || `${tipo}.${listo.extension}`,
-        asignacionId: String(datos.get('asignacion') ?? '') || null,
-        tipoMime: listo.tipo,
-        tamano: listo.blob.size,
-        reemplaza: String(datos.get('reemplaza') ?? '') || null,
-      });
-      setEstado(r);
-      if (r.ok) {
-        formulario.current?.reset();
-        setTipo(tipos[0] ?? 'otro');
-        router.refresh();
-      }
-    } catch (err) {
-      setEstado({ ok: false, mensaje: err instanceof Error ? err.message : 'No se pudo subir el documento.' });
-    } finally {
-      setEnviando(false);
+    const ok = await subirDocumento({
+      misionId, archivos, clave, numero, asignacionId: camion || null, reemplaza: reemplaza || null,
+      registrar, alCambiar: setEstado,
+    });
+    if (ok) {
+      setArchivos([]);
+      setNumero('');
+      setReemplaza('');
+      router.refresh();
     }
   }
 
   return (
-    <form ref={formulario} onSubmit={enviar} noValidate>
-      {estado && <div role="status" className={estado.ok ? 'mensaje-ok' : 'mensaje-error'}>{estado.mensaje}</div>}
+    <form onSubmit={enviar} noValidate>
+      {aviso && <div role="alert" className="mensaje-error">{aviso}</div>}
+      {estado && (
+        <div role="status" className={estado.fase === 'error' ? 'mensaje-error' : 'mensaje-ok'}>
+          {estado.fase === 'listo' ? estado.mensaje : textoEstado(estado)}
+          {estado.fase === 'subiendo' && <progress max={100} value={estado.avance} className="avance" />}
+        </div>
+      )}
       <div className="rejilla">
         <label>
           Documento
-          <select name="tipo" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+          <select value={clave} onChange={(e) => setClave(e.target.value as ClaveDocumento)} disabled={ocupado}>
             {tipos.map((t) => <option key={t} value={t}>{TIPO_DOCUMENTO[t] ?? t}</option>)}
           </select>
         </label>
-        {pideNumero && (
-          <label>
-            Número <span className="obligatorio" aria-hidden="true">*</span>
-            <input name="numero" required autoComplete="off" />
-          </label>
-        )}
+        <label>
+          Número {pideNumero ? <span className="obligatorio" aria-hidden="true">*</span> : <span className="ayuda">(opcional)</span>}
+          <input value={numero} onChange={(e) => setNumero(e.target.value)} autoComplete="off" required={pideNumero} disabled={ocupado} />
+        </label>
         {camiones.length > 0 && (
           <label>
             Camión
-            <select name="asignacion" defaultValue={camiones.length === 1 ? camiones[0]!.id : ''}>
+            <select value={camion} onChange={(e) => setCamion(e.target.value)} disabled={ocupado}>
               <option value="">Toda la carga</option>
               {camiones.map((c) => <option key={c.id} value={c.id}>{c.placa}</option>)}
             </select>
@@ -100,19 +87,18 @@ export default function SubirDocumento({ misionId, tipos, camiones, reemplazable
         {reemplazables.length > 0 && (
           <label>
             Reemplaza a (opcional)
-            <select name="reemplaza" defaultValue="">
+            <select value={reemplaza} onChange={(e) => setReemplaza(e.target.value)} disabled={ocupado}>
               <option value="">Ninguno (documento nuevo)</option>
               {reemplazables.map((d) => <option key={d.id} value={d.id}>{d.texto}</option>)}
             </select>
           </label>
         )}
-        <label>
-          Foto o PDF <span className="obligatorio" aria-hidden="true">*</span>
-          <input name="archivo" type="file" accept="image/*,application/pdf" required />
-        </label>
       </div>
-      <p className="ayuda">Las fotos se achican solas a menos de 1 MB. PDF hasta 10 MB.</p>
-      <button className="boton" disabled={enviando}>{enviando ? 'Subiendo…' : 'Subir documento'}</button>
+      <SelectorArchivo archivos={archivos} alCambiar={setArchivos} deshabilitado={ocupado} />
+      <p className="ayuda">Las fotos se achican solas a menos de 1 MB por hoja. PDF hasta 10 MB.</p>
+      <button className="boton" disabled={ocupado}>
+        {ocupado ? 'Subiendo…' : estado?.fase === 'error' ? 'Reintentar' : 'Subir documento'}
+      </button>
     </form>
   );
 }

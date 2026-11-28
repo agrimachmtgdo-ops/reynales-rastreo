@@ -3,9 +3,9 @@ import { crearClienteServidor } from '@/lib/supabase/server';
 import { cargarCatalogosCamion } from '@/lib/catalogos';
 import CamposCamion from '@/componentes/CamposCamion';
 import SeccionTransbordo from '@/componentes/SeccionTransbordo';
-import FormularioAccion from '@/componentes/FormularioAccion';
+import FormularioNuevaMision from '@/componentes/FormularioNuevaMision';
 import { NotaObligatorio, Req } from '@/componentes/Obligatorio';
-import { crearMision } from '../acciones';
+import { crearMision, registrarDocumentoDespacho } from '../acciones';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +29,11 @@ export default async function PaginaNuevaMision() {
             .filter(Boolean).join(', ')}.
         </p>
       )}
-      <FormularioAccion accion={crearMision} boton="Crear misión">
+      <FormularioNuevaMision
+        accion={crearMision}
+        registrar={registrarDocumentoDespacho}
+        destinos={destinos.map((d) => ({ id: d.id, pais: d.pais }))}
+        envio={<>
         <NotaObligatorio />
         <h2>Envío</h2>
         <div className="rejilla">
@@ -62,11 +66,14 @@ export default async function PaginaNuevaMision() {
           <label>WhatsApp del coordinador<input name="telefono_coordinador" placeholder="+591…" /></label>
         </div>
         <label>Notas<textarea name="notas" rows={2} /></label>
+        </>}
+        resto={<>
         <h2>Transbordo</h2>
         <SeccionTransbordo transportistas={catalogos.transportistas} />
         <h2>Primer camión</h2>
         <CamposCamion catalogos={catalogos} />
-      </FormularioAccion>
+        </>}
+      />
     </section>
   );
 }
