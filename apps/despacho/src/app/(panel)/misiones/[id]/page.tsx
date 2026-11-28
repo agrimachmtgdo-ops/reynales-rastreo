@@ -228,19 +228,37 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
     const min = minutosSinSenal(a.ultima_senal);
     const cerrada = a.etapa === 'entregado' || a.etapa === 'cancelado';
     return (
-      <section key={a.id} className={`tarjeta${a.emergencia_en ? ' emergencia' : ''}`}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>{a.vehiculo?.placa} · {a.conductor?.nombre}</h2>
+      <article key={a.id} className={`camion-tramo${a.emergencia_en ? ' emergencia' : ''}`}>
+        <div className="cabeza-camion">
+          <h4 className="titulo-camion">{a.vehiculo?.placa} · {a.conductor?.nombre}</h4>
           <span className={`etiqueta ${a.etapa}`}>{a.etapa === 'entregado' && intermedio(a.id) ? 'Entregado en transbordo' : ETIQUETA_ETAPA[a.etapa]}</span>
         </div>
-        <p style={{ fontSize: 14 }}>
-          Última señal: {formatoHora(a.ultima_senal)} {min !== null && `(hace ${min} min)`} ·{' '}
-          {a.ultima_velocidad_kmh ?? 0} km/h ·{' '}
-          {(a.tramo ?? 1) > 1
-            ? (a.toneladas_declaradas !== null && a.toneladas_declaradas !== undefined ? `${a.toneladas_declaradas} TN declaradas` : 'TN declaradas sin registrar')
-            : (a.toneladas_cargadas ? `${a.toneladas_cargadas} TN cargadas` : 'TN sin registrar')}
-          {a.precinto && ` · Precinto ${a.precinto}`}
-        </p>
+        {(() => {
+          const inv = invitacionDe(a.id);
+          const vencida = inv && !inv.usado_en && new Date(inv.vence_en).getTime() < Date.now();
+          return (
+            <ul className="datos-camion">
+              <li>{a.ultima_senal ? <>Señal: <strong>{formatoHora(a.ultima_senal)}</strong>{min !== null && ` (hace ${min} min)`} · {a.ultima_velocidad_kmh ?? 0} km/h</> : <>Señal: <strong>sin señal aún</strong></>}</li>
+              <li>
+                {(a.tramo ?? 1) > 1
+                  ? (a.toneladas_declaradas != null ? <><strong>{a.toneladas_declaradas} TN</strong> declaradas</> : 'TN declaradas sin registrar')
+                  : (a.toneladas_cargadas ? <><strong>{a.toneladas_cargadas} TN</strong> cargadas</> : 'TN sin registrar')}
+              </li>
+              {a.precinto && <li>Precinto <strong>{a.precinto}</strong></li>}
+              {!cerrada && (
+                <li className={inv?.usado_en ? 'app-ok' : 'app-pendiente'}>
+                  App del chofer:{' '}
+                  {inv?.usado_en ? <strong>activada</strong>
+                    : inv && !vencida ? <>código <strong className="codigo-corto">{inv.codigo}</strong> sin activar</>
+                    : <strong>{vencida ? 'código vencido' : 'sin código'}</strong>}
+                </li>
+              )}
+              {a.conductor?.telefono && (
+                <li className="no-imprimir"><a href={`tel:${a.conductor.telefono.replace(/[^0-9+]/g, '')}`}>Llamar al chofer</a></li>
+              )}
+            </ul>
+          );
+        })()}
         {(a.tramo ?? 1) === 1 && a.toneladas_cargadas == null && a.etapa !== 'programado' && a.etapa !== 'cancelado' && (
           <div className="alerta-sin-peso" role="alert">
             <strong>Salió sin peso de balanza.</strong> Registre el peso del ticket de balanza para que el saldo y el cumplimiento sean exactos.
@@ -299,7 +317,7 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
           </div>
         )}
         {(a.tramo ?? 1) > 1 && a.etapa !== 'cancelado' && (
-          <details className="agregar no-imprimir" style={{ marginBottom: 12 }}>
+          <details className="agregar no-imprimir">
             <summary>Toneladas declaradas de este camión</summary>
             <FormularioAccion accion={fijarToneladasDeclaradas.bind(null, a.id, id)} boton="Guardar toneladas" claseBoton="boton secundario">
               <label>Toneladas declaradas en el transbordo<input name="toneladas_declaradas" inputMode="decimal" defaultValue={a.toneladas_declaradas ?? ''} /></label>
@@ -307,9 +325,9 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
           </details>
         )}
         {!cerrada && (
-          <div className="no-imprimir" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-            <div>
-              <h3>Acceso del chofer</h3>
+          <div className="acciones-camion no-imprimir">
+            <details className="agregar" open={!invitacionDe(a.id) && a.etapa === 'programado'}>
+              <summary>Acceso del chofer: código, QR y WhatsApp</summary>
               <InvitacionChofer
                 nombreChofer={a.conductor?.nombre ?? ''}
                 telefonoChofer={a.conductor?.telefono ?? null}
@@ -317,9 +335,9 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
                 generar={crearInvitacion.bind(null, a.id)}
                 vigente={invitacionDe(a.id)}
               />
-            </div>
-            <div>
-              <h3>Modo manual (si falla la app)</h3>
+            </details>
+            <details className="agregar">
+              <summary>Cambiar etapa a mano (si falla la app)</summary>
               <FormularioAccion accion={cambiarEtapaManual.bind(null, a.id, id)} boton="Cambiar etapa" claseBoton="boton secundario" confirmarCierre>
                 <div className="rejilla">
                   <label>
@@ -331,10 +349,10 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
                   <label>Nota (obligatoria para Entregado o Cancelado)<input name="nota" placeholder="Ej. chofer avisó por teléfono" /></label>
                 </div>
               </FormularioAccion>
-            </div>
+            </details>
           </div>
         )}
-      </section>
+      </article>
     );
   };
 
@@ -392,6 +410,130 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
         <MapaMision asignaciones={asignaciones} recorridos={recorridos} />
       </section>
 
+
+      <section className="tarjeta recorrido-carga" id="recorrido">
+        <div className="cabeza-recorrido">
+          <h2 style={{ margin: 0 }}>Recorrido de la carga</h2>
+          <span className="ayuda">
+            {ultimoTramo === 1
+              ? 'Un solo tramo: el mismo camión lleva la carga hasta el destino.'
+              : `${ultimoTramo} tramos · ${ultimoTramo - 1 === 1 ? '1 transbordo' : `${ultimoTramo - 1} transbordos`}`}
+          </span>
+        </div>
+        <ol className="arbol-tramos">
+          {Array.from({ length: ultimoTramo }, (_, i) => i + 1).map((n) => {
+            const delTramo = asignaciones.filter((a) => (a.tramo ?? 1) === n);
+            const activos = delTramo.filter((a) => a.etapa !== 'cancelado');
+            const tramo = tramos.find((t) => t.numero === n) ?? null;
+            const siguiente = tramos.find((t) => t.numero === n + 1) ?? null;
+            const declaradas = activos.reduce((t, a) => t + (a.toneladas_declaradas ?? 0), 0);
+            const diferencia = n > 1 && tnFabrica > 0 && declaradas > 0 ? Math.abs(declaradas - tnFabrica) / tnFabrica : null;
+            const esUltimo = n === ultimoTramo;
+            const desde = n === 1 ? m.origen?.nombre : tramo?.lugar_inicio || 'punto de transbordo';
+            const hasta = esUltimo
+              ? `${m.destino?.nombre} (${m.destino?.pais})`
+              : `Transbordo${siguiente?.lugar_inicio ? ` en ${siguiente.lugar_inicio}` : ''}`;
+            const terminados = activos.filter((a) => a.etapa === 'entregado').length;
+            const enCamino = activos.some((a) => a.etapa !== 'programado' && a.etapa !== 'entregado');
+            const estado = activos.length === 0
+              ? { clase: 'programado', texto: 'Sin camiones' }
+              : terminados === activos.length
+                ? { clase: 'entregado', texto: esUltimo ? 'Entregado' : 'Carga entregada en el transbordo' }
+                : enCamino || terminados > 0
+                  ? { clase: 'en_ruta', texto: 'En camino' }
+                  : { clase: 'programado', texto: 'Programado' };
+            const abierto = m.etapa !== 'entregado' && m.etapa !== 'cancelado';
+            return (
+              <li key={n} className={`nodo-tramo estado-${estado.clase}`}>
+                <span className="numero-tramo" aria-hidden="true">{n}</span>
+                <div className="cuerpo-tramo">
+                  <div className="cabeza-tramo">
+                    <div>
+                      <h3>Tramo {n} <span className="ruta-tramo">{desde} → {hasta}</span></h3>
+                      <p className="meta-tramo">
+                        {n > 1 && <>Empresa: <strong>{tramo?.transportista?.razon_social ?? 'sin definir'}</strong> · </>}
+                        {activos.length === 0 ? 'sin camiones aún' : `${activos.length} ${activos.length === 1 ? 'camión' : 'camiones'}`}
+                        {' · '}
+                        {n === 1
+                          ? <>Pesado en fábrica: <strong>{tnFabrica.toLocaleString('es-BO')} TN</strong></>
+                          : <>Declarado: <strong>{declaradas.toLocaleString('es-BO')} de {tnFabrica.toLocaleString('es-BO')} TN</strong></>}
+                      </p>
+                    </div>
+                    <span className={`etiqueta ${estado.clase}`}>{estado.texto}</span>
+                  </div>
+                  {diferencia !== null && diferencia > TOLERANCIA_PESO && (
+                    <p className="alerta" role="alert">
+                      La diferencia con lo pesado en fábrica es de {(diferencia * 100).toFixed(1)} %; el máximo permitido es 0,5 %. Revise las toneladas declaradas.
+                    </p>
+                  )}
+                  <div className="camiones-tramo">
+                    {delTramo.map(tarjetaCamion)}
+                  </div>
+                  {(ultimoTramo === 1 || abierto) && (
+                    <div className="acciones-tramo no-imprimir">
+                      <details className="agregar" open={delTramo.length === 0 && n === 1}>
+                        <summary>+ Agregar {delTramo.length === 0 ? 'un camión' : 'otro camión'} a este tramo</summary>
+                        <FormularioAccion accion={agregarCamion.bind(null, id, n)} boton="Agregar camión">
+                          <CamposCamion catalogos={catalogos} transportistaInicial={n > 1 ? tramo?.transportista_id : undefined} declaradas={n > 1} />
+                        </FormularioAccion>
+                      </details>
+                      {n > 1 && tramo && abierto && (
+                        <details className="agregar">
+                          <summary>Cambiar empresa o lugar del transbordo</summary>
+                          <FormularioAccion accion={editarTramo.bind(null, id, tramo.id)} boton="Guardar tramo" claseBoton="boton secundario">
+                            <div className="rejilla">
+                              <label>
+                                Empresa del tramo
+                                <select name="transportista_tramo" defaultValue={tramo.transportista_id ?? ''}>
+                                  <option value="">Sin definir</option>
+                                  {catalogos.transportistas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                                </select>
+                              </label>
+                              <label>Lugar del transbordo<input name="lugar_tramo" defaultValue={tramo.lugar_inicio ?? ''} /></label>
+                            </div>
+                          </FormularioAccion>
+                        </details>
+                      )}
+                    </div>
+                  )}
+                  {!esUltimo && (
+                    <p className="paso-transbordo">
+                      <span aria-hidden="true">⇅</span> Transbordo{siguiente?.lugar_inicio ? ` en ${siguiente.lugar_inicio}` : ''}: la carga pasa a los camiones del tramo {n + 1}
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+          {puedeAgregarTransbordo && (
+            <li className="nodo-tramo nodo-nuevo no-imprimir" id="agregar-transbordo">
+              <span className="numero-tramo" aria-hidden="true">+</span>
+              <div className="cuerpo-tramo">
+                <details className="agregar" open={abrirTransbordo === '1'}>
+                  <summary>{ultimoTramo === 1 ? 'Agregar transbordo' : 'Agregar otro transbordo'} (tramo {ultimoTramo + 1})</summary>
+                  <p className="ayuda">
+                    La carga pasa a otro camión en el camino. Los camiones del tramo {ultimoTramo} terminarán con «Entregado en transbordo».
+                    Basta con la empresa; los camiones del nuevo tramo se agregan cuando los conozca.
+                  </p>
+                  <FormularioAccion accion={agregarTransbordo.bind(null, id, ultimoTramo + 1)} boton="Agregar transbordo">
+                    <div className="rejilla">
+                      <label>
+                        Empresa que hará el tramo {ultimoTramo + 1}
+                        <select name="transportista_tramo" required defaultValue="">
+                          <option value="" disabled>Seleccione…</option>
+                          {catalogos.transportistas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                        </select>
+                      </label>
+                      <label>Lugar aproximado del transbordo<input name="lugar_tramo" placeholder="Ej. El Alto, zona Senkata" /></label>
+                    </div>
+                  </FormularioAccion>
+                </details>
+              </div>
+            </li>
+          )}
+        </ol>
+      </section>
+
       {m.etapa !== 'cancelado' && (
         <section className="tarjeta no-imprimir">
           <h2>Seguimiento para el cliente</h2>
@@ -403,94 +545,6 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
             generar={crearEnlaceSeguimiento.bind(null, id)}
             anular={anularEnlaceSeguimiento.bind(null, id)}
           />
-        </section>
-      )}
-
-      {Array.from({ length: ultimoTramo }, (_, i) => i + 1).map((n) => {
-        const delTramo = asignaciones.filter((a) => (a.tramo ?? 1) === n);
-        const tramo = tramos.find((t) => t.numero === n) ?? null;
-        const siguiente = tramos.find((t) => t.numero === n + 1) ?? null;
-        const declaradas = delTramo.filter((a) => a.etapa !== 'cancelado').reduce((t, a) => t + (a.toneladas_declaradas ?? 0), 0);
-        const diferencia = n > 1 && tnFabrica > 0 && declaradas > 0 ? Math.abs(declaradas - tnFabrica) / tnFabrica : null;
-        return (
-          <div key={n}>
-            {ultimoTramo > 1 && (
-              <section className="tarjeta tramo-encabezado">
-                <h2 style={{ margin: 0 }}>
-                  Tramo {n}: {n === 1 ? m.origen?.nombre : tramo?.lugar_inicio ?? 'punto de transbordo'} →{' '}
-                  {siguiente ? `transbordo${siguiente.lugar_inicio ? ` en ${siguiente.lugar_inicio}` : ''}` : `${m.destino?.nombre} (${m.destino?.pais})`}
-                </h2>
-                {n === 1 ? (
-                  <p style={{ fontSize: 14, margin: '4px 0 0' }}>Pesado en fábrica: <strong>{tnFabrica.toLocaleString('es-BO')} TN</strong></p>
-                ) : (
-                  <>
-                    <p style={{ fontSize: 14, margin: '4px 0 0' }}>
-                      Empresa: <strong>{tramo?.transportista?.razon_social ?? 'sin definir'}</strong>
-                      {delTramo.length === 0 && ' · sin camiones aún'} · Declarado:{' '}
-                      <strong>{declaradas.toLocaleString('es-BO')} de {tnFabrica.toLocaleString('es-BO')} TN</strong>
-                    </p>
-                    {diferencia !== null && diferencia > TOLERANCIA_PESO && (
-                      <p className="alerta" role="alert">
-                        La diferencia con lo pesado en fábrica es de {(diferencia * 100).toFixed(1)} %; el máximo permitido es 0,5 %. Revise las toneladas declaradas.
-                      </p>
-                    )}
-                    {tramo && m.etapa !== 'entregado' && m.etapa !== 'cancelado' && (
-                      <details className="agregar no-imprimir">
-                        <summary>Corregir empresa o lugar del transbordo</summary>
-                        <FormularioAccion accion={editarTramo.bind(null, id, tramo.id)} boton="Guardar tramo" claseBoton="boton secundario">
-                          <div className="rejilla">
-                            <label>
-                              Empresa del tramo
-                              <select name="transportista_tramo" defaultValue={tramo.transportista_id ?? ''}>
-                                <option value="">Sin definir</option>
-                                {catalogos.transportistas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-                              </select>
-                            </label>
-                            <label>Lugar del transbordo<input name="lugar_tramo" defaultValue={tramo.lugar_inicio ?? ''} /></label>
-                          </div>
-                        </FormularioAccion>
-                      </details>
-                    )}
-                  </>
-                )}
-              </section>
-            )}
-            {delTramo.map(tarjetaCamion)}
-            {(ultimoTramo === 1 || (m.etapa !== 'entregado' && m.etapa !== 'cancelado')) && (
-              <section className="tarjeta no-imprimir">
-                <details className="agregar" open={delTramo.length === 0 && n === 1}>
-                  <summary>+ Agregar {delTramo.length === 0 ? 'un camión' : 'otro camión'}{ultimoTramo > 1 ? ` al tramo ${n}` : ''}</summary>
-                  <FormularioAccion accion={agregarCamion.bind(null, id, n)} boton="Agregar camión">
-                    <CamposCamion catalogos={catalogos} transportistaInicial={n > 1 ? tramo?.transportista_id : undefined} declaradas={n > 1} />
-                  </FormularioAccion>
-                </details>
-              </section>
-            )}
-          </div>
-        );
-      })}
-
-      {puedeAgregarTransbordo && (
-        <section className="tarjeta no-imprimir" id="agregar-transbordo">
-          <details className="agregar" open={abrirTransbordo === '1'}>
-            <summary>+ Agregar un transbordo (la carga pasa a otro camión en el camino)</summary>
-            <p className="ayuda">
-              Se crea el tramo {ultimoTramo + 1}. Los camiones del tramo {ultimoTramo} terminarán con «Entregado en transbordo».
-              Los camiones del nuevo tramo se agregan cuando los conozca.
-            </p>
-            <FormularioAccion accion={agregarTransbordo.bind(null, id, ultimoTramo + 1)} boton="Agregar transbordo">
-              <div className="rejilla">
-                <label>
-                  Empresa que hará el tramo {ultimoTramo + 1}
-                  <select name="transportista_tramo" required defaultValue="">
-                    <option value="" disabled>Seleccione…</option>
-                    {catalogos.transportistas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-                  </select>
-                </label>
-                <label>Lugar aproximado del transbordo<input name="lugar_tramo" placeholder="Ej. El Alto, zona Senkata" /></label>
-              </div>
-            </FormularioAccion>
-          </details>
         </section>
       )}
 
