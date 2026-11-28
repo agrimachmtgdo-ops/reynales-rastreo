@@ -2,9 +2,18 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 /**
- * Se ejecuta antes de cada página: renueva la sesión y envía a /login a quien no la tenga.
+ * Se ejecuta antes de cada página: renueva la sesión y envía a /login a quien no la tenga
+ * (salvo la página pública de seguimiento para clientes).
  */
 export async function proxy(request: NextRequest) {
+  // La página de seguimiento para clientes es pública: no usa sesión ni cookies.
+  if (request.nextUrl.pathname.startsWith('/seguimiento/')) {
+    const publica = NextResponse.next();
+    publica.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    publica.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    return publica;
+  }
+
   let respuesta = NextResponse.next({ request });
 
   const supabase = createServerClient(

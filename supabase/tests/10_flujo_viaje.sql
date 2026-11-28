@@ -446,3 +446,109 @@ select public.fijar_minutos_detenido(45) \g /dev/null
 select pg_temp.verificar((select (valor)::int = 45 from public.configuracion where clave = 'detenido_minutos'),
   'despacho puede cambiar los minutos de detenido');
 reset role;
+
+-- =====================================================================
+-- Fase 3.1: enlace de seguimiento para el cliente
+-- =====================================================================
+select set_config('request.jwt.claims', json_build_object('sub', :'gerencia_id')::text, false) \g /dev/null
+set role authenticated;
+do $$ begin
+  perform public.crear_enlace_seguimiento((select id from public.misiones limit 1));
+  raise exception 'FALLÓ: gerencia creó un enlace de seguimiento';
+exception when insufficient_privilege then raise notice 'ok - gerencia no crea enlaces de seguimiento';
+end $$;
+reset role;
+
+select set_config('request.jwt.claims', json_build_object('sub', :'despacho_id')::text, false) \g /dev/null
+set role authenticated;
+select public.crear_enlace_seguimiento(:'mision_id') as token1 \gset
+select public.crear_enlace_seguimiento(:'mision_id') as token \gset
+reset role;
+select pg_temp.verificar(:'token' ~ '^[0-9a-f]{32}$' and :'token' <> :'token1', 'despacho crea un enlace de 32 caracteres');
+select pg_temp.verificar(
+  (select count(*) = 1 from public.enlaces_seguimiento where mision_id = :'mision_id' and estado = 'activo'),
+  'crear un enlace nuevo anula el anterior');
+
+-- Camión 2: un punto de hace 20 min (visible) a ~45 km de Puno y otro de hace 5 min (todavía oculto).
+insert into public.posiciones (asignacion_id, capturado_en, punto) values
+  (:'asig2', now() - interval '20 minutes', pg_temp.punto(-16.1234, -69.7012)),
+  (:'asig2', now() - interval '5 minutes',  pg_temp.punto(-16.00, -69.90));
+-- Camión 3: lejos del destino y parado desde hace 2 h.
+select public.aplicar_etapa(:'asig3', 'en_ruta', 'despacho') \g /dev/null
+insert into public.posiciones (asignacion_id, capturado_en, punto)
+values (:'asig3', now() - interval '20 minutes', pg_temp.punto(-19.83, -63.99));
+update public.asignaciones set ultima_lat = -19.83, ultima_lon = -63.99, ultima_senal = now() - interval '2 hours'
+ where id = :'asig3';
+update public.asignaciones set toneladas_cargadas = 28.4 where id = :'asig2';
+
+set role anon;
+select public.seguimiento_publico(:'token') as seg \gset
+select public.seguimiento_publico(:'token') is not null as otra \gset
+select public.seguimiento_publico(:'token1') is null as viejo_nulo \gset
+select public.seguimiento_publico('no-es-un-token') is null as basura_nula \gset
+reset role;
+select pg_temp.verificar(:'seg'::jsonb ->> 'codigo' = :'mision_codigo', 'el cliente sin sesión ve su misión');
+select pg_temp.verificar(:'viejo_nulo'::boolean and :'basura_nula'::boolean, 'un enlace anulado o inventado no muestra nada');
+select pg_temp.verificar(:'seg'::jsonb ->> 'zona_horaria' = 'America/Lima', 'un envío a Perú se muestra en hora de Perú');
+select pg_temp.verificar(
+  not exists (select 1 from public.conductores c
+               where position(lower(c.nombre) in lower(:'seg')) > 0
+                  or (c.telefono is not null and position(c.telefono in :'seg') > 0)
+                  or (c.ci is not null and position(c.ci in :'seg') > 0))
+  and position('codigo_invitacion' in :'seg') = 0,
+  'el cliente no ve nombre, CI ni teléfono del chofer');
+select pg_temp.verificar(
+  (select bool_and((c ->> 'hora_posicion') is null or (c ->> 'hora_posicion')::timestamptz <= now() - interval '15 minutes')
+     from jsonb_array_elements(:'seg'::jsonb -> 'camiones') c),
+  'las posiciones que ve el cliente tienen al menos 15 minutos');
+select pg_temp.verificar(
+  exists (select 1 from jsonb_array_elements(:'seg'::jsonb -> 'camiones') c
+           where (c ->> 'lat')::numeric = -16.12 and (c ->> 'lon')::numeric = -69.70 and (c ->> 'toneladas')::numeric = 28.4),
+  'la posición se redondea a ~1 km y se ven las toneladas cargadas');
+select pg_temp.verificar(
+  exists (select 1 from jsonb_array_elements(:'seg'::jsonb -> 'camiones') c
+           where (c ->> 'parado')::boolean and c ->> 'zona' like 'a unos % km de Fábrica%'
+             and c ->> 'lat' is not null
+             and (c ->> 'lat')::numeric = round((c ->> 'lat')::numeric, 1)
+             and (c ->> 'lon')::numeric = round((c ->> 'lon')::numeric, 1)),
+  'un camión parado solo muestra una zona aproximada (~11 km) y el lugar más cercano');
+select pg_temp.verificar(
+  exists (select 1 from jsonb_array_elements(:'seg'::jsonb -> 'camiones') c where c ->> 'nombre' = '1234ABC' and (c ->> 'km_al_destino')::int <= 50)
+  and exists (select 1 from jsonb_array_elements(:'seg'::jsonb -> 'camiones') c where c ->> 'nombre' like 'Camión %' and (c ->> 'km_al_destino')::int > 50),
+  'la placa se ve solo a menos de 50 km del destino');
+select pg_temp.verificar(
+  (select visitas = 1 and ultima_visita is not null from public.enlaces_seguimiento where token = :'token'),
+  'se cuentan las visitas (dos consultas seguidas son una sola visita)');
+
+-- Entregado: el enlace sigue 48 h y luego deja de funcionar.
+select public.aplicar_etapa(:'asig2', 'entregado', 'despacho') \g /dev/null
+select public.aplicar_etapa(:'asig3', 'entregado', 'despacho') \g /dev/null
+select pg_temp.verificar((select etapa = 'entregado' from public.misiones where id = :'mision_id'), 'misión entregada');
+set role anon;
+select public.seguimiento_publico(:'token') as seg \gset
+reset role;
+select pg_temp.verificar(:'seg'::jsonb is not null
+  and (select bool_and(c ->> 'lat' is null) from jsonb_array_elements(:'seg'::jsonb -> 'camiones') c),
+  'tras la entrega el enlace sigue funcionando, ya sin posición en el mapa');
+update public.eventos set ocurrido_en = now() - interval '49 hours'
+ where asignacion_id in (select id from public.asignaciones where mision_id = :'mision_id') and etapa_nueva = 'entregado';
+set role anon;
+select public.seguimiento_publico(:'token') is null as vencido \gset
+reset role;
+select pg_temp.verificar(:'vencido'::boolean, '48 h después de la entrega el enlace ya no funciona');
+
+select set_config('request.jwt.claims', json_build_object('sub', :'despacho_id')::text, false) \g /dev/null
+set role authenticated;
+select public.anular_enlace_seguimiento(:'mision_id') \g /dev/null
+reset role;
+select pg_temp.verificar(
+  (select count(*) = 0 from public.enlaces_seguimiento where mision_id = :'mision_id' and estado = 'activo'),
+  'despacho puede anular el enlace');
+-- anon no puede leer la tabla de enlaces directamente.
+set role anon;
+do $$ begin
+  perform 1 from public.enlaces_seguimiento limit 1;
+  raise exception 'FALLÓ: anon leyó la tabla de enlaces';
+exception when insufficient_privilege then raise notice 'ok - un visitante sin sesión no puede listar enlaces';
+end $$;
+reset role;

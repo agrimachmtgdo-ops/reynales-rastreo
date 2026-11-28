@@ -14,7 +14,10 @@ import MapaMision from '@/componentes/MapaMision';
 import RefrescoEnVivo from '@/componentes/RefrescoEnVivo';
 import BotonImprimir from '@/componentes/BotonImprimir';
 import BarraEtapas from '@/componentes/BarraEtapas';
-import { agregarCamion, atenderEmergencia, cambiarEtapaManual, crearInvitacion, editarMision } from '../acciones';
+import EnlaceCliente from '@/componentes/EnlaceCliente';
+import {
+  agregarCamion, anularEnlaceSeguimiento, atenderEmergencia, cambiarEtapaManual, crearEnlaceSeguimiento, crearInvitacion, editarMision,
+} from '../acciones';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,17 +74,20 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
   const { data: mision } = await supabase
     .from('misiones')
     .select(`id, codigo, etapa, factura, guia, dex, tipo_carga, tonelaje_objetivo, telefono_coordinador, notas,
-             cliente:clientes(razon_social, pais),
+             cliente:clientes(razon_social, pais, whatsapp),
              origen:ubicaciones!misiones_origen_id_fkey(nombre),
              destino:ubicaciones!misiones_destino_id_fkey(nombre, pais, lat, lon)`)
     .eq('id', id)
     .maybeSingle();
   if (!mision) notFound();
 
-  const [{ data: asigData }, catalogos] = await Promise.all([
+  const [{ data: asigData }, catalogos, { data: enlaceData }] = await Promise.all([
     supabase.from('asignaciones').select(SELECT_ASIGNACION_EN_VIVO).eq('mision_id', id).order('creado_en'),
     cargarCatalogosCamion(),
+    supabase.from('enlaces_seguimiento').select('token, creado_en, visitas, ultima_visita')
+      .eq('mision_id', id).eq('estado', 'activo').order('creado_en', { ascending: false }).limit(1).maybeSingle(),
   ]);
+  const enlaceCliente = (enlaceData ?? null) as { token: string; creado_en: string; visitas: number; ultima_visita: string | null } | null;
   const asignaciones = (asigData ?? []) as unknown as AsignacionEnVivo[];
   const ids = asignaciones.map((a) => a.id);
 
@@ -123,7 +129,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
   const m = mision as unknown as {
     codigo: string; etapa: Etapa; factura: string | null; guia: string | null; dex: string | null;
     tipo_carga: string | null; tonelaje_objetivo: number | null; telefono_coordinador: string | null; notas: string | null;
-    cliente: { razon_social: string; pais: string } | null; origen: { nombre: string } | null; destino: { nombre: string; pais: string; lat: number; lon: number } | null;
+    cliente: { razon_social: string; pais: string; whatsapp: string | null } | null; origen: { nombre: string } | null; destino: { nombre: string; pais: string; lat: number; lon: number } | null;
   };
   const puntoDestino: [number, number] | null = m.destino ? [m.destino.lat, m.destino.lon] : null;
   const placaDe = (asigId: string) => asignaciones.find((a) => a.id === asigId)?.vehiculo?.placa ?? '';
@@ -165,6 +171,20 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
         <BarraEtapas etapa={m.etapa} destinoPais={m.destino?.pais} horas={horasEtapa} />
         <MapaMision asignaciones={asignaciones} recorridos={recorridos} />
       </section>
+
+      {m.etapa !== 'cancelado' && (
+        <section className="tarjeta no-imprimir">
+          <h2>Seguimiento para el cliente</h2>
+          <EnlaceCliente
+            codigoMision={m.codigo}
+            nombreCliente={m.cliente?.razon_social ?? null}
+            whatsappCliente={m.cliente?.whatsapp ?? null}
+            vigente={enlaceCliente}
+            generar={crearEnlaceSeguimiento.bind(null, id)}
+            anular={anularEnlaceSeguimiento.bind(null, id)}
+          />
+        </section>
+      )}
 
       {asignaciones.map((a) => {
         const min = minutosSinSenal(a.ultima_senal);

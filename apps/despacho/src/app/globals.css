@@ -271,3 +271,19 @@ img, svg, video { max-width: 100%; }
 .datos-viaje { display: flex; gap: 8px 20px; flex-wrap: wrap; font-size: 14px; margin: 4px 0 8px; }
 .datos-viaje strong { color: var(--cafe); }
 @media (max-width: 480px) { .barra-etapas li { font-size: 10px; } .barra-etapas .hora { display: none; } }
+
+/* ---- 3.1 Página pública de seguimiento para el cliente ---- */
+.seg-pagina { max-width: 760px; margin: 0 auto; padding: 16px; }
+.seg-encabezado { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--cafe); font-weight: 700; }
+.seg-encabezado img { height: 44px; width: auto; }
+.seg-titulo { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.seg-titulo h1 { margin: 0; }
+.seg-ruta { margin: 8px 0 4px; }
+.seg-datos { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; font-size: 15px; }
+.seg-datos dt { font-weight: 700; color: var(--cafe); }
+.seg-datos dd { margin: 0; overflow-wrap: anywhere; }
+.mapa-seguimiento { height: 360px; border-radius: 10px; overflow: hidden; border: 1px solid var(--borde); }
+.seg-camiones { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.seg-camiones li { border: 1px solid var(--borde); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; font-size: 15px; }
+.seg-contacto .boton { width: 100%; }
+@media (max-width: 480px) { .seg-pagina { padding: 12px; } .mapa-seguimiento { height: 300px; } }

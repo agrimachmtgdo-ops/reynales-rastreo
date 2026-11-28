@@ -16,11 +16,14 @@ export default function BarraEtapas({
   etapa,
   destinoPais,
   horas,
+  zona,
 }: {
   etapa: Etapa;
   destinoPais: string | null | undefined;
   /** Primera vez que se alcanzó cada etapa. */
   horas: Partial<Record<Etapa, string>>;
+  /** Zona horaria para mostrar las horas (por defecto, Bolivia). */
+  zona?: string;
 }) {
   if (etapa === 'cancelado') return <p className="alerta">Misión cancelada.</p>;
   const lista = pasos(destinoPais);
@@ -37,7 +40,7 @@ export default function BarraEtapas({
           <li key={p} className={estado} aria-current={estado === 'actual' ? 'step' : undefined}>
             <span className="marca" aria-hidden="true">{estado === 'hecha' ? '✓' : i + 1}</span>
             <span className="nombre">{ETIQUETA_ETAPA[p]}</span>
-            {horas[p] && <span className="hora">{formatoHora(horas[p]!)}</span>}
+            {horas[p] && <span className="hora">{formatoHora(horas[p]!, zona)}</span>}
             <span className="visualmente-oculto">{estado === 'hecha' ? ' (completada)' : estado === 'actual' ? ' (etapa actual)' : ' (pendiente)'}</span>
           </li>
         );
