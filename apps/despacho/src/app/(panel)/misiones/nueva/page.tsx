@@ -3,6 +3,7 @@ import { crearClienteServidor } from '@/lib/supabase/server';
 import { cargarCatalogosCamion } from '@/lib/catalogos';
 import CamposCamion from '@/componentes/CamposCamion';
 import FormularioAccion from '@/componentes/FormularioAccion';
+import { NotaObligatorio, Req } from '@/componentes/Obligatorio';
 import { crearMision } from '../acciones';
 
 export const dynamic = 'force-dynamic';
@@ -28,24 +29,25 @@ export default async function PaginaNuevaMision() {
         </p>
       )}
       <FormularioAccion accion={crearMision} boton="Crear misión">
+        <NotaObligatorio />
         <h2>Envío</h2>
         <div className="rejilla">
           <label>
-            Cliente
+            Cliente <Req />
             <select name="cliente_id" required defaultValue="">
               <option value="" disabled>Seleccione…</option>
               {(clientes.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.razon_social}</option>)}
             </select>
           </label>
           <label>
-            Origen
+            Origen <Req />
             <select name="origen_id" required defaultValue="">
               <option value="" disabled>Seleccione…</option>
               {origenes.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
             </select>
           </label>
           <label>
-            Destino
+            Destino <Req />
             <select name="destino_id" required defaultValue="">
               <option value="" disabled>Seleccione…</option>
               {destinos.map((u) => <option key={u.id} value={u.id}>{u.nombre} ({u.pais})</option>)}

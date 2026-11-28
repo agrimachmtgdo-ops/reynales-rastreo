@@ -67,7 +67,15 @@ async function avisoOcupado(f: FormData): Promise<Resultado | null> {
 }
 
 /** Crea la misión con su primer camión y abre el detalle. */
+// Obligatorios de una misión nueva, con el nombre que ve el usuario.
+const OBLIGATORIOS_MISION: [string, string][] = [
+  ['cliente_id', 'el cliente'], ['origen_id', 'el origen'], ['destino_id', 'el destino'],
+  ['transportista_id', 'el transportista'], ['conductor_id', 'el chofer'], ['vehiculo_id', 'el vehículo'],
+];
+
 export async function crearMision(_: Resultado | null, f: FormData): Promise<Resultado> {
+  const falta = OBLIGATORIOS_MISION.find(([campo]) => !texto(f, campo));
+  if (falta) return { ok: false, mensaje: `Falta elegir ${falta[1]}.`, campo: falta[0], errorCampo: 'Dato obligatorio.' };
   const coordinador = telefonoCoordinador(f);
   if (coordinador.error) return coordinador.error;
   const ocupado = await avisoOcupado(f);

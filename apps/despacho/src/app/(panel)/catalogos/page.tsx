@@ -134,15 +134,15 @@ export default async function PaginaCatalogos({
   // ---- Tabla de cada catálogo ----
   const tablas: Record<Pestana, React.ReactNode> = {
     clientes: (
-      <table>
+      <div className="tabla-desplazable"><table>
         <thead><tr><th>Razón social</th><th>NIT/RUC</th><th>País</th><th>WhatsApp</th><th></th></tr></thead>
         <tbody>{filas.map((c) => (
           <tr key={c.id}><td>{v(c, 'razon_social')}</td><td>{v(c, 'nit_ruc')}</td><td>{v(c, 'pais')}</td><td>{v(c, 'whatsapp')}</td><td className="acciones">{enlaceEditar(c)}</td></tr>
         ))}</tbody>
-      </table>
+      </table></div>
     ),
     transportistas: (
-      <table>
+      <div className="tabla-desplazable"><table>
         <thead><tr><th>Transportista</th><th>NIT</th><th>Teléfono</th><th>Condiciones aceptadas</th><th></th></tr></thead>
         <tbody>{filas.map((t) => (
           <tr key={t.id}>
@@ -151,10 +151,10 @@ export default async function PaginaCatalogos({
             <td className="acciones">{enlaceEditar(t)}</td>
           </tr>
         ))}</tbody>
-      </table>
+      </table></div>
     ),
     conductores: (
-      <table>
+      <div className="tabla-desplazable"><table>
         <thead><tr><th>Chofer</th><th>Transportista</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead>
         <tbody>{filas.map((c) => (
           <tr key={c.id} className={claseFila(c)}>
@@ -163,10 +163,10 @@ export default async function PaginaCatalogos({
             <td className="acciones">{enlaceEditar(c)} {botonActivo('conductores', c)}</td>
           </tr>
         ))}</tbody>
-      </table>
+      </table></div>
     ),
     vehiculos: (
-      <table>
+      <div className="tabla-desplazable"><table>
         <thead><tr><th>Placa</th><th>Marca</th><th>Capacidad</th><th>Transportista</th><th></th></tr></thead>
         <tbody>{filas.map((x) => (
           <tr key={x.id}>
@@ -174,10 +174,10 @@ export default async function PaginaCatalogos({
             <td>{nombreTransportista(x)}</td><td className="acciones">{enlaceEditar(x)}</td>
           </tr>
         ))}</tbody>
-      </table>
+      </table></div>
     ),
     ubicaciones: (
-      <table>
+      <div className="tabla-desplazable"><table>
         <thead><tr><th>Nombre</th><th>Tipo</th><th>Ciudad</th><th>País</th><th>Radio</th><th>Estado</th><th></th></tr></thead>
         <tbody>{filas.map((u) => (
           <tr key={u.id} className={claseFila(u)}>
@@ -186,7 +186,7 @@ export default async function PaginaCatalogos({
             <td className="acciones">{enlaceEditar(u)} {botonActivo('ubicaciones', u)}</td>
           </tr>
         ))}</tbody>
-      </table>
+      </table></div>
     ),
   };
 

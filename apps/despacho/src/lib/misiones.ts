@@ -7,7 +7,11 @@ export interface FiltrosMisiones {
   etapa?: string;
   desde?: string;
   hasta?: string;
+  pagina?: string;
 }
+
+/** Misiones por página en la lista. */
+export const POR_PAGINA = 50;
 
 export interface FilaMision {
   id: string;
@@ -21,7 +25,7 @@ export interface FilaMision {
   cliente: { razon_social: string } | null;
   origen: { nombre: string } | null;
   destino: { nombre: string; pais: string } | null;
-  asignaciones: { vehiculo: { placa: string } | null; conductor: { nombre: string } | null }[];
+  asignaciones: { ultima_senal: string | null; vehiculo: { placa: string } | null; conductor: { nombre: string } | null }[];
 }
 
 // Solo letras, números, espacios, guiones y puntos: el texto va dentro de un filtro de la API.
@@ -29,16 +33,20 @@ const limpiar = (t: string) => t.replace(/[^\p{L}\p{N} .\-_/]/gu, '').trim().sli
 const fechaValida = (f?: string) => (f && /^\d{4}-\d{2}-\d{2}$/.test(f) ? f : undefined);
 
 /** Busca misiones por código, factura, guía, DEX, placa o cliente, con filtros de etapa y fecha. */
-export async function buscarMisiones(filtros: FiltrosMisiones, limite = 200): Promise<{ filas: FilaMision[]; error?: string }> {
+export async function buscarMisiones(
+  filtros: FiltrosMisiones,
+  limite = POR_PAGINA,
+  desdeFila = 0,
+): Promise<{ filas: FilaMision[]; total: number; error?: string }> {
   const supabase = await crearClienteServidor();
   let consulta = supabase
     .from('misiones')
     .select(`id, codigo, etapa, factura, guia, dex, tonelaje_objetivo, creado_en,
              cliente:clientes(razon_social), origen:ubicaciones!misiones_origen_id_fkey(nombre),
              destino:ubicaciones!misiones_destino_id_fkey(nombre, pais),
-             asignaciones(vehiculo:vehiculos(placa), conductor:conductores(nombre))`)
+             asignaciones(ultima_senal, vehiculo:vehiculos(placa), conductor:conductores(nombre))`, { count: 'exact' })
     .order('creado_en', { ascending: false })
-    .limit(limite);
+    .range(desdeFila, desdeFila + limite - 1);
 
   const q = limpiar(filtros.q ?? '');
   if (q) {
@@ -64,7 +72,7 @@ export async function buscarMisiones(filtros: FiltrosMisiones, limite = 200): Pr
   if (desde) consulta = consulta.gte('creado_en', `${desde}T00:00:00-04:00`);
   if (hasta) consulta = consulta.lte('creado_en', `${hasta}T23:59:59-04:00`);
 
-  const { data, error } = await consulta;
-  if (error) return { filas: [], error: error.message };
-  return { filas: (data ?? []) as unknown as FilaMision[] };
+  const { data, error, count } = await consulta;
+  if (error) return { filas: [], total: 0, error: error.message };
+  return { filas: (data ?? []) as unknown as FilaMision[], total: count ?? (data ?? []).length };
 }

@@ -44,6 +44,18 @@ function pitar() {
 
 type EstadoConexion = 'conectando' | 'conectado' | 'reconectando';
 
+/** Campana (con o sin tachado) para el botón de avisos. Decorativa: el texto del botón la describe. */
+function IconoCampana({ activa }: { activa: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" style={{ verticalAlign: 'middle', marginRight: 6 }}>
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      {!activa && <line x1="2" y1="2" x2="22" y2="22" />}
+    </svg>
+  );
+}
+
 export default function TableroEnVivo({
   iniciales,
   minDetenido = MINUTOS_DETENIDO,
@@ -214,12 +226,14 @@ export default function TableroEnVivo({
 
   return (
     <>
+      <h1 className="titulo-tablero">Tablero en vivo</h1>
       <div className="barra-tablero">
         <span className={`conexion ${conexion}`} role="status">
           {conexion === 'conectado' ? '● En vivo' : conexion === 'reconectando' ? '● Reconectando… los datos pueden estar atrasados' : '● Conectando…'}
         </span>
         <button type="button" className="enlace-boton" onClick={() => void alternarAvisos()} aria-pressed={avisos}>
-          {avisos ? '🔔 Avisos de sin señal: activados' : '🔕 Activar avisos de sin señal'}
+          <IconoCampana activa={avisos} />
+          {avisos ? 'Avisos de sin señal: activados' : 'Activar avisos de sin señal'}
         </button>
       </div>
       {emergencias.length > 0 && (

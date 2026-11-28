@@ -1,4 +1,5 @@
 'use client';
+import { Req } from './Obligatorio';
 import { useState } from 'react';
 import Link from 'next/link';
 import type { CatalogosCamion } from '@/lib/catalogos';
@@ -18,21 +19,21 @@ export default function CamposCamion({ catalogos }: { catalogos: CatalogosCamion
     <>
       <div className="rejilla">
         <label>
-          Transportista
+          Transportista <Req />
           <select name="transportista_id" required value={transportista} onChange={(e) => setTransportista(e.target.value)}>
             <option value="" disabled>Seleccione…</option>
             {catalogos.transportistas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
           </select>
         </label>
         <label>
-          Chofer
+          Chofer <Req />
           <select name="conductor_id" required key={`c-${transportista}`} defaultValue={conductores.length === 1 ? conductores[0]!.id : ''} disabled={!transportista}>
             <option value="" disabled>{transportista ? 'Seleccione…' : 'Elija primero el transportista'}</option>
             {conductores.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </label>
         <label>
-          Vehículo (placa)
+          Vehículo (placa) <Req />
           <select name="vehiculo_id" required key={`v-${transportista}`} defaultValue={vehiculos.length === 1 ? vehiculos[0]!.id : ''} disabled={!transportista}>
             <option value="" disabled>{transportista ? 'Seleccione…' : 'Elija primero el transportista'}</option>
             {vehiculos.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}

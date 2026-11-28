@@ -34,8 +34,8 @@ export default function PaginaLogin() {
   }
 
   return (
-    <main style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
-      <form onSubmit={ingresar} className="tarjeta" style={{ width: 360, borderTop: '6px solid var(--dorado)' }}>
+    <main style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
+      <form onSubmit={ingresar} className="tarjeta" style={{ width: '100%', maxWidth: 360, borderTop: '6px solid var(--dorado)' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="Industrias Reynales" style={{ width: '100%', marginBottom: 16 }} />
         <h1>Panel de despacho</h1>

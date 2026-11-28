@@ -3,19 +3,26 @@ import { useEffect, useRef } from 'react';
 import L, { type Map as LeafletMap } from 'leaflet';
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
 import { ETIQUETA_ETAPA, MARCA } from '@reynales/shared';
-import { estaDetenido, formatoHora, haceCuanto, MINUTOS_DETENIDO, textoEmergencia, type AsignacionEnVivo } from '@/lib/tipos';
+import { estaDetenido, formatoHora, haceCuanto, minutosSinSenal, MINUTOS_DETENIDO, textoEmergencia, type AsignacionEnVivo } from '@/lib/tipos';
 
 // Centro inicial: entre Monteagudo y Desaguadero.
 const CENTRO: [number, number] = [-17.6, -66.5];
 const AZUL = '#1d4f80';
 // Color propio para «Detenido» (en ruta pero sin moverse).
 export const MORADO_DETENIDO = '#7d3c98';
+const GRIS_SIN_SENAL = '#8a8a8a';
+const CAFE_POR_INICIAR = '#c9b79c';
 // Un color por camión en el detalle de misión.
 const COLORES_RECORRIDO = [MARCA.cafe, '#1d4f80', '#8e44ad', '#d35400', '#16a085'];
 
-function color(etapa: AsignacionEnVivo['etapa'], emergencia?: string | null, detenido = false) {
-  if (emergencia) return MARCA.rojo;
-  if (detenido) return MORADO_DETENIDO;
+function color(a: AsignacionEnVivo, minDetenido: number) {
+  if (a.emergencia_en) return MARCA.rojo;
+  if (a.etapa === 'programado') return CAFE_POR_INICIAR;
+  if (a.etapa === 'entregado' || a.etapa === 'cancelado') return MARCA.verdeOscuro;
+  const min = minutosSinSenal(a.ultima_senal);
+  if (min === null || min > 30) return GRIS_SIN_SENAL;
+  if (estaDetenido(a, Date.now(), minDetenido)) return MORADO_DETENIDO;
+  const etapa = a.etapa;
   if (etapa === 'en_frontera') return MARCA.dorado;
   if (etapa === 'cruzo_frontera') return AZUL;
   return MARCA.verde;
@@ -73,6 +80,8 @@ function Leyenda() {
     { c: MARCA.dorado, t: 'En frontera' },
     { c: AZUL, t: 'Cruzó a Perú' },
     { c: MORADO_DETENIDO, t: 'Detenido' },
+    { c: GRIS_SIN_SENAL, t: 'Sin señal +30 min' },
+    { c: CAFE_POR_INICIAR, t: 'Por iniciar' },
     { c: MARCA.rojo, t: 'Emergencia' },
   ];
   return (
@@ -185,7 +194,7 @@ export default function MapaFlota({
               pathOptions={{
                 color: MARCA.cafe,
                 weight: elegido ? 3 : 2,
-                fillColor: color(principal.etapa, principal.emergencia_en, estaDetenido(principal, Date.now(), minDetenido)),
+                fillColor: color(principal, minDetenido),
                 fillOpacity: 0.9,
               }}
               eventHandlers={{ click: alTocar }}
