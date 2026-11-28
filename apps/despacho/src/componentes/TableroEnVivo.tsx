@@ -66,6 +66,7 @@ export default function TableroEnVivo({
 }) {
   const [asignaciones, setAsignaciones] = useState(iniciales);
   const [seleccion, setSeleccion] = useState<string | null>(null);
+  const [ruta, setRuta] = useState<[number, number][]>([]);
   const [filtro, setFiltro] = useState<Grupo>('todos');
   const [ahora, setAhora] = useState(() => Date.now());
   const [conexion, setConexion] = useState<EstadoConexion>('conectando');
@@ -95,6 +96,19 @@ export default function TableroEnVivo({
       /* sin almacenamiento */
     }
   }
+
+  // Recorrido del camión elegido (simplificado), para verlo sobre las carreteras.
+  useEffect(() => {
+    setRuta([]);
+    if (!seleccion) return;
+    let vigente = true;
+    crearClienteNavegador()
+      .rpc('recorrido_simplificado', { p_asignacion: seleccion, p_tolerancia_m: 50 })
+      .then(({ data }) => {
+        if (vigente) setRuta(((data ?? []) as { lat: number; lon: number }[]).map((p) => [p.lat, p.lon] as [number, number]));
+      });
+    return () => { vigente = false; };
+  }, [seleccion]);
 
   // Recarga completa (al reconectar o al volver a la pestaña), para no quedar con datos viejos.
   const recargar = useCallback(async () => {
@@ -329,7 +343,7 @@ export default function TableroEnVivo({
           })}
         </section>
         <section className="mapa">
-          <MapaFlota asignaciones={visibles} seleccion={seleccion} alSeleccionar={setSeleccion} minDetenido={minDetenido} />
+          <MapaFlota asignaciones={visibles} seleccion={seleccion} alSeleccionar={setSeleccion} minDetenido={minDetenido} recorridos={ruta.length > 1 ? [ruta] : undefined} />
         </section>
       </div>
     </>

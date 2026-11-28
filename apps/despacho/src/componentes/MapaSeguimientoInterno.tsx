@@ -1,6 +1,7 @@
 'use client';
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Circle, CircleMarker, Tooltip, useMap } from 'react-leaflet';
+import { MapContainer, Circle, CircleMarker, Tooltip, useMap } from 'react-leaflet';
+import CapaBase from './CapaBase';
 import { ETIQUETA_ETAPA, MARCA, type Etapa } from '@reynales/shared';
 
 export interface CamionPublico {
@@ -42,11 +43,7 @@ export default function MapaSeguimientoInterno({
 
   return (
     <MapContainer center={puntos[0] ?? [-17.6, -66.5]} zoom={6} maxZoom={11} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
-      <TileLayer
-        attribution={'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        referrerPolicy="strict-origin-when-cross-origin"
-      />
+        <CapaBase selector={false} />
       <Encuadrar puntos={puntos} />
       {destino && (
         <CircleMarker center={[destino.lat, destino.lon]} radius={9} pathOptions={{ color: MARCA.cafe, fillColor: MARCA.blanco, fillOpacity: 1, weight: 3 }}>

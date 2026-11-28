@@ -1,6 +1,7 @@
 'use client';
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Circle, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, Circle, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
+import CapaBase from './CapaBase';
 import { MARCA } from '@reynales/shared';
 
 const CENTRO: [number, number] = [-17.5, -66.0];
@@ -30,10 +31,7 @@ export default function MapaSelector({
 }) {
   return (
     <MapContainer center={punto ?? CENTRO} zoom={punto ? 14 : 6} style={{ height: '100%', width: '100%', cursor: 'crosshair' }}>
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+        <CapaBase />
       <AlHacerClic alElegir={alElegir} />
       <Seguir punto={punto} />
       {punto && (

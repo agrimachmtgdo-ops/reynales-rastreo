@@ -322,3 +322,38 @@ select pg_temp.verificar((select estado from public.solicitudes_camiones where i
 select pg_temp.verificar(not has_function_privilege('anon', 'public.pedir_camiones(uuid, uuid, integer, timestamptz, numeric, text, text, text)', 'execute')
   and not has_function_privilege('anon', 'public.agregar_camion_solicitud(uuid, uuid, uuid)', 'execute'),
   'un visitante sin sesión no pide ni asigna camiones');
+
+-- ---------- Corregir la fecha de carga de un envío confirmado ----------
+select pg_temp.como(:'com');
+set role authenticated;
+select public.guardar_pedido(null, jsonb_build_object('cliente_id', :'cli', 'orden_compra', 'OC-902', 'producto', 'Maní',
+  'toneladas', 29, 'entrega_hasta', '2026-12-31', 'destino_id', :'puno', 'incoterm', 'CPT')) as pcar \gset
+select public.guardar_programa(:'pcar', '[{"toneladas": 29, "entrega": "2026-12-20", "carga": "2026-11-10"}]'::jsonb) \g /dev/null
+select public.confirmar_pedido(:'pcar');
+select public.confirmar_programa(:'pcar') \g /dev/null
+reset role;
+select id as ecar from public.programa_envios where pedido_id = :'pcar' \gset
+select pg_temp.como(:'ger');
+set role authenticated;
+select pg_temp.verificar(
+  pg_temp.error_de(format($$select public.cambiar_fecha_carga(%L, '2026-12-17', 'otra', 'x')$$, :'ecar')) like 'Solo el administrador, el comercial%',
+  'gerencia no cambia la fecha de carga');
+reset role;
+select pg_temp.como(:'log');
+set role authenticated;
+select pg_temp.verificar(
+  pg_temp.error_de(format($$select public.cambiar_fecha_carga(%L, '2026-12-21', 'produccion')$$, :'ecar')) like 'La fecha de carga no puede ser posterior%',
+  'la carga no puede quedar después de la entrega');
+select pg_temp.verificar(
+  pg_temp.error_de(format($$select public.cambiar_fecha_carga(%L, '2026-12-17', 'otra')$$, :'ecar')) like 'Con la causa «Otra»%',
+  'la causa «Otra» exige nota');
+select public.cambiar_fecha_carga(:'ecar', '2026-12-17', 'otra', 'Error de digitación');
+reset role;
+select pg_temp.verificar(
+  (select fecha_carga_planificada = '2026-12-17' and entrega_comprometida = '2026-12-20' from public.programa_envios where id = :'ecar')
+  and (select tipo = 'carga' and fecha_anterior = '2026-11-10' and fecha_nueva = '2026-12-17' and not mueve_compromiso
+         from public.cambios_compromiso where envio_id = :'ecar'),
+  'logística corrige la fecha de carga sin mover el compromiso y queda en el historial');
+select pg_temp.verificar(
+  (select fecha_carga = '2026-12-17' from public.resumen_programa('2026-12-01', '2026-12-31') where envio_id = :'ecar'),
+  'el envío aparece en el programa con su nueva fecha de carga');

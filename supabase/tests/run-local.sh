@@ -33,13 +33,18 @@ echo "→ ida y vuelta de la reversión de pedido y programa (con datos)"
 "${PSQL[@]}" -d "$DB" -f revertir/20261211000100_pedido_programa.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261211000100_pedido_programa.sql
 echo "→ ida y vuelta de la reversión de pedidos"
+"${PSQL[@]}" -d "$DB" -f revertir/20261213000100_fecha_carga.sql
 "${PSQL[@]}" -d "$DB" -f revertir/20261212000100_requerimiento_unidades.sql
 "${PSQL[@]}" -d "$DB" -f revertir/20261211000100_pedido_programa.sql
 "${PSQL[@]}" -d "$DB" -f revertir/20261210000100_pedidos.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261210000100_pedidos.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261211000100_pedido_programa.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261212000100_requerimiento_unidades.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261213000100_fecha_carga.sql
 "${PSQL[@]}" -d "$DB" -f tests/90_requerimiento_unidades.sql
+echo "→ ida y vuelta de la reversión de la fecha de carga (con datos)"
+"${PSQL[@]}" -d "$DB" -f revertir/20261213000100_fecha_carga.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261213000100_fecha_carga.sql
 echo "→ ida y vuelta de la reversión del requerimiento de unidades (con datos)"
 "${PSQL[@]}" -d "$DB" -f revertir/20261212000100_requerimiento_unidades.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261212000100_requerimiento_unidades.sql

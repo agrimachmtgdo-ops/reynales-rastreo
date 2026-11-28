@@ -490,3 +490,24 @@ tr.fila-error td { background: #fdf1ef; }
   .tabla-programa td[data-etiqueta]::before { content: attr(data-etiqueta) ": "; color: var(--gris); font-size: 14px; }
   .tabla-programa td:last-child { padding-top: 8px; }
 }
+
+/* Mapas: selector «Carreteras / Clásico» y tablero a todo el ancho */
+.selector-capa {
+  position: absolute; top: 10px; left: 56px; z-index: 1000; display: inline-flex;
+  background: var(--blanco); border: 2px solid rgba(0, 0, 0, 0.2); border-radius: 6px; overflow: hidden;
+}
+.selector-capa button {
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--cafe); background: var(--blanco);
+  border: 0; padding: 6px 12px; min-height: 36px; cursor: pointer;
+}
+.selector-capa button + button { border-left: 1px solid var(--borde); }
+.selector-capa button.activo { background: var(--cafe); color: var(--blanco); }
+.selector-capa button:focus-visible { outline: 3px solid var(--dorado); outline-offset: -3px; }
+@media (min-width: 1500px) {
+  .contenido:has(.tablero) { max-width: none; padding-left: 24px; padding-right: 24px; }
+  .tablero { grid-template-columns: 400px 1fr; }
+}
+@media (max-width: 480px) {
+  .selector-capa button { padding: 6px 9px; font-size: 13px; min-height: 44px; }
+  .leyenda { gap: 4px 10px; font-size: 11px; right: 12px; }
+}
