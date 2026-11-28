@@ -51,10 +51,16 @@ export default function CamposCamion({
           </select>
         </label>
         {declaradas ? (
-          <label>
-            Toneladas declaradas en el transbordo
-            <input name="toneladas_declaradas" inputMode="decimal" />
-          </label>
+          <>
+            <label>
+              Toneladas declaradas en el transbordo
+              <input name="toneladas_declaradas" inputMode="decimal" />
+            </label>
+            <label>
+              N.º de precinto <Req />
+              <input name="precinto" required autoComplete="off" />
+            </label>
+          </>
         ) : (
           <label>
             Toneladas cargadas (balanza)

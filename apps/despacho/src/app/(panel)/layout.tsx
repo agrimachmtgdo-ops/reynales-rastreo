@@ -9,6 +9,11 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
   if (!user) redirect('/login');
 
   const { data: perfil } = await supabase.from('usuarios').select('nombre, rol, activo').eq('id', user.sub).maybeSingle();
+  // El operador de transbordo (El Alto) tiene su propia sección para celular.
+  if (!perfil?.activo) {
+    const { data: operador } = await supabase.rpc('mi_operador');
+    if (operador) redirect('/transbordo');
+  }
 
   return (
     <>

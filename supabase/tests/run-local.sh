@@ -16,4 +16,5 @@ echo "→ seed.sql"
 echo "→ pruebas"
 "${PSQL[@]}" -d "$DB" -f tests/10_flujo_viaje.sql
 "${PSQL[@]}" -d "$DB" -f tests/20_transbordo.sql
+"${PSQL[@]}" -d "$DB" -f tests/30_operador_transbordo.sql
 echo "✔ Todas las pruebas pasaron"
