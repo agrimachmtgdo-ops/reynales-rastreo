@@ -3,6 +3,7 @@ import { ETAPAS, ETIQUETA_ETAPA } from '@reynales/shared';
 import { buscarMisiones, POR_PAGINA, type FiltrosMisiones } from '@/lib/misiones';
 import { enTransbordo, formatoHora, haceCuanto } from '@/lib/tipos';
 import FiltrosAutomaticos from '@/componentes/FiltrosAutomaticos';
+import { claveDe, estadoDocumentos } from '@/lib/documentos';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,10 @@ export default async function PaginaMisiones({ searchParams }: { searchParams: P
   const soloFiltros = Object.entries(filtros).filter(([k, v]) => k !== 'pagina' && typeof v === 'string' && v !== '') as [string, string][];
   const parametros = new URLSearchParams(soloFiltros).toString();
   const enlacePagina = (n: number) => `/misiones?${new URLSearchParams([...soloFiltros, ['pagina', String(n)]]).toString()}`;
+  // Documentos obligatorios que faltan (factura; DEX si va a Perú).
+  const faltanDocs = (m: (typeof misiones)[number]) =>
+    estadoDocumentos((m.documentos ?? []).filter((d) => !d.reemplazado_por).map((d) => claveDe(d.tipo, d.etiqueta)), m.destino?.pais)
+      .filter((e) => e.obligatorio && !e.tiene).map((e) => e.nombre);
   const ultimaSenal = (m: (typeof misiones)[number]) =>
     m.asignaciones.map((a) => a.ultima_senal).filter((t): t is string => !!t).sort().at(-1) ?? null;
 
@@ -60,7 +65,7 @@ export default async function PaginaMisiones({ searchParams }: { searchParams: P
       <div className="tabla-desplazable">
         <table>
           <thead>
-            <tr><th>Código</th><th>Cliente</th><th>Destino</th><th>Factura</th><th>Camiones</th><th>Chofer</th><th>Etapa</th><th>Última señal</th><th>Creada</th></tr>
+            <tr><th>Código</th><th>Cliente</th><th>Destino</th><th>Factura</th><th>Docs</th><th>Camiones</th><th>Chofer</th><th>Etapa</th><th>Última señal</th><th>Creada</th></tr>
           </thead>
           <tbody>
             {misiones.map((m) => (
@@ -69,6 +74,11 @@ export default async function PaginaMisiones({ searchParams }: { searchParams: P
                 <td>{m.cliente?.razon_social}</td>
                 <td>{m.destino?.nombre} ({m.destino?.pais})</td>
                 <td>{m.factura}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  {faltanDocs(m).length === 0
+                    ? <span title="Documentos obligatorios completos">✓ Completos</span>
+                    : <span className="docs-faltan" title={`Faltan: ${faltanDocs(m).join(' y ')}`}>Falta {faltanDocs(m).join(' y ')}</span>}
+                </td>
                 <td title={m.asignaciones.map((a) => a.vehiculo?.placa).join(', ')}>
                   {m.asignaciones.map((a) => a.vehiculo?.placa).filter(Boolean).join(', ') || '—'}
                 </td>

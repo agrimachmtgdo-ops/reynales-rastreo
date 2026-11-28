@@ -1,6 +1,5 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import type { Etapa } from '@reynales/shared';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import { MENSAJE_TELEFONO, normalizarTelefono } from '@/lib/tipos';
@@ -11,6 +10,11 @@ export interface Resultado {
   mensaje: string;
   campo?: string;
   errorCampo?: string;
+  /** Misión ya creada (aunque falle un paso posterior): la página sube los documentos y la abre. */
+  misionId?: string;
+  codigo?: string;
+  /** Aviso que se resuelve marcando una casilla y volviendo a guardar. */
+  aviso?: 'factura_repetida';
 }
 
 /** WhatsApp del coordinador en formato internacional; error junto al campo si no se puede. */
@@ -71,7 +75,27 @@ async function avisoOcupado(f: FormData): Promise<Resultado | null> {
   };
 }
 
-/** Crea la misión con su primer camión y abre el detalle. */
+/**
+ * Aviso si la factura ya está en otra misión no cancelada (no bloquea: una factura puede
+ * repartirse en dos misiones; se confirma con «Factura repetida: crear igual»).
+ */
+async function avisoFacturaRepetida(f: FormData): Promise<Resultado | null> {
+  const factura = texto(f, 'factura');
+  if (!factura || f.get('factura_igual') === 'on') return null;
+  const supabase = await crearClienteServidor();
+  const { data } = await supabase.from('misiones').select('codigo')
+    .ilike('factura', factura.replace(/[%_\\]/g, (c) => `\\${c}`)).neq('etapa', 'cancelado').limit(3);
+  const codigos = (data ?? []).map((m) => m.codigo as string);
+  if (codigos.length === 0) return null;
+  return {
+    ok: false,
+    aviso: 'factura_repetida',
+    campo: 'factura',
+    errorCampo: `Ya está en ${codigos.join(', ')}.`,
+    mensaje: `La factura ${factura} ya está en la misión ${codigos.join(', ')}. Si es correcto (por ejemplo, una factura repartida en dos misiones), marque «Factura repetida: crear igual» y vuelva a guardar.`,
+  };
+}
+
 // Obligatorios de una misión nueva, con el nombre que ve el usuario.
 const OBLIGATORIOS_MISION: [string, string][] = [
   ['cliente_id', 'el cliente'], ['origen_id', 'el origen'], ['destino_id', 'el destino'],
@@ -89,6 +113,8 @@ export async function crearMision(_: Resultado | null, f: FormData): Promise<Res
   if (coordinador.error) return coordinador.error;
   const ocupado = await avisoOcupado(f);
   if (ocupado) return ocupado;
+  const repetida = await avisoFacturaRepetida(f);
+  if (repetida) return repetida;
   const supabase = await crearClienteServidor();
   const { data: mision, error } = await supabase
     .from('misiones')
@@ -104,25 +130,26 @@ export async function crearMision(_: Resultado | null, f: FormData): Promise<Res
       telefono_coordinador: coordinador.valor,
       notas: texto(f, 'notas'),
     })
-    .select('id')
+    .select('id, codigo')
     .single();
   if (error || !mision) return { ok: false, mensaje: `No se pudo crear la misión: ${error?.message}` };
+  const creada = { misionId: mision.id as string, codigo: mision.codigo as string };
 
   if (conTransbordo) {
     const { error: errorTramo } = await supabase.from('tramos').insert({
       mision_id: mision.id, numero: 2, transportista_id: texto(f, 'transportista_tramo2'), lugar_inicio: texto(f, 'lugar_tramo2'),
     });
     if (errorTramo) {
-      return { ok: false, mensaje: `La misión se creó, pero no el transbordo: ${errorTramo.message}. Agréguelo desde el detalle.` };
+      return { ok: false, ...creada, mensaje: `La misión ${creada.codigo} se creó, pero no el transbordo: ${errorTramo.message}. Agréguelo desde el detalle.` };
     }
   }
 
   const { error: errorAsig } = await supabase.from('asignaciones').insert({ mision_id: mision.id, ...datosAsignacion(f) });
   if (errorAsig) {
-    return { ok: false, mensaje: `La misión se creó, pero no el camión: ${errorAsig.message}. Agréguelo desde el detalle.` };
+    return { ok: false, ...creada, mensaje: `La misión ${creada.codigo} se creó, pero no el camión: ${errorAsig.message}. Agréguelo desde el detalle.` };
   }
   revalidatePath('/misiones');
-  redirect(`/misiones/${mision.id}`);
+  return { ok: true, ...creada, mensaje: `Misión ${creada.codigo} creada.` };
 }
 
 export async function editarMision(misionId: string, _: Resultado | null, f: FormData): Promise<Resultado> {
@@ -267,7 +294,7 @@ export async function anularEnlaceSeguimiento(misionId: string) {
 export async function registrarDocumentoDespacho(misionId: string, d: DatosDocumento) {
   const supabase = await crearClienteServidor();
   const { data, error } = await supabase.from('documentos').insert({
-    mision_id: misionId, asignacion_id: d.asignacionId, tipo: d.tipo, numero: d.numero, ruta_archivo: d.ruta,
+    mision_id: misionId, asignacion_id: d.asignacionId, tipo: d.tipo, etiqueta: d.etiqueta ?? null, numero: d.numero, ruta_archivo: d.ruta,
     nombre_original: d.nombre.slice(0, 200), tipo_mime: d.tipoMime, tamano_bytes: d.tamano,
   }).select('id').single();
   if (error || !data) return { ok: false, mensaje: `No se pudo guardar el documento: ${error?.message}` };
