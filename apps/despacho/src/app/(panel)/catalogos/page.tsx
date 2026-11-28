@@ -8,6 +8,7 @@ import {
   alternarActivo,
   crearCliente,
   crearConductor,
+  crearProducto,
   crearTransportista,
   crearUbicacion,
   crearVehiculo,
@@ -15,13 +16,14 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-type Pestana = 'clientes' | 'transportistas' | 'conductores' | 'vehiculos' | 'ubicaciones';
+type Pestana = 'clientes' | 'transportistas' | 'conductores' | 'vehiculos' | 'ubicaciones' | 'productos';
 const PESTANAS: { id: Pestana; titulo: string }[] = [
   { id: 'clientes', titulo: 'Clientes' },
   { id: 'transportistas', titulo: 'Transportistas' },
   { id: 'conductores', titulo: 'Choferes' },
   { id: 'vehiculos', titulo: 'Vehículos' },
   { id: 'ubicaciones', titulo: 'Ubicaciones' },
+  { id: 'productos', titulo: 'Productos' },
 ];
 const TIPO_UBICACION: Record<string, string> = {
   fabrica: 'Fábrica',
@@ -51,6 +53,7 @@ export default async function PaginaCatalogos({
     conductores: () => supabase.from('conductores').select('*, transportista:transportistas(razon_social)').order('activo', { ascending: false }).order('nombre'),
     vehiculos: () => supabase.from('vehiculos').select('*, transportista:transportistas(razon_social)').order('placa'),
     ubicaciones: () => supabase.from('ubicaciones').select('*').order('activo', { ascending: false }).order('tipo').order('nombre'),
+    productos: () => supabase.from('productos').select('*').order('activo', { ascending: false }).order('nombre'),
   };
   const [{ data: filasData, error }, { data: transportistasData }, { data: porCorregirData }, { data: perfilActual }, { data: comercialesData }] = await Promise.all([
     consultas[pestana](),
@@ -74,7 +77,7 @@ export default async function PaginaCatalogos({
   ));
   const url = (extra = '') => `/catalogos?pestana=${pestana}${extra}`;
   const enlaceEditar = (f: Fila) => <Link href={url(`&editar=${f.id}`)} scroll>Editar</Link>;
-  const botonActivo = (tabla: 'conductores' | 'ubicaciones', f: Fila) => (
+  const botonActivo = (tabla: 'conductores' | 'ubicaciones' | 'productos', f: Fila) => (
     <form action={alternarActivo.bind(null, tabla, f.id, !f.activo)} style={{ display: 'inline' }}>
       <button className="enlace-boton">{f.activo ? 'Desactivar' : 'Activar'}</button>
     </form>
@@ -140,10 +143,23 @@ export default async function PaginaCatalogos({
         <SelectorUbicacion lat={v(f, 'lat')} lon={v(f, 'lon')} radio={v(f, 'radio_m') ?? '500'} />
       </>
     ),
+    productos: (f) => (
+      <>
+        <label>Nombre <Req /><input name="nombre" required maxLength={120} placeholder="Ej. Harina Integral" defaultValue={v(f, 'nombre')} /></label>
+        <label>Código interno<input name="codigo" maxLength={30} placeholder="Ej. HI-01" defaultValue={v(f, 'codigo')} /></label>
+        <label>Presentación
+          <input name="presentacion" maxLength={60} list="presentaciones" placeholder="Ej. Sacos de 50 kg" defaultValue={v(f, 'presentacion')} />
+          <datalist id="presentaciones">
+            <option value="Sacos de 50 kg" /><option value="Sacos de 40 kg" /><option value="Big bag de 1.200 kg" /><option value="Granel" />
+          </datalist>
+        </label>
+        <label>Partida arancelaria (NANDINA)<input name="partida_arancelaria" inputMode="decimal" maxLength={14} placeholder="Ej. 1101.00.00" pattern="[0-9.]{4,14}" defaultValue={v(f, 'partida_arancelaria')} /></label>
+      </>
+    ),
   };
 
-  const crear = { clientes: crearCliente, transportistas: crearTransportista, conductores: crearConductor, vehiculos: crearVehiculo, ubicaciones: crearUbicacion }[pestana];
-  const singular = { clientes: 'cliente', transportistas: 'transportista', conductores: 'chofer', vehiculos: 'vehículo', ubicaciones: 'ubicación' }[pestana];
+  const crear = { clientes: crearCliente, transportistas: crearTransportista, conductores: crearConductor, vehiculos: crearVehiculo, ubicaciones: crearUbicacion, productos: crearProducto }[pestana];
+  const singular = { clientes: 'cliente', transportistas: 'transportista', conductores: 'chofer', vehiculos: 'vehículo', ubicaciones: 'ubicación', productos: 'producto' }[pestana];
 
   // ---- Tabla de cada catálogo ----
   const tablas: Record<Pestana, React.ReactNode> = {
@@ -202,6 +218,18 @@ export default async function PaginaCatalogos({
         ))}</tbody>
       </table></div>
     ),
+    productos: (
+      <div className="tabla-desplazable"><table>
+        <thead><tr><th>Producto</th><th>Código</th><th>Presentación</th><th>Partida arancelaria</th><th>Estado</th><th></th></tr></thead>
+        <tbody>{filas.map((x) => (
+          <tr key={x.id} className={claseFila(x)}>
+            <td>{v(x, 'nombre')}</td><td>{v(x, 'codigo')}</td><td>{v(x, 'presentacion')}</td><td>{v(x, 'partida_arancelaria')}</td>
+            <td>{x.activo ? 'Activo' : 'Inactivo'}</td>
+            <td className="acciones">{enlaceEditar(x)} {botonActivo('productos', x)}</td>
+          </tr>
+        ))}</tbody>
+      </table></div>
+    ),
   };
 
   return (
@@ -249,6 +277,9 @@ export default async function PaginaCatalogos({
             <summary>+ Agregar {singular}</summary>
             {pestana === 'ubicaciones' && (
               <p className="ayuda">El radio define la geocerca (fábrica ~800 m, frontera ~1.500 m).</p>
+            )}
+            {pestana === 'productos' && (
+              <p className="ayuda">Los productos se eligen en pedidos y misiones y agrupan los reportes. Un producto usado no se borra: se desactiva y deja de ofrecerse en las listas.</p>
             )}
             <FormularioCatalogo accion={crear} boton={`Guardar ${singular}`}>
               {campos[pestana]()}

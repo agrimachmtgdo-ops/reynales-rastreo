@@ -32,7 +32,7 @@ function revisarTelefono(tabla: Tabla, fila: Record<string, unknown>): Resultado
   return null;
 }
 
-type Tabla = 'clientes' | 'transportistas' | 'conductores' | 'vehiculos' | 'ubicaciones';
+type Tabla = 'clientes' | 'transportistas' | 'conductores' | 'vehiculos' | 'ubicaciones' | 'productos';
 
 const texto = (f: FormData, k: string) => {
   const v = f.get(k);
@@ -84,6 +84,12 @@ const DATOS: Record<Tabla, (f: FormData) => Record<string, unknown>> = {
     lon: numero(f, 'lon'),
     radio_m: numero(f, 'radio_m') ?? 500,
   }),
+  productos: (f) => ({
+    nombre: texto(f, 'nombre'),
+    codigo: texto(f, 'codigo')?.toUpperCase() ?? null,
+    presentacion: texto(f, 'presentacion'),
+    partida_arancelaria: texto(f, 'partida_arancelaria'),
+  }),
 };
 
 const ETIQUETA: Record<Tabla, string> = {
@@ -92,6 +98,7 @@ const ETIQUETA: Record<Tabla, string> = {
   conductores: 'Chofer',
   vehiculos: 'Vehículo',
   ubicaciones: 'Ubicación',
+  productos: 'Producto',
 };
 
 // Campo que identifica a cada registro, para avisar de duplicados.
@@ -100,10 +107,12 @@ const CAMPO_NOMBRE: Partial<Record<Tabla, string>> = {
   transportistas: 'razon_social',
   conductores: 'nombre',
   ubicaciones: 'nombre',
+  productos: 'nombre',
 };
 
 function mensajeError(error: { code?: string; message: string }): string {
-  if (error.code === '23505') return 'Ya existe un registro con ese dato (por ejemplo, la misma placa).';
+  if (error.code === '23505') return 'Ya existe un registro con ese dato (por ejemplo, la misma placa o el mismo código).';
+  if (error.code === '23514' && error.message.includes('partida_arancelaria')) return 'La partida arancelaria solo lleva números y puntos, por ejemplo 1101.00.00.';
   if (error.code === '23514' && error.message.startsWith('Teléfono no válido')) return error.message;
   if (error.code === '23514') return 'Algún dato no tiene el formato correcto (revise placa, coordenadas o radio).';
   if (error.code === '42501') return 'Su usuario no tiene permiso para modificar catálogos.';
@@ -154,13 +163,14 @@ export async function crearTransportista(_: Resultado | null, f: FormData) { ret
 export async function crearConductor(_: Resultado | null, f: FormData) { return crear('conductores', f); }
 export async function crearVehiculo(_: Resultado | null, f: FormData) { return crear('vehiculos', f); }
 export async function crearUbicacion(_: Resultado | null, f: FormData) { return crear('ubicaciones', f); }
+export async function crearProducto(_: Resultado | null, f: FormData) { return crear('productos', f); }
 
 export async function actualizarRegistro(tabla: Tabla, id: string, _: Resultado | null, f: FormData) {
   return actualizar(tabla, id, f);
 }
 
-/** Activa o desactiva un chofer o una ubicación (no se borran, para conservar el historial). */
-export async function alternarActivo(tabla: 'conductores' | 'ubicaciones', id: string, activo: boolean) {
+/** Activa o desactiva un chofer, una ubicación o un producto (no se borran, para conservar el historial). */
+export async function alternarActivo(tabla: 'conductores' | 'ubicaciones' | 'productos', id: string, activo: boolean) {
   const supabase = await crearClienteServidor();
   await supabase.from(tabla).update({ activo }).eq('id', id);
   revalidatePath('/catalogos');

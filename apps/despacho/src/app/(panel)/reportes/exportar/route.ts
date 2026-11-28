@@ -20,7 +20,7 @@ export async function GET(peticion: Request) {
   if (error) return new Response(`No se pudo exportar: ${error}`, { status: 500 });
 
   const encabezado = [
-    'Misión', 'Cliente', 'Destino', 'País', 'Factura', 'Salida de fábrica', 'Entrega', 'Duración (h)',
+    'Misión', 'Cliente', 'Producto', 'Destino', 'País', 'Factura', 'Salida de fábrica', 'Entrega', 'Duración (h)',
     'Transbordo', 'Tramo 1 (h)', 'Espera transbordo (h)', 'Último tramo (h)', 'Espera frontera (h)',
     'Toneladas', 'Placas', 'Transportistas', 'Documentos completos', 'Entrega comprometida', 'Retraso (h)',
     'Incidencias', 'Motivos', '% recorrido con señal',
@@ -30,7 +30,7 @@ export async function GET(peticion: Request) {
     const minViaje = f.camiones.reduce((s, c) => s + (Number(c.minutos_viaje) || 0), 0);
     const minSin = f.camiones.reduce((s, c) => s + (Number(c.minutos_sin_senal) || 0), 0);
     return [
-      f.codigo, f.cliente, f.destino, f.pais, f.factura, formatoHora(f.salida), formatoHora(f.entrega), horas(t.viaje),
+      f.codigo, f.cliente, f.producto ?? '', f.destino, f.pais, f.factura, formatoHora(f.salida), formatoHora(f.entrega), horas(t.viaje),
       f.transbordo ? 'Sí' : 'No', horas(t.tramo1), horas(t.esperaTransbordo), horas(t.tramoFinal), horas(t.frontera),
       f.toneladas === null ? '' : String(f.toneladas).replace('.', ','),
       f.camiones.map((c) => c.placa).join(' / '), [...new Set(f.camiones.map((c) => c.transportista))].join(' / '),

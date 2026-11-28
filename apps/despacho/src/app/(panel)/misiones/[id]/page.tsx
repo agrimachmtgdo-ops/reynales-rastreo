@@ -8,6 +8,8 @@ import {
   VELOCIDAD_PROMEDIO_KMH, type AsignacionEnVivo,
 } from '@/lib/tipos';
 import CamposCamion from '@/componentes/CamposCamion';
+import SelectorProducto from '@/componentes/SelectorProducto';
+import { cargarProductos } from '@/lib/productosServidor';
 import FormularioAccion from '@/componentes/FormularioAccion';
 import { registrarPeso } from '../../programa/acciones';
 import InvitacionChofer from '@/componentes/InvitacionChofer';
@@ -117,7 +119,7 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
 
   const { data: mision } = await supabase
     .from('misiones')
-    .select(`id, codigo, etapa, factura, guia, dex, tipo_carga, tonelaje_objetivo, telefono_coordinador, notas, entrega_comprometida, envio_id,
+    .select(`id, codigo, etapa, factura, guia, dex, tipo_carga, producto_id, tonelaje_objetivo, telefono_coordinador, notas, entrega_comprometida, envio_id,
              cliente:clientes(razon_social, pais, whatsapp),
              origen:ubicaciones!misiones_origen_id_fkey(nombre),
              destino:ubicaciones!misiones_destino_id_fkey(nombre, pais, lat, lon)`)
@@ -125,13 +127,14 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
     .maybeSingle();
   if (!mision) notFound();
 
-  const [{ data: asigData }, catalogos, { data: enlaceData }, { data: tramosData }] = await Promise.all([
+  const [{ data: asigData }, catalogos, { data: enlaceData }, { data: tramosData }, productos] = await Promise.all([
     supabase.from('asignaciones').select(SELECT_ASIGNACION_EN_VIVO).eq('mision_id', id).order('creado_en'),
     cargarCatalogosCamion(),
     supabase.from('enlaces_seguimiento').select('token, creado_en, visitas, ultima_visita')
       .eq('mision_id', id).eq('estado', 'activo').order('creado_en', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('tramos').select('id, numero, lugar_inicio, transportista_id, transportista:transportistas(razon_social)')
       .eq('mision_id', id).order('numero'),
+    cargarProductos(),
   ]);
   const { data: documentosData } = await supabase.from('documentos')
     .select('id, tipo, etiqueta, numero, nombre_original, ruta_archivo, asignacion_id, tipo_mime, creado_en, operador:operadores_transbordo(nombre)')
@@ -184,7 +187,7 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
 
   const m = mision as unknown as {
     codigo: string; etapa: Etapa; factura: string | null; guia: string | null; dex: string | null;
-    tipo_carga: string | null; tonelaje_objetivo: number | null; telefono_coordinador: string | null; notas: string | null;
+    tipo_carga: string | null; producto_id: string | null; tonelaje_objetivo: number | null; telefono_coordinador: string | null; notas: string | null;
     entrega_comprometida: string | null; envio_id: string | null;
     cliente: { razon_social: string; pais: string; whatsapp: string | null } | null; origen: { nombre: string } | null; destino: { nombre: string; pais: string; lat: number; lon: number } | null;
   };
@@ -327,7 +330,7 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
         {!cerrada && (
           <div className="acciones-camion no-imprimir">
             <details className="agregar" open={!invitacionDe(a.id) && a.etapa === 'programado'}>
-              <summary>Acceso del chofer: código, QR y WhatsApp</summary>
+              <summary>Acceso del chofer (código y QR)</summary>
               <InvitacionChofer
                 nombreChofer={a.conductor?.nombre ?? ''}
                 telefonoChofer={a.conductor?.telefono ?? null}
@@ -337,7 +340,7 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
               />
             </details>
             <details className="agregar">
-              <summary>Cambiar etapa a mano (si falla la app)</summary>
+              <summary>Cambiar etapa a mano</summary>
               <FormularioAccion accion={cambiarEtapaManual.bind(null, a.id, id)} boton="Cambiar etapa" claseBoton="boton secundario" confirmarCierre>
                 <div className="rejilla">
                   <label>
@@ -398,7 +401,7 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
               <label>N.º de factura<input name="factura" defaultValue={m.factura ?? ''} /></label>
               <label>N.º de guía<input name="guia" defaultValue={m.guia ?? ''} /></label>
               <label>N.º de DEX<input name="dex" defaultValue={m.dex ?? ''} /></label>
-              <label>Tipo de carga<input name="tipo_carga" defaultValue={m.tipo_carga ?? ''} /></label>
+              <SelectorProducto productos={productos} actualId={m.producto_id} textoAnterior={m.tipo_carga} />
               <label>Tonelaje objetivo (TN)<input name="tonelaje_objetivo" inputMode="decimal" defaultValue={m.tonelaje_objetivo ?? ''} /></label>
               <label>WhatsApp del coordinador<input name="telefono_coordinador" defaultValue={m.telefono_coordinador ?? ''} placeholder="+591…" /></label>
               <label>Entrega comprometida (hora de Bolivia)<input name="entrega_comprometida" type="datetime-local" defaultValue={aFechaHoraBolivia(m.entrega_comprometida)} /></label>
@@ -471,16 +474,25 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
                   </div>
                   {(ultimoTramo === 1 || abierto) && (
                     <div className="acciones-tramo no-imprimir">
-                      <details className="agregar" open={delTramo.length === 0 && n === 1}>
-                        <summary>+ Agregar {delTramo.length === 0 ? 'un camión' : 'otro camión'} a este tramo</summary>
-                        <FormularioAccion accion={agregarCamion.bind(null, id, n)} boton="Agregar camión">
+                      <details className="agregar panel-nuevo" open={delTramo.length === 0 && n === 1}>
+                        <summary>
+                          <span className="si-cerrado">+ Agregar {delTramo.length === 0 ? 'un camión' : 'otro camión'} a este tramo</span>
+                          <span className="si-abierto">
+                            <strong>Nuevo camión · Tramo {n}</strong>
+                            <span>{desde} → {hasta}</span>
+                          </span>
+                        </summary>
+                        <FormularioAccion accion={agregarCamion.bind(null, id, n)} boton="Agregar camión" cancelar>
                           <CamposCamion catalogos={catalogos} transportistaInicial={n > 1 ? tramo?.transportista_id : undefined} declaradas={n > 1} />
                         </FormularioAccion>
                       </details>
                       {n > 1 && tramo && abierto && (
-                        <details className="agregar">
-                          <summary>Cambiar empresa o lugar del transbordo</summary>
-                          <FormularioAccion accion={editarTramo.bind(null, id, tramo.id)} boton="Guardar tramo" claseBoton="boton secundario">
+                        <details className="agregar panel-nuevo">
+                          <summary>
+                            <span className="si-cerrado">Cambiar empresa o lugar del transbordo</span>
+                            <span className="si-abierto"><strong>Transbordo del tramo {n}</strong><span>Empresa y lugar</span></span>
+                          </summary>
+                          <FormularioAccion accion={editarTramo.bind(null, id, tramo.id)} boton="Guardar cambios" cancelar>
                             <div className="rejilla">
                               <label>
                                 Empresa del tramo

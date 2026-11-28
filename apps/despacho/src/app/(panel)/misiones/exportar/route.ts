@@ -20,7 +20,7 @@ export async function GET(peticion: Request) {
 
   const encabezado = ['Código', 'Pedido', 'Envío', 'Producto', 'Etapa', 'Cliente', 'Origen', 'Destino', 'País', 'Entrega comprometida', 'Factura', 'Guía', 'DEX', 'TN objetivo', 'TN cargadas (balanza)', 'Camiones sin peso', 'Placas', 'Choferes', 'Creada'];
   const lineas = filas.map((m) => [
-    m.codigo, m.envio?.pedido?.codigo, m.envio?.numero, m.envio?.pedido?.producto,
+    m.codigo, m.envio?.pedido?.codigo, m.envio?.numero, m.producto?.nombre ?? m.tipo_carga ?? m.envio?.pedido?.producto,
     ETIQUETA_ETAPA[m.etapa], m.cliente?.razon_social, m.origen?.nombre, m.destino?.nombre, m.destino?.pais,
     m.entrega_comprometida, m.factura, m.guia, m.dex, m.tonelaje_objetivo,
     m.asignaciones.filter((a) => (a.tramo ?? 1) === 1 && a.etapa !== 'cancelado' && a.toneladas_cargadas != null)

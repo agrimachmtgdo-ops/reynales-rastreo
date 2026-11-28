@@ -10,6 +10,8 @@ PSQL=(psql -v ON_ERROR_STOP=1 -q -X)
 for f in migrations/*.sql; do
   # El envío completo (C3b) se aplica más abajo, junto con sus pruebas.
   [[ "$f" == *20261215000100_envio_completo.sql ]] && continue
+  # El catálogo de productos se aplica al final, junto con sus pruebas.
+  [[ "$f" == *20261216000100_productos.sql ]] && continue
   echo "→ $f"
   "${PSQL[@]}" -d "$DB" -f "$f"
 done
@@ -62,4 +64,10 @@ echo "→ ida y vuelta de la reversión del cumplimiento"
 echo "→ ida y vuelta de la reversión del envío completo"
 "${PSQL[@]}" -d "$DB" -f revertir/20261215000100_envio_completo.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261215000100_envio_completo.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261216000100_productos.sql
+"${PSQL[@]}" -d "$DB" -f tests/97_productos.sql
+echo "→ ida y vuelta de la reversión del catálogo de productos (con datos)"
+"${PSQL[@]}" -d "$DB" -f revertir/20261216000100_productos.sql
+"${PSQL[@]}" -d "$DB" -c "select 1 from public.misiones where tipo_carga = 'Torta de soya 97'" | grep -q 1
+"${PSQL[@]}" -d "$DB" -f migrations/20261216000100_productos.sql
 echo "✔ Todas las pruebas pasaron"

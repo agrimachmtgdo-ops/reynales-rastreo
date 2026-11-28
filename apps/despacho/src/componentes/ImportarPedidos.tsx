@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useState, useTransition, type ChangeEvent } from 'react';
 import { importarPedidos } from '@/app/(panel)/pedidos/acciones';
-import { leerPedidos, type Celda, type ClienteRef, type ResultadoLectura, type UbicacionRef } from '@/lib/importarPedidos';
+import { leerPedidos, type Celda, type ClienteRef, type ProductoRef, type ResultadoLectura, type UbicacionRef } from '@/lib/importarPedidos';
 import { formatoFecha, formatoToneladas } from '@/lib/pedidos';
 
 type Resultado = Awaited<ReturnType<typeof importarPedidos>>[number];
@@ -11,7 +11,7 @@ type Resultado = Awaited<ReturnType<typeof importarPedidos>>[number];
  * Importación de pedidos desde Excel: lee el archivo en el navegador, muestra una vista previa
  * con los errores de cada pedido y crea en borrador solo los que están completos.
  */
-export default function ImportarPedidos({ clientes, ubicaciones }: { clientes: ClienteRef[]; ubicaciones: UbicacionRef[] }) {
+export default function ImportarPedidos({ clientes, ubicaciones, productos }: { clientes: ClienteRef[]; ubicaciones: UbicacionRef[]; productos: ProductoRef[] }) {
   const [archivo, setArchivo] = useState<string | null>(null);
   const [lectura, setLectura] = useState<ResultadoLectura | null>(null);
   const [leyendo, setLeyendo] = useState(false);
@@ -28,7 +28,7 @@ export default function ImportarPedidos({ clientes, ubicaciones }: { clientes: C
     try {
       const { readSheet } = await import('read-excel-file/browser'); // se carga solo al importar
       const filas = (await readSheet(f)) as Celda[][];
-      setLectura(leerPedidos(filas, clientes, ubicaciones));
+      setLectura(leerPedidos(filas, clientes, ubicaciones, productos));
     } catch {
       setLectura({ pedidos: [], filasLeidas: 0, error: 'No se pudo leer el archivo. Debe ser un Excel .xlsx (si es .xls o .csv, ábralo en Excel y use «Guardar como» .xlsx).' });
     } finally {

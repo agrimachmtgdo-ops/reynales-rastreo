@@ -1,3 +1,4 @@
+import { cargarProductos } from '@/lib/productosServidor';
 import Link from 'next/link';
 import { ETAPAS, ETIQUETA_ETAPA } from '@reynales/shared';
 import { buscarMisiones, POR_PAGINA, type FiltrosMisiones } from '@/lib/misiones';
@@ -11,11 +12,14 @@ export const dynamic = 'force-dynamic';
 export default async function PaginaMisiones({ searchParams }: { searchParams: Promise<FiltrosMisiones> }) {
   const filtros = await searchParams;
   const pagina = Math.max(1, Math.floor(Number(filtros.pagina) || 1));
-  const { filas: misiones, total, error } = await buscarMisiones(filtros, POR_PAGINA, (pagina - 1) * POR_PAGINA);
+  const [{ filas: misiones, total, error }, productos] = await Promise.all([
+    buscarMisiones(filtros, POR_PAGINA, (pagina - 1) * POR_PAGINA),
+    cargarProductos(),
+  ]);
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
   if (error) return <div className="mensaje-error">{error}</div>;
 
-  const hayFiltros = !!(filtros.q || filtros.etapa || filtros.desde || filtros.hasta);
+  const hayFiltros = !!(filtros.q || filtros.etapa || filtros.desde || filtros.hasta || filtros.producto);
   const soloFiltros = Object.entries(filtros).filter(([k, v]) => k !== 'pagina' && typeof v === 'string' && v !== '') as [string, string][];
   const parametros = new URLSearchParams(soloFiltros).toString();
   const enlacePagina = (n: number) => `/misiones?${new URLSearchParams([...soloFiltros, ['pagina', String(n)]]).toString()}`;
@@ -49,6 +53,13 @@ export default async function PaginaMisiones({ searchParams }: { searchParams: P
             {ETAPAS.map((e) => <option key={e} value={e}>{ETIQUETA_ETAPA[e]}</option>)}
           </select>
         </label>
+        <label>
+          Producto
+          <select name="producto" defaultValue={filtros.producto ?? ''}>
+            <option value="">Todos</option>
+            {productos.map((p) => <option key={p.id} value={p.id}>{p.nombre}{p.activo ? '' : ' (inactivo)'}</option>)}
+          </select>
+        </label>
         <label>Desde<input type="date" name="desde" defaultValue={filtros.desde ?? ''} /></label>
         <label>Hasta<input type="date" name="hasta" defaultValue={filtros.hasta ?? ''} /></label>
         <div className="acciones-filtro">
@@ -57,7 +68,7 @@ export default async function PaginaMisiones({ searchParams }: { searchParams: P
         </div>
         <input type="hidden" name="pagina" defaultValue="" />
       </FiltrosAutomaticos>
-      <p className="ayuda" style={{ marginTop: 0 }}>La etapa y las fechas se aplican al elegirlas; el texto, con Enter o «Buscar».</p>
+      <p className="ayuda" style={{ marginTop: 0 }}>La etapa, el producto y las fechas se aplican al elegirlas; el texto, con Enter o «Buscar».</p>
 
       <p style={{ fontSize: 14, color: 'var(--gris)' }} role="status">
         {total === 0
@@ -94,7 +105,7 @@ export default async function PaginaMisiones({ searchParams }: { searchParams: P
                   <td data-etiqueta="Cliente y destino">
                     <strong className="dato-principal">{m.cliente?.razon_social ?? '—'}</strong>
                     <span className="sub-dato">→ {m.destino?.nombre} ({m.destino?.pais})</span>
-                    {m.envio?.pedido?.producto && <span className="sub-dato">{m.envio.pedido.producto}</span>}
+                    {(m.producto?.nombre ?? m.tipo_carga ?? m.envio?.pedido?.producto) && <span className="sub-dato">{m.producto?.nombre ?? m.tipo_carga ?? m.envio?.pedido?.producto}</span>}
                   </td>
                   <td data-etiqueta="Entrega">
                     {vence ? <span className={atrasada ? 'texto-atrasado' : undefined}>{formatoFecha(vence)}</span> : '—'}
