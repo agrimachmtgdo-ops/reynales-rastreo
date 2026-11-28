@@ -507,8 +507,11 @@ select pg_temp.verificar(
   'la posición se redondea a ~1 km y se ven las toneladas cargadas');
 select pg_temp.verificar(
   exists (select 1 from jsonb_array_elements(:'seg'::jsonb -> 'camiones') c
-           where c ->> 'lat' is null and (c ->> 'parado')::boolean and c ->> 'zona' like 'a unos % km de Fábrica%'),
-  'un camión parado no muestra su punto, solo la zona');
+           where (c ->> 'parado')::boolean and c ->> 'zona' like 'a unos % km de Fábrica%'
+             and c ->> 'lat' is not null
+             and (c ->> 'lat')::numeric = round((c ->> 'lat')::numeric, 1)
+             and (c ->> 'lon')::numeric = round((c ->> 'lon')::numeric, 1)),
+  'un camión parado solo muestra una zona aproximada (~11 km) y el lugar más cercano');
 select pg_temp.verificar(
   exists (select 1 from jsonb_array_elements(:'seg'::jsonb -> 'camiones') c where c ->> 'nombre' = '1234ABC' and (c ->> 'km_al_destino')::int <= 50)
   and exists (select 1 from jsonb_array_elements(:'seg'::jsonb -> 'camiones') c where c ->> 'nombre' like 'Camión %' and (c ->> 'km_al_destino')::int > 50),

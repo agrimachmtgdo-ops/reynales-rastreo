@@ -154,9 +154,10 @@ export default async function PaginaSeguimiento({ params }: { params: Promise<{ 
           <h2>Dónde está su carga</h2>
           <p className="ayuda">
             Ubicación aproximada, con {s.retraso_min} minutos de retraso por seguridad de la carga.
+            {s.camiones.some((c) => c.parado && c.lat !== null) && ' Si un camión está detenido, se muestra solo la zona donde se encuentra.'}
           </p>
           <MapaSeguimiento
-            camiones={s.camiones.map((c) => ({ nombre: c.nombre, etapa: c.etapa, lat: c.lat, lon: c.lon }))}
+            camiones={s.camiones.map((c) => ({ nombre: c.nombre, etapa: c.etapa, parado: c.parado, lat: c.lat, lon: c.lon }))}
             destino={{ lat: s.destino_lat, lon: s.destino_lon, nombre: s.destino }}
           />
         </section>
