@@ -207,3 +207,13 @@ tr.evento-alerta td { background: #fff4e5; }
 
 .casilla { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--gris); margin: 8px 0; flex-direction: row; }
 .casilla input { width: auto; min-height: 0; }
+
+/* Error junto al campo (por ejemplo, teléfono sin código de país) */
+.error-campo { display: block; color: var(--rojo); font-size: 13px; font-weight: 600; margin-top: 4px; }
+[aria-invalid="true"] { border-color: var(--rojo) !important; outline-color: var(--rojo); }
+/* Camión detenido */
+.indicador.detenido .numero { color: #7d3c98; }
+.etiqueta.detenido { background: #eadcf2; color: #5b2c6f; }
+.aviso-sin-whatsapp { font-size: 13px; color: var(--rojo); font-weight: 600; }
+.lista-telefonos { background: #fff4e5; border: 1px solid var(--dorado); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; }
+.lista-telefonos ul { margin: 6px 0 0; padding-left: 18px; }

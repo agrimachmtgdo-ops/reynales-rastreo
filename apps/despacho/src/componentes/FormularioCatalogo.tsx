@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { startTransition, useActionState, useEffect, useRef, type FormEvent } from 'react';
 
-type Resultado = { ok: boolean; mensaje: string };
+import { useErrorCampo, type ResultadoFormulario as Resultado } from './errorCampo';
 
 export default function FormularioCatalogo({
   accion,
@@ -22,6 +22,7 @@ export default function FormularioCatalogo({
   useEffect(() => {
     if (estado?.ok) formulario.current?.reset();
   }, [estado]);
+  useErrorCampo(formulario, estado);
 
   // onSubmit en lugar de action=: React no vacía los campos si el guardado falla.
   function alEnviar(e: FormEvent<HTMLFormElement>) {

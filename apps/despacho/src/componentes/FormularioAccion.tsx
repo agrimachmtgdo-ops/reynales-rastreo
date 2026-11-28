@@ -1,7 +1,7 @@
 'use client';
 import { startTransition, useActionState, useEffect, useRef, type FormEvent } from 'react';
 
-type Resultado = { ok: boolean; mensaje: string };
+import { useErrorCampo, type ResultadoFormulario as Resultado } from './errorCampo';
 
 const ETAPAS_FINALES: Record<string, string> = { entregado: 'ENTREGADO', cancelado: 'CANCELADO' };
 
@@ -30,6 +30,7 @@ export default function FormularioAccion({
   useEffect(() => {
     if (estado?.ok) formulario.current?.reset();
   }, [estado]);
+  useErrorCampo(formulario, estado);
 
   function alEnviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

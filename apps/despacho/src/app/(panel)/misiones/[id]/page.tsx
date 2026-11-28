@@ -21,6 +21,7 @@ interface Evento {
   etapa_nueva: Etapa | null;
   origen: string;
   ocurrido_en: string;
+  hora_dispositivo: string | null;
   detalle: Record<string, unknown>;
 }
 
@@ -38,6 +39,9 @@ function describirEvento(e: Evento, chofer: string): string {
     if (d.motivo === 'cruce_sin_parada') return `El sistema detectó que el camión cruzó a Perú por ${String(d.frontera)} sin detenerse en la frontera${antes}.`;
     if (d.frontera) return `El sistema detectó ${etapa} en ${String(d.frontera)}${antes}.`;
     return `El sistema cambió la etapa a ${etapa}${antes}.`;
+  }
+  if (e.tipo === 'incidencia' && d.motivo === 'inicio_lejos_de_origen') {
+    return `Alerta: al iniciar el viaje el teléfono estaba a ${String(d.km)} km de ${String(d.origen ?? 'la fábrica')}. Revise que el chofer esté en el camión y que el punto de la fábrica sea correcto.`;
   }
   if (e.tipo === 'incidencia' && d.motivo === 'ubicacion_simulada') {
     return `Alerta: el teléfono envió ${String(d.cantidad ?? 'algunas')} ubicaciones simuladas (posible GPS falso). Se descartaron.`;
@@ -87,8 +91,8 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
       .find((i) => i.asignacion_id === asigId) ?? null;
 
   const { data: eventosData } = ids.length
-    ? await supabase.from('eventos').select('id, asignacion_id, tipo, etapa_nueva, origen, ocurrido_en, detalle')
-        .in('asignacion_id', ids).order('ocurrido_en', { ascending: false }).limit(50)
+    ? await supabase.from('eventos').select('id, asignacion_id, tipo, etapa_nueva, origen, ocurrido_en, hora_dispositivo, detalle')
+        .in('asignacion_id', ids).order('ocurrido_en', { ascending: false }).order('creado_en', { ascending: false }).limit(50)
     : { data: [] };
   const eventos = (eventosData ?? []) as Evento[];
 
@@ -230,7 +234,14 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
               <tr key={e.id} className={e.tipo === 'emergencia' || e.tipo === 'incidencia' ? 'evento-alerta' : undefined}>
                 <td style={{ whiteSpace: 'nowrap' }}>{formatoHora(e.ocurrido_en)}</td>
                 <td>{placaDe(e.asignacion_id)}</td>
-                <td>{describirEvento(e, choferDe(e.asignacion_id))}</td>
+                <td>
+                  {describirEvento(e, choferDe(e.asignacion_id))}
+                  {e.detalle?.hora_ajustada === true && e.hora_dispositivo && (
+                    <span className="ayuda" style={{ display: 'block', margin: 0 }}>
+                      Hora informada por el teléfono: {formatoHora(e.hora_dispositivo)} (anterior al paso previo; se ordenó después de él).
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

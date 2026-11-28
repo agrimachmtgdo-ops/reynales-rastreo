@@ -3,10 +3,27 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import type { Etapa } from '@reynales/shared';
 import { crearClienteServidor } from '@/lib/supabase/server';
+import { MENSAJE_TELEFONO, normalizarTelefono } from '@/lib/tipos';
 
 export interface Resultado {
   ok: boolean;
   mensaje: string;
+  campo?: string;
+  errorCampo?: string;
+}
+
+/** WhatsApp del coordinador en formato internacional; error junto al campo si no se puede. */
+function telefonoCoordinador(f: FormData): { valor: string | null; error?: Resultado } {
+  const v = texto(f, 'telefono_coordinador');
+  if (!v) return { valor: null };
+  const normal = normalizarTelefono(v);
+  if (!normal) {
+    return {
+      valor: null,
+      error: { ok: false, mensaje: `Revise el WhatsApp del coordinador: «${v}» no tiene código de país.`, campo: 'telefono_coordinador', errorCampo: MENSAJE_TELEFONO },
+    };
+  }
+  return { valor: normal };
 }
 
 const texto = (f: FormData, k: string) => {
@@ -51,6 +68,8 @@ async function avisoOcupado(f: FormData): Promise<Resultado | null> {
 
 /** Crea la misión con su primer camión y abre el detalle. */
 export async function crearMision(_: Resultado | null, f: FormData): Promise<Resultado> {
+  const coordinador = telefonoCoordinador(f);
+  if (coordinador.error) return coordinador.error;
   const ocupado = await avisoOcupado(f);
   if (ocupado) return ocupado;
   const supabase = await crearClienteServidor();
@@ -65,7 +84,7 @@ export async function crearMision(_: Resultado | null, f: FormData): Promise<Res
       dex: texto(f, 'dex'),
       tipo_carga: texto(f, 'tipo_carga'),
       tonelaje_objetivo: numero(f, 'tonelaje_objetivo'),
-      telefono_coordinador: texto(f, 'telefono_coordinador'),
+      telefono_coordinador: coordinador.valor,
       notas: texto(f, 'notas'),
     })
     .select('id')
@@ -84,6 +103,8 @@ export async function editarMision(misionId: string, _: Resultado | null, f: For
   const supabase = await crearClienteServidor();
   const tonelaje = numero(f, 'tonelaje_objetivo');
   if (tonelaje !== null && (Number.isNaN(tonelaje) || tonelaje < 0)) return { ok: false, mensaje: 'El tonelaje debe ser un número.' };
+  const coordinador = telefonoCoordinador(f);
+  if (coordinador.error) return coordinador.error;
   const { error } = await supabase
     .from('misiones')
     .update({
@@ -92,7 +113,7 @@ export async function editarMision(misionId: string, _: Resultado | null, f: For
       dex: texto(f, 'dex'),
       tipo_carga: texto(f, 'tipo_carga'),
       tonelaje_objetivo: tonelaje,
-      telefono_coordinador: texto(f, 'telefono_coordinador'),
+      telefono_coordinador: coordinador.valor,
       notas: texto(f, 'notas'),
     })
     .eq('id', misionId);
@@ -139,4 +160,17 @@ export async function cambiarEtapaManual(asignacionId: string, misionId: string,
   if (error) return { ok: false, mensaje: error.message };
   revalidatePath(`/misiones/${misionId}`);
   return { ok: true, mensaje: 'Etapa actualizada (modo manual).' };
+}
+
+/** Minutos sin moverse para avisar «Detenido» (todos los usuarios del panel). */
+export async function fijarMinutosDetenido(_: Resultado | null, f: FormData): Promise<Resultado> {
+  const minutos = numero(f, 'minutos');
+  if (minutos === null || !Number.isInteger(minutos) || minutos < 10 || minutos > 720) {
+    return { ok: false, mensaje: 'Escriba un número entero de minutos entre 10 y 720.', campo: 'minutos', errorCampo: 'Entre 10 y 720 minutos.' };
+  }
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc('fijar_minutos_detenido', { p_minutos: minutos });
+  if (error) return { ok: false, mensaje: error.message };
+  revalidatePath('/');
+  return { ok: true, mensaje: `Listo: se avisará «Detenido» a los ${minutos} minutos sin moverse.` };
 }

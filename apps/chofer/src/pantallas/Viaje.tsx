@@ -86,7 +86,12 @@ export default function Viaje({
       // Antes de entregar se intenta enviar todo lo pendiente (lo que quede se envía después).
       const quedan = nueva === 'entregado' ? await enviarTodo() : 0;
 
-      const { error } = await supabase.rpc('marcar_etapa_chofer', { p_asignacion: viaje.asignacion_id, p_etapa: nueva });
+      // Se envía también la hora del teléfono: el servidor guarda ambas (la suya y esta).
+      const { error } = await supabase.rpc('marcar_etapa_chofer', {
+        p_asignacion: viaje.asignacion_id,
+        p_etapa: nueva,
+        p_hora_dispositivo: new Date().toISOString(),
+      });
       if (error) throw new Error(error.message);
       await guardarEstado({ etapa: nueva });
       setEtapa(nueva);

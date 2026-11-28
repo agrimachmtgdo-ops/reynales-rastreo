@@ -3,16 +3,19 @@ import { useEffect, useRef } from 'react';
 import L, { type Map as LeafletMap } from 'leaflet';
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
 import { ETIQUETA_ETAPA, MARCA } from '@reynales/shared';
-import { formatoHora, textoEmergencia, type AsignacionEnVivo } from '@/lib/tipos';
+import { estaDetenido, formatoHora, haceCuanto, MINUTOS_DETENIDO, textoEmergencia, type AsignacionEnVivo } from '@/lib/tipos';
 
 // Centro inicial: entre Monteagudo y Desaguadero.
 const CENTRO: [number, number] = [-17.6, -66.5];
 const AZUL = '#1d4f80';
+// Color propio para «Detenido» (en ruta pero sin moverse).
+export const MORADO_DETENIDO = '#7d3c98';
 // Un color por camión en el detalle de misión.
 const COLORES_RECORRIDO = [MARCA.cafe, '#1d4f80', '#8e44ad', '#d35400', '#16a085'];
 
-function color(etapa: AsignacionEnVivo['etapa'], emergencia?: string | null) {
+function color(etapa: AsignacionEnVivo['etapa'], emergencia?: string | null, detenido = false) {
   if (emergencia) return MARCA.rojo;
+  if (detenido) return MORADO_DETENIDO;
   if (etapa === 'en_frontera') return MARCA.dorado;
   if (etapa === 'cruzo_frontera') return AZUL;
   return MARCA.verde;
@@ -69,6 +72,7 @@ function Leyenda() {
     { c: MARCA.verde, t: 'En ruta' },
     { c: MARCA.dorado, t: 'En frontera' },
     { c: AZUL, t: 'Cruzó a Perú' },
+    { c: MORADO_DETENIDO, t: 'Detenido' },
     { c: MARCA.rojo, t: 'Emergencia' },
   ];
   return (
@@ -112,10 +116,13 @@ function agrupar(lista: AsignacionEnVivo[]): Grupo[] {
   return grupos;
 }
 
-function DetalleCamion({ a }: { a: AsignacionEnVivo }) {
+function DetalleCamion({ a, minDetenido }: { a: AsignacionEnVivo; minDetenido: number }) {
   return (
     <>
       <strong>{a.vehiculo?.placa}</strong> · {ETIQUETA_ETAPA[a.etapa]}
+      {estaDetenido(a, Date.now(), minDetenido) && (
+        <><br /><strong style={{ color: MORADO_DETENIDO }}>Detenido: sin moverse {haceCuanto(a.detenido_desde ?? null).replace('hace ', 'desde hace ')}</strong></>
+      )}
       {a.emergencia_en && <><br /><strong style={{ color: MARCA.rojo }}>EMERGENCIA: {textoEmergencia(a.emergencia_motivo)}</strong></>}
       <br />
       {a.mision?.codigo} → {a.mision?.destino?.nombre}
@@ -130,12 +137,15 @@ export default function MapaFlota({
   seleccion,
   alSeleccionar,
   recorridos,
+  minDetenido = MINUTOS_DETENIDO,
 }: {
   asignaciones: AsignacionEnVivo[];
   seleccion?: string | null;
   alSeleccionar?: (id: string) => void;
   /** Una línea por camión (detalle de misión). */
   recorridos?: [number, number][][];
+  /** Minutos sin moverse para marcar «Detenido». */
+  minDetenido?: number;
 }) {
   const conPosicion = asignaciones.filter((a) => a.ultima_lat !== null && a.ultima_lon !== null);
   const elegida = conPosicion.find((a) => a.id === seleccion);
@@ -175,7 +185,7 @@ export default function MapaFlota({
               pathOptions={{
                 color: MARCA.cafe,
                 weight: elegido ? 3 : 2,
-                fillColor: color(principal.etapa, principal.emergencia_en),
+                fillColor: color(principal.etapa, principal.emergencia_en, estaDetenido(principal, Date.now(), minDetenido)),
                 fillOpacity: 0.9,
               }}
               eventHandlers={{ click: alTocar }}
@@ -187,7 +197,7 @@ export default function MapaFlota({
               <Popup>
                 {g.camiones.map((a, i) => (
                   <div key={a.id} style={{ marginTop: i ? 8 : 0 }}>
-                    <DetalleCamion a={a} />
+                    <DetalleCamion a={a} minDetenido={minDetenido} />
                   </div>
                 ))}
               </Popup>

@@ -293,8 +293,8 @@ reset role;
 insert into public.asignaciones (mision_id, transportista_id, conductor_id, vehiculo_id)
 select :'mision_id', transportista_id, conductor_id, vehiculo_id from public.asignaciones where id = :'asig_id'
 returning id as asig2 \gset
-select public.aplicar_etapa(:'asig2', 'cargado', 'despacho') \g /dev/null
-select public.aplicar_etapa(:'asig2', 'en_ruta', 'despacho') \g /dev/null
+select public.aplicar_etapa(:'asig2', 'cargado', 'despacho', to_timestamp(:t0 - 3000)) \g /dev/null
+select public.aplicar_etapa(:'asig2', 'en_ruta', 'despacho', to_timestamp(:t0 - 2900)) \g /dev/null
 create function pg_temp.punto(lat double precision, lon double precision) returns extensions.geography
 language sql as $$ select extensions.st_setsrid(extensions.st_makepoint(lon, lat), 4326)::extensions.geography $$;
 
@@ -339,4 +339,110 @@ select pg_temp.verificar(
      (select conductor_id from public.asignaciones where id = :'asig2'),
      (select vehiculo_id from public.asignaciones where id = :'asig2'))),
   'despacho ve si el chofer o el camión ya están en otro viaje activo');
+reset role;
+
+-- =====================================================================
+-- Fase 1 (revisión externa)
+-- =====================================================================
+
+-- ---------- 1.1 Teléfonos en formato internacional ----------
+select pg_temp.verificar(public.normalizar_telefono('67601782') = '+59167601782', 'celular boliviano de 8 dígitos pasa a +591');
+select pg_temp.verificar(public.normalizar_telefono('987 654 321') = '+51987654321', 'celular peruano de 9 dígitos pasa a +51');
+select pg_temp.verificar(public.normalizar_telefono('00591-7123-4567') = '+59171234567', 'prefijo 00 y guiones se limpian');
+select pg_temp.verificar(public.normalizar_telefono('+591 7123 4567') = '+59171234567', 'número con +591 y espacios');
+select pg_temp.verificar(public.normalizar_telefono('55454545') is null, 'un número ambiguo no se adivina');
+select pg_temp.verificar(public.normalizar_telefono('5454545') is null, 'un número de 7 dígitos no se adivina');
+select pg_temp.verificar(public.normalizar_telefono('+5916760178') is null, '+591 con dígitos de menos no es válido');
+
+select set_config('request.jwt.claims', json_build_object('sub', :'despacho_id')::text, false) \g /dev/null
+set role authenticated;
+insert into public.conductores (transportista_id, nombre, telefono)
+select id, 'Chofer nuevo', '7654 3210' from public.transportistas limit 1;
+select pg_temp.verificar((select telefono = '+59176543210' from public.conductores where nombre = 'Chofer nuevo'),
+  'al guardar, el teléfono se guarda con código de país');
+do $$ begin
+  insert into public.clientes (razon_social, pais, whatsapp) values ('Cliente con número dudoso', 'PE', '55454545');
+  raise exception 'FALLÓ: se guardó un WhatsApp sin código de país';
+exception when check_violation then raise notice 'ok - un número sin código de país que no se puede deducir se rechaza';
+end $$;
+reset role;
+-- Un número antiguo que no se pudo corregir no bloquea otras ediciones del registro.
+alter table public.clientes disable trigger clientes_telefono;
+update public.clientes set whatsapp = '55454545' where razon_social = 'Cliente de prueba S.A.C.';
+alter table public.clientes enable trigger clientes_telefono;
+set role authenticated;
+update public.clientes set contacto = 'Otro contacto' where razon_social = 'Cliente de prueba S.A.C.';
+select pg_temp.verificar(
+  (select count(*) = 1 from public.telefonos_por_corregir() where valor = '55454545'),
+  'el número antiguo dudoso aparece en la lista para corregir y no impide editar otros datos');
+reset role;
+
+-- ---------- 1.2 Orden de los eventos (caso MSN-RWRE4TTQ) ----------
+select now() - interval '1 second' as ahora \gset
+-- El chofer pulsa «Iniciar viaje» (hora del servidor) y el primer punto GPS es de 3 min antes.
+insert into public.asignaciones (mision_id, transportista_id, conductor_id, vehiculo_id)
+select :'mision_id', transportista_id, conductor_id, vehiculo_id from public.asignaciones where id = :'asig_id'
+returning id as asig3 \gset
+select public.aplicar_etapa(:'asig3', 'cargado', 'chofer', :'ahora'::timestamptz,
+  jsonb_build_object('hora_dispositivo', :'ahora'::timestamptz - interval '2 seconds')) \g /dev/null
+select pg_temp.verificar(
+  (select hora_dispositivo = :'ahora'::timestamptz - interval '2 seconds' and creado_en >= :'ahora'::timestamptz from public.eventos
+    where asignacion_id = :'asig3' and etapa_nueva = 'cargado'),
+  'el evento guarda la hora del teléfono y la del servidor');
+-- Primer punto a 235 km de la fábrica (cerca de Yacuiba): alerta, no «En ruta».
+select public.evaluar_geocercas(:'asig3', pg_temp.punto(-21.9215, -63.6452), :'ahora'::timestamptz - interval '3 minutes', 20) as e \gset
+select pg_temp.verificar(:'e' = 'cargado', 'si el viaje empieza a más de 20 km de la fábrica no se marca «En ruta»');
+select pg_temp.verificar(
+  (select (detalle ->> 'km')::int between 230 and 245 from public.eventos
+    where asignacion_id = :'asig3' and detalle ->> 'motivo' = 'inicio_lejos_de_origen'),
+  'queda una alerta «inició lejos de la fábrica» con la distancia');
+insert into public.posiciones (asignacion_id, capturado_en, punto)
+values (:'asig3', :'ahora'::timestamptz - interval '3 minutes', pg_temp.punto(-21.9215, -63.6452));
+-- Dos puntos seguidos fuera de la fábrica, con hora del GPS anterior a «Iniciar viaje».
+select public.evaluar_geocercas(:'asig3', pg_temp.punto(-19.83, -63.99), :'ahora'::timestamptz - interval '2 minutes', 15) as e \gset
+select pg_temp.verificar(:'e' = 'cargado', 'un solo punto fuera de la fábrica todavía no marca «En ruta»');
+select public.evaluar_geocercas(:'asig3', pg_temp.punto(-19.84, -64.00), :'ahora'::timestamptz - interval '1 minute', 15) as e \gset
+select pg_temp.verificar(:'e' = 'en_ruta', 'el segundo punto seguido fuera de la fábrica marca «En ruta»');
+select pg_temp.verificar(
+  (select r.ocurrido_en >= c.ocurrido_en and r.hora_dispositivo = :'ahora'::timestamptz - interval '2 minutes'
+          and (r.detalle ->> 'hora_ajustada')::boolean
+     from public.eventos r, public.eventos c
+    where r.asignacion_id = :'asig3' and r.etapa_nueva = 'en_ruta'
+      and c.asignacion_id = :'asig3' and c.etapa_nueva = 'cargado'),
+  '«En ruta» ya no queda antes de «Cargado»; la hora del GPS se conserva aparte');
+-- Un punto que vuelve a la fábrica anula el candidato de salida.
+select public.aplicar_etapa(:'asig3', 'cargado', 'despacho') \g /dev/null
+select public.evaluar_geocercas(:'asig3', pg_temp.punto(-19.85, -64.01), :'ahora'::timestamptz, 15) \g /dev/null
+select public.evaluar_geocercas(:'asig3', pg_temp.punto(-19.805, -63.956), :'ahora'::timestamptz, 15) \g /dev/null
+select pg_temp.verificar((select salida_candidata_desde is null and etapa = 'cargado' from public.asignaciones where id = :'asig3'),
+  'si el siguiente punto vuelve a la fábrica, no se marca la salida');
+
+-- ---------- 1.3 Camión detenido ----------
+update public.asignaciones set ultima_lat = -19.8088, ultima_lon = -63.9829, ultima_senal = :'ahora'::timestamptz - interval '4 hours'
+ where id = :'asig3';
+update public.asignaciones set ultima_lat = -19.8091, ultima_lon = -63.9828, ultima_senal = :'ahora'::timestamptz - interval '10 minutes'
+ where id = :'asig3';
+select pg_temp.verificar(
+  (select detenido_desde = :'ahora'::timestamptz - interval '4 hours' from public.asignaciones where id = :'asig3'),
+  'moverse menos de 300 m no reinicia el «detenido desde»');
+update public.asignaciones set ultima_lat = -19.8200, ultima_lon = -63.9829, ultima_senal = :'ahora'::timestamptz
+ where id = :'asig3';
+select pg_temp.verificar(
+  (select detenido_desde = :'ahora'::timestamptz from public.asignaciones where id = :'asig3'),
+  'al moverse más de 300 m el contador de detenido se reinicia');
+select pg_temp.verificar((select (valor)::int = 30 from public.configuracion where clave = 'detenido_minutos'),
+  'el aviso de detenido es a los 30 minutos por defecto');
+select set_config('request.jwt.claims', json_build_object('sub', :'gerencia_id')::text, false) \g /dev/null
+set role authenticated;
+do $$ begin
+  perform public.fijar_minutos_detenido(45);
+  raise exception 'FALLÓ: gerencia cambió los minutos de detenido';
+exception when insufficient_privilege then raise notice 'ok - gerencia no cambia la configuración';
+end $$;
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub', :'despacho_id')::text, false) \g /dev/null
+set role authenticated;
+select public.fijar_minutos_detenido(45) \g /dev/null
+select pg_temp.verificar((select (valor)::int = 45 from public.configuracion where clave = 'detenido_minutos'),
+  'despacho puede cambiar los minutos de detenido');
 reset role;
