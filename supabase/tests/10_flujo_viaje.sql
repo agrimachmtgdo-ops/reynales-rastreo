@@ -136,13 +136,14 @@ select public.registrar_posiciones(:'asig_id', jsonb_build_array(
   jsonb_build_array((:t0 - 3000), -1980500, -6395600,  5, 10, 0),  -- dentro de la fábrica
   jsonb_build_array((:t0 - 2400), -1975000, -6390000, 60, 10, 0),  -- salió: en_ruta
   jsonb_build_array((:t0 - 1800), -1656700, -6903800,  8, 15, 0),  -- Desaguadero: en_frontera
-  jsonb_build_array((:t0 - 1200), -1655000, -6907000, 30, 12, 0),  -- lado peruano, fuera de la geocerca
+  jsonb_build_array((:t0 - 1200), -1655000, -6907000, 30, 12, 0),  -- lado peruano, fuera de la geocerca (candidato a cruce)
+  jsonb_build_array((:t0 - 900),  -1640000, -6920000, 40, 10, 0),  -- 5 min después sigue en Perú: se confirma el cruce
   jsonb_build_array((:t0 - 600),  9999999, -6907000, 30, 12, 0),  -- latitud inválida: se descarta
   jsonb_build_array(1, 2, 3),                                                                                -- mal formado: se descarta
   jsonb_build_array('x', -1600000, -6950000, 30, 12, 0),                                                     -- texto en vez de número: se descarta sin rechazar el lote
   jsonb_build_array((:t0 - 4000), -1980500, -6395600, 0, 10, 0)                                              -- antes de "Iniciar viaje": se descarta (privacidad)
 )) as r \gset
-select pg_temp.verificar((:'r'::jsonb ->> 'nuevas')::int = 4, 'se guardan 4 posiciones válidas');
+select pg_temp.verificar((:'r'::jsonb ->> 'nuevas')::int = 5, 'se guardan 5 posiciones válidas');
 select pg_temp.verificar((:'r'::jsonb ->> 'descartadas')::int = 4, 'se informan 4 descartadas (inválida, mal formadas y previa al viaje)');
 select pg_temp.verificar((:'r'::jsonb ->> 'etapa') = 'cruzo_frontera', 'geocercas: fábrica → en ruta → frontera → cruzó');
 select pg_temp.verificar((:'r'::jsonb ->> 'modo_peru')::boolean, 'la app pasa a modo Perú');
@@ -159,12 +160,76 @@ reset role;
 select pg_temp.verificar((select etapa = 'cruzo_frontera' from public.misiones where id = :'mision_id'), 'la etapa de la misión sigue al camión');
 select pg_temp.verificar((select count(*) = 3 from public.eventos where asignacion_id = :'asig_id' and origen = 'geocerca'), 'tres cambios de etapa por geocerca registrados');
 select pg_temp.verificar((select count(*) = 1 from public.eventos where tipo = 'incidencia' and detalle ->> 'motivo' = 'ubicacion_simulada'), 'ubicación simulada registrada como incidencia');
-select pg_temp.verificar((select ultima_senal = to_timestamp(:t0 - 1200) and ultima_lat < -16.5 from public.asignaciones where id = :'asig_id'), 'el mapa muestra la última posición real (no la simulada)');
+select pg_temp.verificar((select ultima_senal = to_timestamp(:t0 - 900) and ultima_lat < -16.3 from public.asignaciones where id = :'asig_id'), 'el mapa muestra la última posición real (no la simulada)');
+select pg_temp.verificar(
+  (select ocurrido_en = to_timestamp(:t0 - 1200) from public.eventos where asignacion_id = :'asig_id' and etapa_nueva = 'cruzo_frontera'),
+  'el cruce se fecha cuando el camión salió de la frontera (no al confirmarse)');
+
+-- ---------- Emergencia ----------
+select set_config('request.jwt.claims', json_build_object('sub', :'chofer_id', 'is_anonymous', true)::text, false) \g /dev/null
+set role authenticated;
+select pg_temp.verificar(
+  not (public.reportar_emergencia(:'asig_id', 'mecanica', -16.4, -69.2) ->> 'repetida')::boolean,
+  'el chofer reporta una emergencia');
+select pg_temp.verificar(
+  (public.reportar_emergencia(:'asig_id', 'mecanica', -16.4, -69.2) ->> 'repetida')::boolean,
+  'pulsar dos veces no duplica la emergencia');
+select set_config('prueba.asig', :'asig_id', false) \g /dev/null
+do $$ begin
+  perform public.reportar_emergencia(current_setting('prueba.asig')::uuid, 'inventado');
+  raise exception 'FALLÓ: aceptó un motivo inválido';
+exception when raise_exception then
+  if sqlerrm like 'FALLÓ%' then raise; end if;
+  raise notice 'ok - motivo de emergencia validado';
+end $$;
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub', :'extrano_id', 'is_anonymous', true)::text, false) \g /dev/null
+set role authenticated;
+do $$ begin
+  perform public.reportar_emergencia(current_setting('prueba.asig')::uuid, 'robo');
+  raise exception 'FALLÓ: otro teléfono reportó una emergencia';
+exception when insufficient_privilege then raise notice 'ok - otro teléfono no puede reportar emergencias';
+end $$;
+reset role;
+select pg_temp.verificar(
+  (select emergencia_motivo = 'mecanica' and emergencia_en is not null from public.asignaciones where id = :'asig_id'),
+  'la emergencia queda visible en el tablero');
+select pg_temp.verificar(
+  (select count(*) = 1 from public.eventos where asignacion_id = :'asig_id' and tipo = 'emergencia' and detalle ? 'lat'),
+  'una sola emergencia registrada, con ubicación');
+
+select set_config('request.jwt.claims', json_build_object('sub', :'gerencia_id')::text, false) \g /dev/null
+set role authenticated;
+do $$ begin
+  perform public.atender_emergencia(current_setting('prueba.asig')::uuid, 'llamé al chofer');
+  raise exception 'FALLÓ: gerencia atendió una emergencia';
+exception when insufficient_privilege then raise notice 'ok - gerencia no atiende emergencias';
+end $$;
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub', :'despacho_id')::text, false) \g /dev/null
+set role authenticated;
+do $$ begin
+  perform public.atender_emergencia(current_setting('prueba.asig')::uuid, '  ');
+  raise exception 'FALLÓ: atendió sin nota';
+exception when raise_exception then
+  if sqlerrm like 'FALLÓ%' then raise; end if;
+  raise notice 'ok - atender exige una nota';
+end $$;
+select public.atender_emergencia(:'asig_id', 'Se envió mecánico') \g /dev/null
+reset role;
+select pg_temp.verificar(
+  (select emergencia_en is null from public.asignaciones where id = :'asig_id'), 'despacho marca la emergencia como atendida');
 
 -- ---------- Despacho ve el recorrido ----------
 select set_config('request.jwt.claims', json_build_object('sub', :'despacho_id')::text, false) \g /dev/null
 set role authenticated;
-select pg_temp.verificar((select count(*) = 5 from public.recorrido_asignacion(:'asig_id')), 'despacho obtiene el recorrido');
+select pg_temp.verificar((select count(*) = 6 from public.recorrido_asignacion(:'asig_id')), 'despacho obtiene el recorrido');
+select pg_temp.verificar(
+  (select count(*) between 2 and 5 from public.recorrido_simplificado(:'asig_id')),
+  'recorrido simplificado: solo puntos reales, sin duplicar');
+select pg_temp.verificar(
+  (select round(lat::numeric, 3) = -19.805 from public.recorrido_simplificado(:'asig_id') limit 1),
+  'el recorrido simplificado empieza en la fábrica');
 reset role;
 
 -- ---------- Entrega y cierre del acceso ----------
@@ -180,7 +245,7 @@ select pg_temp.verificar(not (:'r'::jsonb ->> 'rastrear')::boolean, 'tras entreg
 select pg_temp.verificar((:'r'::jsonb ->> 'nuevas')::int = 1, 'tras entregar se acepta el último tramo anterior a la entrega, no lo posterior');
 reset role;
 select pg_temp.verificar((select etapa = 'entregado' from public.misiones where id = :'mision_id'), 'misión entregada');
-select pg_temp.verificar((select count(*) = 6 from public.posiciones where asignacion_id = :'asig_id'), 'no se guardan posiciones posteriores a la entrega');
+select pg_temp.verificar((select count(*) = 7 from public.posiciones where asignacion_id = :'asig_id'), 'no se guardan posiciones posteriores a la entrega');
 
 -- Un lote atrasado o una geocerca ya no puede reabrir un viaje entregado.
 select pg_temp.verificar(
@@ -199,3 +264,28 @@ do $$ begin
 exception when insufficient_privilege then raise notice 'ok - otro teléfono no puede subir posiciones';
 end $$;
 reset role;
+
+-- ---------- Cruce a Perú sin detenerse en la frontera (con histéresis) ----------
+insert into public.asignaciones (mision_id, transportista_id, conductor_id, vehiculo_id)
+select :'mision_id', transportista_id, conductor_id, vehiculo_id from public.asignaciones where id = :'asig_id'
+returning id as asig2 \gset
+select public.aplicar_etapa(:'asig2', 'cargado', 'despacho') \g /dev/null
+select public.aplicar_etapa(:'asig2', 'en_ruta', 'despacho') \g /dev/null
+create function pg_temp.punto(lat double precision, lon double precision) returns extensions.geography
+language sql as $$ select extensions.st_setsrid(extensions.st_makepoint(lon, lat), 4326)::extensions.geography $$;
+
+select pg_temp.verificar(public.evaluar_geocercas(:'asig2', pg_temp.punto(-16.40, -69.20), to_timestamp(:t0 - 2000), 10) = 'en_ruta',
+  'un solo punto del lado peruano no basta para marcar el cruce');
+select pg_temp.verificar(public.evaluar_geocercas(:'asig2', pg_temp.punto(-16.70, -68.90), to_timestamp(:t0 - 1950), 10) = 'en_ruta',
+  'un salto del GPS de vuelta a Bolivia anula el candidato');
+select pg_temp.verificar((select cruce_candidato_desde is null from public.asignaciones where id = :'asig2'), 'candidato a cruce anulado');
+select pg_temp.verificar(public.evaluar_geocercas(:'asig2', pg_temp.punto(-16.40, -69.20), to_timestamp(:t0 - 1900), 10) = 'en_ruta',
+  'nuevo candidato a cruce');
+select pg_temp.verificar(public.evaluar_geocercas(:'asig2', pg_temp.punto(-16.30, -69.35), to_timestamp(:t0 - 1500), 10) = 'en_ruta',
+  'a los 6 min todavía no se confirma');
+select pg_temp.verificar(public.evaluar_geocercas(:'asig2', pg_temp.punto(-16.20, -69.50), to_timestamp(:t0 - 1250), 10) = 'cruzo_frontera',
+  'tras 10 min en Perú se marca «Cruzó a Perú» aunque no se detuvo en la frontera');
+select pg_temp.verificar(
+  (select detalle ->> 'motivo' = 'cruce_sin_parada' and ocurrido_en = to_timestamp(:t0 - 1900)
+     from public.eventos where asignacion_id = :'asig2' and etapa_nueva = 'cruzo_frontera'),
+  'el evento explica que cruzó sin parar y lleva la hora real del cruce');
