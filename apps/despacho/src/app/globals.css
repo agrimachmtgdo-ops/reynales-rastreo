@@ -836,3 +836,22 @@ textarea { line-height: 1.5; }
   .datos-solicitud { display: grid; grid-template-columns: 1fr 1fr; }
   .datos-solicitud > .dato-ancho { grid-column: 1 / -1; }
 }
+
+/* ---- Envío: resumen de toneladas ---- */
+.avance-toneladas { margin-top: 12px; padding: 16px; border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie-suave); }
+.cifras-toneladas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 10px 0 14px; }
+.cifras-toneladas > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 10px; min-width: 0; }
+.cifras-toneladas span { font-size: 13px; color: var(--gris); }
+.cifras-toneladas strong { font-size: 22px; color: var(--tinta); font-variant-numeric: tabular-nums; }
+.cifras-toneladas small { font-size: 13px; color: var(--gris); }
+.cifras-toneladas .cifra-saldo { border-color: #f0c9a4; background: #fdf1e6; }
+.cifras-toneladas .cifra-saldo strong { color: #8a3d00; }
+.cifras-toneladas .cifra-saldo.completo { border-color: #b9e0c7; background: #eaf7ee; }
+.cifras-toneladas .cifra-saldo.completo strong { color: #006b2d; }
+.barra-entregadas { background: var(--verde); }
+.barra-avance > .barra-en-camino { background: var(--dorado); left: 0; }
+.muestra-entregadas { background: var(--verde); }
+.muestra-en-camino { background: var(--dorado); }
+.nota-estimado { margin: 10px 0 0; font-size: 14px; color: #6b4e00; background: #fbf0cf; border-radius: 8px; padding: 8px 12px; }
+@media (max-width: 760px) { .cifras-toneladas { grid-template-columns: 1fr 1fr; } }
+.barra-avance > .barra-en-camino { border-radius: 0 999px 999px 0; }

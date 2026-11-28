@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
 
 interface Camion {
   id: string; etapa: string; solicitud_id: string | null; llegada_fabrica: string | null; ausencia_causa: string | null;
-  transportista_id: string;
+  transportista_id: string; toneladas_cargadas: number | null;
   vehiculo: { placa: string } | null; conductor: { nombre: string; telefono: string | null } | null;
 }
 interface Opcion { id: string; transportista_id: string; nombre: string }
@@ -56,7 +56,7 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
     gestiona && !f.mision_id ? supabase.from('ubicaciones').select('id, nombre').eq('tipo', 'fabrica').order('nombre') : Promise.resolve({ data: [] }),
     f.mision_id
       ? supabase.from('asignaciones')
-        .select('id, etapa, solicitud_id, llegada_fabrica, ausencia_causa, transportista_id, vehiculo:vehiculos(placa), conductor:conductores(nombre, telefono)')
+        .select('id, etapa, solicitud_id, llegada_fabrica, ausencia_causa, transportista_id, toneladas_cargadas, vehiculo:vehiculos(placa), conductor:conductores(nombre, telefono)')
         .eq('mision_id', f.mision_id).eq('tramo', 1).order('creado_en')
       : Promise.resolve({ data: [] }),
   ]);
@@ -73,6 +73,22 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
   const necesarios = Math.max(1, f.camiones_necesarios);
   const pctConfirmados = Math.min(100, Math.round((f.camiones_confirmados / necesarios) * 100));
   const pctPlaca = Math.min(100, Math.round((f.camiones_asignados / necesarios) * 100));
+
+  // Toneladas: programadas, enviadas (salieron de fábrica), entregadas y saldo por despachar.
+  // Sin peso de balanza, cada camión se estima con las toneladas del envío entre los camiones necesarios.
+  const programadas = Number(f.toneladas) || 0;
+  const porCamion = programadas / necesarios;
+  const salidos = camiones.filter((c) => c.etapa !== 'programado' && c.etapa !== 'cancelado');
+  const pesoDe = (c: Camion) => (c.toneladas_cargadas != null ? Number(c.toneladas_cargadas) : porCamion);
+  const sinPeso = salidos.filter((c) => c.toneladas_cargadas == null).length;
+  const enviadas = salidos.reduce((t, c) => t + pesoDe(c), 0);
+  const entregadas = salidos.filter((c) => c.etapa === 'entregado').reduce((t, c) => t + pesoDe(c), 0);
+  const enCamino = Math.max(0, enviadas - entregadas);
+  const saldo = Math.max(0, programadas - enviadas);
+  const camionesSaldo = porCamion > 0 ? Math.ceil(saldo / porCamion - 0.03) : 0;
+  const pct = (t: number) => (programadas > 0 ? Math.min(100, (t / programadas) * 100) : 0);
+  const pctEntregadas = pct(entregadas);
+  const pctEnCamino = Math.min(100 - pctEntregadas, pct(enCamino));
 
   return (
     <>
@@ -109,9 +125,38 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
           </div>
           <ul className="leyenda-avance">
             <li><span className="muestra muestra-placa" aria-hidden="true" />{plural(f.camiones_asignados, 'camión', 'camiones')} con placa y chofer</li>
-            <li><span className="muestra muestra-confirmados" aria-hidden="true" />{f.camiones_confirmados} confirmados por transportistas</li>
+            <li><span className="muestra muestra-confirmados" aria-hidden="true" />{plural(f.camiones_confirmados, 'confirmado', 'confirmados')} por transportistas</li>
             <li><span className="muestra muestra-faltan" aria-hidden="true" />{faltan > 0 ? `faltan ${faltan}` : 'completo'}</li>
           </ul>
+        </div>
+
+        <div className="avance-toneladas">
+          <span className="avance-titulo">Toneladas</span>
+          <div className="cifras-toneladas">
+            <div><span>Programadas</span><strong>{formatoToneladas(programadas)}</strong></div>
+            <div><span>Enviadas</span><strong>{formatoToneladas(enviadas)}</strong><small>{plural(salidos.length, 'camión salió', 'camiones salieron')} de fábrica</small></div>
+            <div><span>Entregadas</span><strong>{formatoToneladas(entregadas)}</strong>{enCamino > 0 && <small>{formatoToneladas(enCamino)} en camino</small>}</div>
+            <div className={saldo > 0 ? 'cifra-saldo' : 'cifra-saldo completo'}>
+              <span>Saldo por despachar</span><strong>{formatoToneladas(saldo)}</strong>
+              <small>{saldo > 0 ? `≈ ${plural(camionesSaldo, 'camión', 'camiones')} más` : 'Todo despachado'}</small>
+            </div>
+          </div>
+          <div className="barra-avance barra-toneladas" role="img"
+            aria-label={`${formatoToneladas(entregadas)} entregadas, ${formatoToneladas(enCamino)} en camino y ${formatoToneladas(saldo)} por despachar de ${formatoToneladas(programadas)}`}>
+            <span className="barra-entregadas" style={{ width: `${pctEntregadas}%` }} />
+            <span className="barra-en-camino" style={{ left: `${pctEntregadas}%`, width: `${pctEnCamino}%` }} />
+          </div>
+          <ul className="leyenda-avance">
+            <li><span className="muestra muestra-entregadas" aria-hidden="true" />Entregadas</li>
+            <li><span className="muestra muestra-en-camino" aria-hidden="true" />En camino</li>
+            <li><span className="muestra muestra-faltan" aria-hidden="true" />Por despachar</li>
+          </ul>
+          {sinPeso > 0 && (
+            <p className="nota-estimado">
+              {sinPeso === 1 ? '1 camión no tiene' : `${sinPeso} camiones no tienen`} peso de balanza registrado: se {sinPeso === 1 ? `estima en ${formatoToneladas(porCamion)}` : `estiman en ${formatoToneladas(porCamion)} cada uno`}.
+              Registre el peso en la misión para que el saldo sea exacto.
+            </p>
+          )}
         </div>
 
         {abierto && faltan > 0 && (
