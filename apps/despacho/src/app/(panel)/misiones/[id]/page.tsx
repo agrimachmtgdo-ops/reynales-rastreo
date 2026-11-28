@@ -233,14 +233,32 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
           <h4 className="titulo-camion">{a.vehiculo?.placa} · {a.conductor?.nombre}</h4>
           <span className={`etiqueta ${a.etapa}`}>{a.etapa === 'entregado' && intermedio(a.id) ? 'Entregado en transbordo' : ETIQUETA_ETAPA[a.etapa]}</span>
         </div>
-        <p style={{ fontSize: 14 }}>
-          Última señal: {formatoHora(a.ultima_senal)} {min !== null && `(hace ${min} min)`} ·{' '}
-          {a.ultima_velocidad_kmh ?? 0} km/h ·{' '}
-          {(a.tramo ?? 1) > 1
-            ? (a.toneladas_declaradas !== null && a.toneladas_declaradas !== undefined ? `${a.toneladas_declaradas} TN declaradas` : 'TN declaradas sin registrar')
-            : (a.toneladas_cargadas ? `${a.toneladas_cargadas} TN cargadas` : 'TN sin registrar')}
-          {a.precinto && ` · Precinto ${a.precinto}`}
-        </p>
+        {(() => {
+          const inv = invitacionDe(a.id);
+          const vencida = inv && !inv.usado_en && new Date(inv.vence_en).getTime() < Date.now();
+          return (
+            <ul className="datos-camion">
+              <li>{a.ultima_senal ? <>Señal: <strong>{formatoHora(a.ultima_senal)}</strong>{min !== null && ` (hace ${min} min)`} · {a.ultima_velocidad_kmh ?? 0} km/h</> : <>Señal: <strong>sin señal aún</strong></>}</li>
+              <li>
+                {(a.tramo ?? 1) > 1
+                  ? (a.toneladas_declaradas != null ? <><strong>{a.toneladas_declaradas} TN</strong> declaradas</> : 'TN declaradas sin registrar')
+                  : (a.toneladas_cargadas ? <><strong>{a.toneladas_cargadas} TN</strong> cargadas</> : 'TN sin registrar')}
+              </li>
+              {a.precinto && <li>Precinto <strong>{a.precinto}</strong></li>}
+              {!cerrada && (
+                <li className={inv?.usado_en ? 'app-ok' : 'app-pendiente'}>
+                  App del chofer:{' '}
+                  {inv?.usado_en ? <strong>activada</strong>
+                    : inv && !vencida ? <>código <strong className="codigo-corto">{inv.codigo}</strong> sin activar</>
+                    : <strong>{vencida ? 'código vencido' : 'sin código'}</strong>}
+                </li>
+              )}
+              {a.conductor?.telefono && (
+                <li className="no-imprimir"><a href={`tel:${a.conductor.telefono.replace(/[^0-9+]/g, '')}`}>Llamar al chofer</a></li>
+              )}
+            </ul>
+          );
+        })()}
         {(a.tramo ?? 1) === 1 && a.toneladas_cargadas == null && a.etapa !== 'programado' && a.etapa !== 'cancelado' && (
           <div className="alerta-sin-peso" role="alert">
             <strong>Salió sin peso de balanza.</strong> Registre el peso del ticket de balanza para que el saldo y el cumplimiento sean exactos.
@@ -299,7 +317,7 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
           </div>
         )}
         {(a.tramo ?? 1) > 1 && a.etapa !== 'cancelado' && (
-          <details className="agregar no-imprimir" style={{ marginBottom: 12 }}>
+          <details className="agregar no-imprimir">
             <summary>Toneladas declaradas de este camión</summary>
             <FormularioAccion accion={fijarToneladasDeclaradas.bind(null, a.id, id)} boton="Guardar toneladas" claseBoton="boton secundario">
               <label>Toneladas declaradas en el transbordo<input name="toneladas_declaradas" inputMode="decimal" defaultValue={a.toneladas_declaradas ?? ''} /></label>
@@ -307,9 +325,9 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
           </details>
         )}
         {!cerrada && (
-          <div className="no-imprimir" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-            <div>
-              <h3>Acceso del chofer</h3>
+          <div className="acciones-camion no-imprimir">
+            <details className="agregar" open={!invitacionDe(a.id) && a.etapa === 'programado'}>
+              <summary>Acceso del chofer: código, QR y WhatsApp</summary>
               <InvitacionChofer
                 nombreChofer={a.conductor?.nombre ?? ''}
                 telefonoChofer={a.conductor?.telefono ?? null}
@@ -317,9 +335,9 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
                 generar={crearInvitacion.bind(null, a.id)}
                 vigente={invitacionDe(a.id)}
               />
-            </div>
-            <div>
-              <h3>Modo manual (si falla la app)</h3>
+            </details>
+            <details className="agregar">
+              <summary>Cambiar etapa a mano (si falla la app)</summary>
               <FormularioAccion accion={cambiarEtapaManual.bind(null, a.id, id)} boton="Cambiar etapa" claseBoton="boton secundario" confirmarCierre>
                 <div className="rejilla">
                   <label>
@@ -331,7 +349,7 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
                   <label>Nota (obligatoria para Entregado o Cancelado)<input name="nota" placeholder="Ej. chofer avisó por teléfono" /></label>
                 </div>
               </FormularioAccion>
-            </div>
+            </details>
           </div>
         )}
       </article>

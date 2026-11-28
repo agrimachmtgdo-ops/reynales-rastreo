@@ -982,3 +982,10 @@ textarea { line-height: 1.5; }
 }
 @media print { .nodo-tramo { break-inside: avoid; } }
 .cabeza-camion { display: flex; justify-content: space-between; align-items: center; gap: 6px 12px; flex-wrap: wrap; }
+.datos-camion { list-style: none; padding: 0; margin: 8px 0 4px; display: flex; flex-wrap: wrap; gap: 6px 8px; font-size: 14px; }
+.datos-camion li { background: var(--fondo-suave, #f6f1e9); border-radius: 999px; padding: 4px 10px; }
+.datos-camion li.app-ok { background: #d9f0e2; color: #006b2d; }
+.datos-camion li.app-pendiente { background: #fbecc0; color: #5c4300; }
+.codigo-corto { letter-spacing: 1px; font-family: ui-monospace, monospace; }
+.acciones-camion { border-top: 1px solid var(--borde); margin-top: 10px; padding-top: 4px; display: flex; flex-direction: column; }
+.acciones-camion .agregar summary, .camion-tramo > .agregar summary { font-size: 14px; }
