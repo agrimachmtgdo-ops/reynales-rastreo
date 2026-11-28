@@ -786,3 +786,7 @@ textarea { line-height: 1.5; }
   .cabecera-seccion .botones .boton { flex: 1 1 auto; }
   .formulario-pedido fieldset { padding: 12px 12px 4px; }
 }
+
+/* Envío entregado o en camino con menos camiones de los necesarios. */
+.luz-parcial { background: #d35400; }
+.semaforo.luz-parcial { background: none; border: 0; color: #a04000; }
