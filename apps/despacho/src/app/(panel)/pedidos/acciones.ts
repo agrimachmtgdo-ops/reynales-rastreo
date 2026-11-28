@@ -107,6 +107,24 @@ export async function reprogramarEnvio(envio: string, pedido: string, _: Resulta
   };
 }
 
+/** Corrige la fecha de carga en fábrica de un envío confirmado (no mueve el compromiso). */
+export async function cambiarFechaCarga(envio: string, pedido: string, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const fecha = texto(f, 'carga');
+  const causa = texto(f, 'causa');
+  const nota = texto(f, 'nota');
+  if (!esFecha(fecha)) return { ok: false, mensaje: 'Elija la nueva fecha de carga.', campo: 'carga', errorCampo: 'Dato obligatorio.' };
+  if (!esCausa(causa)) return { ok: false, mensaje: 'Elija la causa del cambio.', campo: 'causa', errorCampo: 'Dato obligatorio.' };
+  if (causa === 'otra' && !nota) return { ok: false, mensaje: 'Explique la causa en la nota.', campo: 'nota', errorCampo: 'Explique la causa.' };
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc('cambiar_fecha_carga', { p_envio: envio, p_fecha: fecha, p_causa: causa, p_nota: nota });
+  if (error) {
+    return { ok: false, mensaje: error.message.includes('Could not find the function') ? 'Falta aplicar la migración de la fecha de carga en Supabase.' : error.message };
+  }
+  revalidatePath(`/pedidos/${pedido}`);
+  revalidatePath('/programa');
+  return { ok: true, mensaje: 'Fecha de carga corregida. El compromiso con el cliente no cambia.' };
+}
+
 /** Cancela un envío del programa, con la causa obligatoria. */
 export async function cancelarEnvio(envio: string, pedido: string, _: Resultado | null, f: FormData): Promise<Resultado> {
   const causa = texto(f, 'causa');

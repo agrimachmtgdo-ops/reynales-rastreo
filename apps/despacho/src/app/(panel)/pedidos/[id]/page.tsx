@@ -10,7 +10,7 @@ import {
   type EnvioPedido,
 } from '@/lib/pedidos';
 import { nombresComerciales } from '@/lib/pedidosServidor';
-import { cancelarEnvio, cancelarPedido, confirmarPedido, reprogramarEnvio } from '../acciones';
+import { cambiarFechaCarga, cancelarEnvio, cancelarPedido, confirmarPedido, reprogramarEnvio } from '../acciones';
 
 export const dynamic = 'force-dynamic';
 
@@ -149,6 +149,19 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
                       <p className="ayuda">Solo «Pedido del cliente» cambia la fecha comprometida. Las demás causas se registran y cuentan como atraso propio.</p>
                     </FormularioAccion>
                   </div>
+                  {e.estado === 'pendiente' && (
+                    <div>
+                      <h4>Corregir fecha de carga</h4>
+                      <FormularioAccion accion={cambiarFechaCarga.bind(null, e.id, id)} boton="Guardar fecha de carga" claseBoton="boton secundario">
+                        <label>Nueva fecha de carga <Req />
+                          <input type="date" name="carga" required max={e.entrega_vigente} defaultValue={e.fecha_carga_planificada ?? ''} />
+                        </label>
+                        <label>Causa <Req /><select name="causa" required defaultValue=""><option value="" disabled>Seleccione…</option>{opcionesCausa}</select></label>
+                        <label>Nota<input name="nota" maxLength={500} placeholder="Ej. error al escribir la fecha" /></label>
+                        <p className="ayuda">Mueve el día de carga en fábrica y el aviso de camiones. La fecha de entrega comprometida no cambia.</p>
+                      </FormularioAccion>
+                    </div>
+                  )}
                   <div>
                     <h4>Cancelar este envío</h4>
                     <FormularioAccion accion={cancelarEnvio.bind(null, e.id, id)} boton="Cancelar envío" claseBoton="boton peligro">
@@ -174,7 +187,7 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
                 <tr key={c.id}>
                   <td style={{ whiteSpace: 'nowrap' }}>{formatoHora(c.creado_en)}</td>
                   <td>{c.envio?.numero}</td>
-                  <td>{c.tipo === 'cancelado' ? 'Cancelado' : describirCambio(c)}</td>
+                  <td>{c.tipo === 'cancelado' ? 'Cancelado' : c.tipo === 'carga' ? `Carga ${formatoFecha(c.fecha_anterior)} → ${formatoFecha(c.fecha_nueva)}` : describirCambio(c)}</td>
                   <td>{nombreCausa(c.causa)}</td>
                   <td>{c.mueve_compromiso ? 'Sí (pedido del cliente)' : 'No'}</td>
                   <td>{c.nota ?? ''}</td>
