@@ -145,3 +145,39 @@ export function enlaceWhatsApp(telefono: string | null | undefined, texto?: stri
   if (!numero) return null;
   return `https://wa.me/${numero.slice(1)}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`;
 }
+
+// ---- Distancias y llegada estimada (detalle de misión) ----
+
+/** Velocidad promedio de un camión cargado en carretera, con paradas cortas (km/h). Aproximada. */
+export const VELOCIDAD_PROMEDIO_KMH = 45;
+/** La carretera es más larga que la línea recta: corrección aproximada. */
+export const FACTOR_CARRETERA = 1.25;
+
+/** Distancia en km entre dos puntos [lat, lon] (fórmula del haversine). */
+export function distanciaKm(a: [number, number], b: [number, number]): number {
+  const rad = Math.PI / 180;
+  const dLat = (b[0] - a[0]) * rad;
+  const dLon = (b[1] - a[1]) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * rad) * Math.cos(b[0] * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+
+/** Kilómetros recorridos sumando el recorrido GPS (ya simplificado). */
+export function kmRecorridos(puntos: [number, number][]): number {
+  let total = 0;
+  for (let i = 1; i < puntos.length; i++) total += distanciaKm(puntos[i - 1]!, puntos[i]!);
+  return total;
+}
+
+/** Km restantes por carretera (aprox.) y hora estimada de llegada desde la última posición. */
+export function estimarLlegada(
+  posicion: [number, number] | null,
+  destino: [number, number] | null,
+  desde: string | null,
+): { kmRestantes: number; llegada: string } | null {
+  if (!posicion || !destino || !desde) return null;
+  const kmRestantes = distanciaKm(posicion, destino) * FACTOR_CARRETERA;
+  const horas = kmRestantes / VELOCIDAD_PROMEDIO_KMH;
+  const base = new Date(desde).getTime();
+  return { kmRestantes, llegada: new Date(base + horas * 3600_000).toISOString() };
+}

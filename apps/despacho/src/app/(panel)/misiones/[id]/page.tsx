@@ -3,13 +3,17 @@ import { ETAPAS, ETIQUETA_ETAPA, type Etapa } from '@reynales/shared';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import { cargarCatalogosCamion } from '@/lib/catalogos';
 import { SELECT_ASIGNACION_EN_VIVO } from '@/lib/consultas';
-import { enlaceWhatsApp, formatoHora, minutosSinSenal, textoEmergencia, type AsignacionEnVivo } from '@/lib/tipos';
+import {
+  enlaceWhatsApp, estimarLlegada, formatoHora, kmRecorridos, minutosSinSenal, textoEmergencia, VELOCIDAD_PROMEDIO_KMH,
+  type AsignacionEnVivo,
+} from '@/lib/tipos';
 import CamposCamion from '@/componentes/CamposCamion';
 import FormularioAccion from '@/componentes/FormularioAccion';
 import InvitacionChofer from '@/componentes/InvitacionChofer';
 import MapaMision from '@/componentes/MapaMision';
 import RefrescoEnVivo from '@/componentes/RefrescoEnVivo';
 import BotonImprimir from '@/componentes/BotonImprimir';
+import BarraEtapas from '@/componentes/BarraEtapas';
 import { agregarCamion, atenderEmergencia, cambiarEtapaManual, crearInvitacion, editarMision } from '../acciones';
 
 export const dynamic = 'force-dynamic';
@@ -69,7 +73,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
     .select(`id, codigo, etapa, factura, guia, dex, tipo_carga, tonelaje_objetivo, telefono_coordinador, notas,
              cliente:clientes(razon_social, pais),
              origen:ubicaciones!misiones_origen_id_fkey(nombre),
-             destino:ubicaciones!misiones_destino_id_fkey(nombre, pais)`)
+             destino:ubicaciones!misiones_destino_id_fkey(nombre, pais, lat, lon)`)
     .eq('id', id)
     .maybeSingle();
   if (!mision) notFound();
@@ -97,20 +101,31 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
   const eventos = (eventosData ?? []) as Evento[];
 
   // Recorrido completo (simplificado) de cada camión con señal: una línea por camión.
+  const conSenal = asignaciones.filter((a) => a.ultima_senal);
   const recorridos = await Promise.all(
-    asignaciones
-      .filter((a) => a.ultima_senal)
-      .map(async (a) => {
-        const { data } = await supabase.rpc('recorrido_simplificado', { p_asignacion: a.id, p_tolerancia_m: 25 });
-        return ((data ?? []) as { lat: number; lon: number }[]).map((p) => [p.lat, p.lon] as [number, number]);
-      }),
+    conSenal.map(async (a) => {
+      const { data } = await supabase.rpc('recorrido_simplificado', { p_asignacion: a.id, p_tolerancia_m: 25 });
+      return ((data ?? []) as { lat: number; lon: number }[]).map((p) => [p.lat, p.lon] as [number, number]);
+    }),
   );
+  const recorridoDe = (asigId: string) => recorridos[conSenal.findIndex((a) => a.id === asigId)] ?? [];
+
+  // Primera vez que algún camión alcanzó cada etapa (para la barra de avance).
+  const { data: hitosData } = ids.length
+    ? await supabase.from('eventos').select('etapa_nueva, ocurrido_en')
+        .in('asignacion_id', ids).eq('tipo', 'cambio_etapa').order('ocurrido_en', { ascending: true }).limit(500)
+    : { data: [] };
+  const horasEtapa: Partial<Record<Etapa, string>> = {};
+  for (const h of (hitosData ?? []) as { etapa_nueva: Etapa | null; ocurrido_en: string }[]) {
+    if (h.etapa_nueva && !horasEtapa[h.etapa_nueva]) horasEtapa[h.etapa_nueva] = h.ocurrido_en;
+  }
 
   const m = mision as unknown as {
     codigo: string; etapa: Etapa; factura: string | null; guia: string | null; dex: string | null;
     tipo_carga: string | null; tonelaje_objetivo: number | null; telefono_coordinador: string | null; notas: string | null;
-    cliente: { razon_social: string; pais: string } | null; origen: { nombre: string } | null; destino: { nombre: string; pais: string } | null;
+    cliente: { razon_social: string; pais: string } | null; origen: { nombre: string } | null; destino: { nombre: string; pais: string; lat: number; lon: number } | null;
   };
+  const puntoDestino: [number, number] | null = m.destino ? [m.destino.lat, m.destino.lon] : null;
   const placaDe = (asigId: string) => asignaciones.find((a) => a.id === asigId)?.vehiculo?.placa ?? '';
   const choferDe = (asigId: string) => asignaciones.find((a) => a.id === asigId)?.conductor?.nombre ?? 'El chofer';
 
@@ -147,6 +162,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
             <label>Notas<textarea name="notas" rows={2} defaultValue={m.notas ?? ''} /></label>
           </FormularioAccion>
         </details>
+        <BarraEtapas etapa={m.etapa} destinoPais={m.destino?.pais} horas={horasEtapa} />
         <MapaMision asignaciones={asignaciones} recorridos={recorridos} />
       </section>
 
@@ -163,6 +179,28 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
               Última señal: {formatoHora(a.ultima_senal)} {min !== null && `(hace ${min} min)`} ·{' '}
               {a.ultima_velocidad_kmh ?? 0} km/h · {a.toneladas_cargadas ? `${a.toneladas_cargadas} TN cargadas` : 'TN sin registrar'}
             </p>
+            {(() => {
+              const recorrido = recorridoDe(a.id);
+              const km = kmRecorridos(recorrido);
+              const enViaje = ['cargado', 'en_ruta', 'en_frontera', 'cruzo_frontera'].includes(a.etapa);
+              const posicion: [number, number] | null = a.ultima_lat !== null && a.ultima_lon !== null ? [a.ultima_lat, a.ultima_lon] : null;
+              const estimacion = enViaje ? estimarLlegada(posicion, puntoDestino, a.ultima_senal) : null;
+              if (recorrido.length < 2 && !estimacion) return null;
+              return (
+                <div className="datos-viaje">
+                  <span>Recorrido: <strong>{Math.round(km)} km</strong></span>
+                  {estimacion && (
+                    <>
+                      <span>Faltan aprox.: <strong>{Math.round(estimacion.kmRestantes)} km</strong></span>
+                      <span title={`Distancia en línea recta × 1,25 a ${VELOCIDAD_PROMEDIO_KMH} km/h promedio, desde la última señal`}>
+                        Llegada estimada: <strong>{formatoHora(estimacion.llegada)}</strong>
+                        {m.destino?.pais === 'PE' && (a.etapa === 'cargado' || a.etapa === 'en_ruta' || a.etapa === 'en_frontera') && ' (sin contar la espera en frontera)'}
+                      </span>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
             {a.emergencia_en && (
               <div className="aviso-emergencia no-imprimir" role="alert">
                 <strong>EMERGENCIA: {textoEmergencia(a.emergencia_motivo)}</strong> · reportada {formatoHora(a.emergencia_en)}
@@ -227,11 +265,18 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
 
       <section className="tarjeta">
         <h2>Eventos</h2>
-        <table>
+        <div className="tabla-desplazable"><table>
           <thead><tr><th>Hora</th><th>Camión</th><th>Qué pasó</th></tr></thead>
           <tbody>
             {eventos.map((e) => (
-              <tr key={e.id} className={e.tipo === 'emergencia' || e.tipo === 'incidencia' ? 'evento-alerta' : undefined}>
+              <tr
+                key={e.id}
+                className={[
+                  e.tipo === 'emergencia' || e.tipo === 'incidencia' ? 'evento-alerta' : '',
+                  // El PDF puede llegar al cliente: no lleva alertas internas, activaciones ni emergencias.
+                  e.tipo === 'cambio_etapa' ? '' : 'no-imprimir',
+                ].filter(Boolean).join(' ') || undefined}
+              >
                 <td style={{ whiteSpace: 'nowrap' }}>{formatoHora(e.ocurrido_en)}</td>
                 <td>{placaDe(e.asignacion_id)}</td>
                 <td>
@@ -245,7 +290,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
         {eventos.length === 0 && <p>Sin eventos todavía.</p>}
       </section>
     </>

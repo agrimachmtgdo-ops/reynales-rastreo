@@ -1,7 +1,7 @@
 'use client';
 import { startTransition, useActionState, useEffect, useRef, type FormEvent } from 'react';
 
-import { useErrorCampo, type ResultadoFormulario as Resultado } from './errorCampo';
+import { useErrorCampo, validarObligatorios, type ResultadoFormulario as Resultado } from './errorCampo';
 
 const ETAPAS_FINALES: Record<string, string> = { entregado: 'ENTREGADO', cancelado: 'CANCELADO' };
 
@@ -34,6 +34,7 @@ export default function FormularioAccion({
 
   function alEnviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!validarObligatorios(e.currentTarget)) return;
     const datos = new FormData(e.currentTarget);
     if (confirmarCierre) {
       const final = ETAPAS_FINALES[String(datos.get('etapa') ?? '')];
@@ -54,7 +55,7 @@ export default function FormularioAccion({
   }
 
   return (
-    <form ref={formulario} onSubmit={alEnviar}>
+    <form ref={formulario} onSubmit={alEnviar} noValidate>
       {estado && <div role="status" className={estado.ok ? 'mensaje-ok' : 'mensaje-error'}>{estado.mensaje}</div>}
       {children}
       <button className={claseBoton} disabled={pendiente}>{pendiente ? 'Procesando…' : boton}</button>
