@@ -29,7 +29,12 @@ echo "→ ida y vuelta de la reversión de roles"
 "${PSQL[@]}" -d "$DB" -f revertir/20261209000100_roles_comercial.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261209000100_roles_comercial.sql
 "${PSQL[@]}" -d "$DB" -f tests/80_pedidos.sql
+echo "→ ida y vuelta de la reversión de pedido y programa (con datos)"
+"${PSQL[@]}" -d "$DB" -f revertir/20261211000100_pedido_programa.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261211000100_pedido_programa.sql
 echo "→ ida y vuelta de la reversión de pedidos"
+"${PSQL[@]}" -d "$DB" -f revertir/20261211000100_pedido_programa.sql
 "${PSQL[@]}" -d "$DB" -f revertir/20261210000100_pedidos.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261210000100_pedidos.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261211000100_pedido_programa.sql
 echo "✔ Todas las pruebas pasaron"

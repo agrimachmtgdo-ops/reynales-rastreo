@@ -2,12 +2,14 @@ import Link from 'next/link';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import FiltrosAutomaticos from '@/componentes/FiltrosAutomaticos';
 import { ESTADO_PEDIDO, formatoFecha, formatoToneladas, proximaEntrega, toneladasVivas } from '@/lib/pedidos';
+
 import { permisosPedidos } from '@/lib/pedidosServidor';
 
 export const dynamic = 'force-dynamic';
 
 interface FilaPedido {
   id: string; codigo: string; orden_compra: string | null; producto: string; incoterm: string; estado: string; creado_en: string;
+  toneladas: number; entrega_hasta: string;
   cliente: { razon_social: string } | null;
   destino: { nombre: string; pais: string } | null;
   envios: { toneladas: number; entrega_vigente: string; entrega_comprometida: string | null; estado: string }[];
@@ -20,7 +22,7 @@ export default async function PaginaPedidos({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   const supabase = await crearClienteServidor();
   let consulta = supabase.from('pedidos')
-    .select('id, codigo, orden_compra, producto, incoterm, estado, creado_en, cliente:clientes(razon_social), destino:ubicaciones(nombre, pais), envios:programa_envios(toneladas, entrega_vigente, entrega_comprometida, estado)')
+    .select('id, codigo, orden_compra, producto, incoterm, estado, creado_en, toneladas, entrega_hasta, cliente:clientes(razon_social), destino:ubicaciones(nombre, pais), envios:programa_envios(toneladas, entrega_vigente, entrega_comprometida, estado)')
     .order('creado_en', { ascending: false })
     .limit(200);
   // Por defecto se ven los abiertos; «Todos» incluye cumplidos y cancelados.
@@ -90,11 +92,12 @@ export default async function PaginaPedidos({ searchParams }: { searchParams: Pr
       {pedidos.length > 0 && (
         <div className="tabla-desplazable">
           <table className="tabla-pedidos">
-            <thead><tr><th>Código</th><th>Cliente</th><th>Orden de compra</th><th>Producto</th><th>Destino</th><th>Toneladas</th><th>Envíos</th><th>Próxima entrega</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Código</th><th>Cliente</th><th>Orden de compra</th><th>Producto</th><th>Destino</th><th>Pedido</th><th>Programado</th><th>Fecha límite</th><th>Próxima entrega</th><th>Estado</th></tr></thead>
             <tbody>{pedidos.map((p) => {
               const proxima = proximaEntrega(p.envios);
-              const vivos = p.envios.filter((e) => e.estado !== 'cancelado');
-              const hechos = vivos.filter((e) => e.estado === 'cumplido').length;
+              const programado = toneladasVivas(p.envios);
+              const pct = Math.round((programado / Number(p.toneladas)) * 100);
+              const abierto = ['borrador', 'confirmado', 'en_ejecucion'].includes(p.estado);
               const atrasado = !!proxima && proxima < fechaHoy;
               return (
                 <tr key={p.id}>
@@ -103,8 +106,11 @@ export default async function PaginaPedidos({ searchParams }: { searchParams: Pr
                   <td>{p.orden_compra ?? '—'}</td>
                   <td>{p.producto}</td>
                   <td>{p.incoterm} {p.destino?.nombre} ({p.destino?.pais})</td>
-                  <td className="numero">{formatoToneladas(toneladasVivas(p.envios))}</td>
-                  <td className="numero">{hechos}/{vivos.length}</td>
+                  <td className="numero">{formatoToneladas(Number(p.toneladas))}</td>
+                  <td className="numero">
+                    {formatoToneladas(programado)} <span className={abierto && pct < 97 ? 'docs-faltan' : 'ayuda-campo'} style={{ display: 'inline' }}>({pct} %)</span>
+                  </td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{formatoFecha(p.entrega_hasta)}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     {proxima ? <>{formatoFecha(proxima)}{atrasado && <span className="docs-faltan"> · vencida</span>}</> : '—'}
                   </td>

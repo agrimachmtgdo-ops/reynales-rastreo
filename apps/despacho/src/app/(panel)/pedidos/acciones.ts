@@ -15,6 +15,9 @@ export interface DatosPedido {
   cliente_id: string;
   orden_compra: string | null;
   producto: string;
+  toneladas: number;
+  entrega_desde: string | null;
+  entrega_hasta: string;
   destino_id: string;
   incoterm: string;
   notas: string | null;
@@ -23,22 +26,43 @@ export interface DatosPedido {
 export interface EnvioNuevo { toneladas: number; entrega: string; carga: string | null }
 export type ResultadoGuardar = { ok: true; id: string } | { ok: false; mensaje: string };
 
-/** Crea (id = null) o cambia un pedido en borrador con su programa de envíos completo. */
-export async function guardarPedido(id: string | null, datos: DatosPedido, envios: EnvioNuevo[]): Promise<ResultadoGuardar> {
+/** Crea (id = null) o cambia un pedido en borrador: lo que pidió el cliente, sin el programa. */
+export async function guardarPedido(id: string | null, datos: DatosPedido): Promise<ResultadoGuardar> {
   const supabase = await crearClienteServidor();
-  const { data, error } = await supabase.rpc('guardar_pedido', { p_pedido: id, p_datos: datos, p_envios: envios });
+  const { data, error } = await supabase.rpc('guardar_pedido', { p_pedido: id, p_datos: datos });
   if (error) return { ok: false, mensaje: mensajeAmable(error.message) };
   revalidatePath('/pedidos');
   return { ok: true, id: data as string };
 }
 
-/** Importación desde Excel: guarda cada pedido en borrador y devuelve el resultado de cada uno. */
+/** Guarda los envíos planificados del pedido (los confirmados no cambian aquí). */
+export async function guardarPrograma(pedido: string, envios: EnvioNuevo[]): Promise<{ ok: boolean; mensaje: string }> {
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc('guardar_programa', { p_pedido: pedido, p_envios: envios });
+  if (error) return { ok: false, mensaje: mensajeAmable(error.message) };
+  revalidatePath(`/pedidos/${pedido}`);
+  revalidatePath('/pedidos');
+  return { ok: true, mensaje: envios.length ? 'Programa guardado como planificado.' : 'Se quitaron los envíos planificados.' };
+}
+
+/** Confirma los envíos planificados: sus fechas pasan a ser el compromiso con el cliente. */
+export async function confirmarPrograma(pedido: string, _: Resultado | null): Promise<Resultado> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('confirmar_programa', { p_pedido: pedido });
+  if (error) return { ok: false, mensaje: mensajeAmable(error.message) };
+  revalidatePath(`/pedidos/${pedido}`);
+  revalidatePath('/pedidos');
+  const n = Number(data);
+  return { ok: true, mensaje: `Programa confirmado: ${n} ${n === 1 ? 'envío queda' : 'envíos quedan'} como compromiso con el cliente.` };
+}
+
+/** Importación desde Excel: crea cada pedido con su programa planificado y devuelve el resultado de cada uno. */
 export async function importarPedidos(lista: { clave: string; datos: DatosPedido; envios: EnvioNuevo[] }[]) {
   const supabase = await crearClienteServidor();
   const resultados: { clave: string; ok: boolean; mensaje: string; id?: string }[] = [];
   for (const p of lista) {
-    const { data, error } = await supabase.rpc('guardar_pedido', {
-      p_pedido: null, p_datos: { ...p.datos, origen: 'excel' }, p_envios: p.envios,
+    const { data, error } = await supabase.rpc('crear_pedido_con_programa', {
+      p_datos: { ...p.datos, origen: 'excel' }, p_envios: p.envios,
     });
     resultados.push(error
       ? { clave: p.clave, ok: false, mensaje: mensajeAmable(error.message) }
@@ -55,7 +79,7 @@ export async function confirmarPedido(id: string, _: Resultado | null): Promise<
   if (error) return { ok: false, mensaje: mensajeAmable(error.message) };
   revalidatePath(`/pedidos/${id}`);
   revalidatePath('/pedidos');
-  return { ok: true, mensaje: 'Pedido confirmado. Las fechas de entrega quedan como compromiso con el cliente.' };
+  return { ok: true, mensaje: 'Pedido confirmado: la orden del cliente queda aceptada. Ahora arme y confirme el programa de envíos.' };
 }
 
 /** Cambia la fecha (y si hace falta las toneladas) de un envío, con la causa obligatoria. */

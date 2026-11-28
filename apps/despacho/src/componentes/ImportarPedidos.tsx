@@ -41,8 +41,16 @@ export default function ImportarPedidos({ clientes, ubicaciones }: { clientes: C
 
   function crear() {
     iniciar(async () => {
+      // El pedido toma como cantidad la suma de sus filas y como plazo sus fechas; las filas quedan como programa planificado.
       const r = await importarPedidos(validos.map((p) => ({
-        clave: p.clave, datos: p.datos!, envios: p.envios.map(({ toneladas, entrega, carga }) => ({ toneladas, entrega, carga })),
+        clave: p.clave,
+        datos: {
+          ...p.datos!,
+          toneladas: Math.round(p.envios.reduce((s, e) => s + e.toneladas, 0) * 100) / 100,
+          entrega_desde: p.envios.length > 1 ? p.envios[0]!.entrega : null,
+          entrega_hasta: p.envios.at(-1)!.entrega,
+        },
+        envios: p.envios.map(({ toneladas, entrega, carga }) => ({ toneladas, entrega, carga })),
       })));
       setResultados(r);
     });
@@ -55,8 +63,8 @@ export default function ImportarPedidos({ clientes, ubicaciones }: { clientes: C
       <section className="tarjeta">
         <ol className="pasos-importar">
           <li>Use la <a href="/plantilla-pedidos.xlsx" download>plantilla de pedidos</a> o su propia planilla: se reconocen títulos como «OC», «Cliente», «NIT», «Producto», «Destino», «Incoterm», «Toneladas» y «Fecha de entrega».</li>
-          <li>Cada fila es un envío. Las filas con el mismo cliente y la misma orden de compra forman un solo pedido.</li>
-          <li>El cliente y el destino deben existir en Catálogos. Los pedidos se crean en borrador para que los revise y confirme.</li>
+          <li>Cada fila es un envío (un camión). Las filas con el mismo cliente y la misma orden de compra forman un solo pedido.</li>
+          <li>El cliente y el destino deben existir en Catálogos. Cada pedido se crea en borrador con la suma de sus filas como cantidad y las filas como programa planificado, para que lo revise y confirme.</li>
         </ol>
         <label className="selector-excel">
           <span className="boton secundario">Elegir archivo Excel</span>

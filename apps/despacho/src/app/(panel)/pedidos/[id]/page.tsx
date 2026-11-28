@@ -2,10 +2,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { crearClienteServidor } from '@/lib/supabase/server';
 import FormularioAccion from '@/componentes/FormularioAccion';
+import EditorPrograma from '@/componentes/EditorPrograma';
 import { Req } from '@/componentes/Obligatorio';
 import { formatoHora } from '@/lib/tipos';
 import {
-  CAUSAS, ESTADO_ENVIO, ESTADO_PEDIDO, formatoFecha, formatoToneladas, NOMBRE_HITO, nombreCausa, toneladasVivas,
+  CAUSAS, ESTADO_ENVIO, ESTADO_PEDIDO, formatoFecha, formatoToneladas, NOMBRE_HITO, nombreCausa, plural, sumarDias, toneladasVivas,
   type EnvioPedido,
 } from '@/lib/pedidos';
 import { nombresComerciales } from '@/lib/pedidosServidor';
@@ -35,11 +36,22 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
     nombresComerciales(),
   ]);
   if (!p) notFound();
-  const { data: puede } = await supabase.rpc('puede_editar_pedidos', { p_cliente: p.cliente_id });
-  const envios = [...((p.envios ?? []) as EnvioPedido[])].sort((a, b) => a.numero - b.numero);
+  const [{ data: puede }, { data: programa }] = await Promise.all([
+    supabase.rpc('puede_editar_pedidos', { p_cliente: p.cliente_id }),
+    supabase.rpc('puede_programar', { p_cliente: p.cliente_id }),
+  ]);
+  const todos = [...((p.envios ?? []) as EnvioPedido[])].sort((a, b) => a.numero - b.numero);
+  const planificados = todos.filter((e) => e.estado === 'planificado');
   const cambios = (cambiosData ?? []) as unknown as Cambio[];
   const abierto = p.estado === 'confirmado' || p.estado === 'en_ejecucion';
   const editable = !!puede;
+  const programable = !!programa && (p.estado === 'borrador' || abierto);
+  // Los planificados se editan en el editor; la tabla muestra los demás (o todos, si no puede programar).
+  const envios = programable ? todos.filter((e) => e.estado !== 'planificado') : todos;
+  const confirmadas = toneladasVivas(todos.filter((e) => e.estado !== 'planificado'));
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' });
+  const ultima = todos.filter((e) => e.estado !== 'cancelado').map((e) => e.entrega_vigente).sort().at(-1);
+  const sugerir = [hoy, p.entrega_desde, ultima && sumarDias(ultima, 1)].filter(Boolean).sort().at(-1) as string;
 
   return (
     <>
@@ -59,7 +71,8 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
           <div><dt>Producto</dt><dd>{p.producto}</dd></div>
           <div><dt>Entrega</dt><dd>{p.incoterm} {p.destino?.nombre}{p.destino?.ciudad ? ` (${p.destino.ciudad})` : ''} · {p.destino?.pais}</dd></div>
           <div><dt>Cumplimiento</dt><dd>Se mide {NOMBRE_HITO[p.hito] ?? p.hito}</dd></div>
-          <div><dt>Total</dt><dd>{formatoToneladas(toneladasVivas(envios))} en {envios.filter((e) => e.estado !== 'cancelado').length} envíos</dd></div>
+          <div><dt>Toneladas pedidas</dt><dd>{formatoToneladas(Number(p.toneladas))}</dd></div>
+          <div><dt>Plazo del cliente</dt><dd>{p.entrega_desde ? `Del ${formatoFecha(p.entrega_desde)} al ${formatoFecha(p.entrega_hasta)}` : `Hasta el ${formatoFecha(p.entrega_hasta)}`}</dd></div>
           <div><dt>Comercial</dt><dd>{(p.comercial_id && comerciales.get(p.comercial_id)) ?? '—'}</dd></div>
           <div><dt>Origen</dt><dd>{p.origen === 'excel' ? 'Importado de Excel' : 'Cargado a mano'} el {formatoHora(p.creado_en)}</dd></div>
           {p.confirmado_en && <div><dt>Confirmado</dt><dd>{formatoHora(p.confirmado_en)}</dd></div>}
@@ -69,7 +82,7 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
 
         {editable && p.estado === 'borrador' && (
           <div className="aviso-confirmar">
-            <p>Este pedido está en <strong>borrador</strong>. Revise el programa y confírmelo: desde ese momento las fechas de entrega son el compromiso con el cliente y solo se cambian con «Reprogramar», indicando la causa.</p>
+            <p>Este pedido está en <strong>borrador</strong>. Confírmelo cuando la orden del cliente esté aceptada ({formatoToneladas(Number(p.toneladas))}, hasta el {formatoFecha(p.entrega_hasta)}). El programa de envíos se puede armar antes o después.</p>
             <FormularioAccion accion={confirmarPedido.bind(null, id)} boton="Confirmar pedido"><span /></FormularioAccion>
           </div>
         )}
@@ -78,9 +91,23 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
       <section className="tarjeta">
         <h2>Programa de envíos</h2>
         <p className="ayuda" style={{ marginTop: 0 }}>
-          «Comprometida» es la fecha prometida al cliente: solo cambia si el cliente pide el cambio. «Vigente» es la fecha con la que se trabaja hoy.
+          Un envío por camión. Los envíos planificados se cambian libremente; al confirmar el programa, su fecha queda como compromiso con el cliente.
+          «Comprometida» solo cambia si el cliente pide el cambio; «Vigente» es la fecha con la que se trabaja hoy.
         </p>
-        <div className="tabla-desplazable">
+        {programable && (
+          <EditorPrograma
+            pedido={id}
+            toneladasPedido={Number(p.toneladas)}
+            toneladasConfirmadas={confirmadas}
+            numeroInicial={(todos.filter((e) => e.estado !== 'planificado').map((e) => e.numero).sort((a, b) => b - a).at(0) ?? 0) + 1}
+            planificados={planificados.map((e) => ({ toneladas: Number(e.toneladas), entrega: e.entrega_vigente, carga: e.fecha_carga_planificada }))}
+            sugerirDesde={sugerir}
+            pedidoConfirmado={abierto}
+          />
+        )}
+        {!programable && todos.length === 0 && <p>Todavía no hay envíos programados.</p>}
+        {envios.length > 0 && <h3>{programable ? `Envíos confirmados (${plural(envios.length, 'envío', 'envíos')})` : 'Envíos'}</h3>}
+        {envios.length > 0 && <div className="tabla-desplazable">
           <table>
             <thead><tr><th>N°</th><th>Toneladas</th><th>Carga en fábrica</th><th>Entrega comprometida</th><th>Entrega vigente</th><th>Estado</th></tr></thead>
             <tbody>{envios.map((e) => {
@@ -100,9 +127,9 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
               );
             })}</tbody>
           </table>
-        </div>
+        </div>}
 
-        {editable && abierto && envios.some((e) => e.estado === 'pendiente' || e.estado === 'en_curso') && (
+        {!!programa && abierto && envios.some((e) => e.estado === 'pendiente' || e.estado === 'en_curso') && (
           <div className="acciones-envio">
             <h3>Cambiar un envío</h3>
             {envios.filter((e) => e.estado === 'pendiente' || e.estado === 'en_curso').map((e) => (
