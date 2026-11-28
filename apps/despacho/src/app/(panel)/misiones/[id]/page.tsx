@@ -108,8 +108,11 @@ function describirEvento(e: Evento, chofer: string, entregaEnTransbordo = false)
   return `${e.tipo}${resto ? ` (${resto})` : ''}`;
 }
 
-export default async function PaginaDetalleMision({ params }: { params: Promise<{ id: string }> }) {
+export default async function PaginaDetalleMision({ params, searchParams }: {
+  params: Promise<{ id: string }>; searchParams: Promise<{ transbordo?: string }>;
+}) {
   const { id } = await params;
+  const { transbordo: abrirTransbordo } = await searchParams;
   const supabase = await crearClienteServidor();
 
   const { data: mision } = await supabase
@@ -219,6 +222,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
     .reduce((t, a) => t + (a.toneladas_cargadas ?? 0), 0);
   const puedeAgregarTransbordo = ultimoTramo < 3 && m.etapa !== 'entregado' && m.etapa !== 'cancelado'
     && !asignaciones.some((a) => (a.tramo ?? 1) === ultimoTramo && a.etapa === 'entregado');
+  const sugerirTransbordo = puedeAgregarTransbordo && ultimoTramo === 1 && m.destino?.pais === 'PE';
 
   const tarjetaCamion = (a: AsignacionEnVivo) => {
     const min = minutosSinSenal(a.ultima_senal);
@@ -345,6 +349,9 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="no-imprimir"><RefrescoEnVivo misionId={id} /></span>
             <BotonImprimir />
+            {puedeAgregarTransbordo && (
+              <a className="boton secundario no-imprimir" href={`/misiones/${id}?transbordo=1#agregar-transbordo`}>+ Agregar transbordo</a>
+            )}
             <span className={`etiqueta ${m.etapa}`}>{transbordoEnCurso ? 'En transbordo' : ETIQUETA_ETAPA[m.etapa]}</span>
           </div>
         </div>
@@ -354,6 +361,15 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
           Factura {m.factura ?? '—'} · Guía {m.guia ?? '—'} · DEX {m.dex ?? '—'} · {m.tipo_carga ?? ''}{' '}
           {m.tonelaje_objetivo ? `· ${m.tonelaje_objetivo} TN objetivo` : ''}
         </p>
+        {sugerirTransbordo && (
+          <div className="aviso-transbordo no-imprimir" role="note">
+            <div>
+              <strong>Destino en Perú: ¿la carga pasa a otro camión en El Alto?</strong>
+              <span>Registre el transbordo antes de que el camión de fábrica llegue a El Alto. Al salir de fábrica basta con la empresa del tramo 2; los camiones se agregan después.</span>
+            </div>
+            <a className="boton secundario" href={`/misiones/${id}?transbordo=1#agregar-transbordo`}>Agregar transbordo</a>
+          </div>
+        )}
         {m.telefono_coordinador && <p style={{ fontSize: 14 }}>Coordinador: {m.telefono_coordinador}</p>}
         {m.entrega_comprometida && <p style={{ fontSize: 14 }}>Entrega comprometida: {formatoHora(m.entrega_comprometida)}</p>}
         {m.notas && <p style={{ fontSize: 14 }}>Notas: {m.notas}</p>}
@@ -455,8 +471,8 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
       })}
 
       {puedeAgregarTransbordo && (
-        <section className="tarjeta no-imprimir">
-          <details className="agregar">
+        <section className="tarjeta no-imprimir" id="agregar-transbordo">
+          <details className="agregar" open={abrirTransbordo === '1'}>
             <summary>+ Agregar un transbordo (la carga pasa a otro camión en el camino)</summary>
             <p className="ayuda">
               Se crea el tramo {ultimoTramo + 1}. Los camiones del tramo {ultimoTramo} terminarán con «Entregado en transbordo».

@@ -937,3 +937,11 @@ textarea { line-height: 1.5; }
 .rejilla-tablas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 24px; }
 .rejilla-tablas h2 { margin-top: 0; }
 @media (max-width: 520px) { .cifras { grid-template-columns: 1fr 1fr; gap: 8px; } .cifra { padding: 10px; } }
+.aviso-transbordo { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; padding: 12px 14px; border-radius: var(--radio); background: #eef4fb; border: 1px solid #c9dbef; border-left: 4px solid #1d4f80; color: #17365a; }
+.aviso-transbordo > div { display: flex; flex-direction: column; gap: 2px; flex: 1 1 320px; }
+.aviso-transbordo span { font-size: 14px; }
+#agregar-transbordo { scroll-margin-top: 90px; }
+.estado-transbordo { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; padding: 12px 14px; border-radius: var(--radio); background: var(--superficie-suave); border: 1px solid var(--borde); }
+.estado-transbordo > div { display: flex; flex-direction: column; gap: 2px; flex: 1 1 320px; }
+.estado-transbordo span { font-size: 14px; color: var(--gris); }
+.estado-transbordo ul { margin: 4px 0 0; padding-left: 18px; flex-basis: 100%; }
