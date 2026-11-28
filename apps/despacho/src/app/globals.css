@@ -1149,3 +1149,18 @@ a.boton-cancelar { display: inline-flex; align-items: center; text-decoration: n
 .lista-almacen .estado-cerrada a { border-left: 4px solid var(--verde); }
 .etiqueta.carga-rechazado { background: var(--rojo); color: var(--blanco); }
 .etiqueta.carga-cerrada { background: var(--verde-oscuro); color: var(--blanco); }
+
+/* Ola 1 · Entrega 3: expediente del envío y requisitos por cliente */
+.expediente { border: 1px solid var(--borde); border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--blanco); }
+.expediente h3 { margin: 0 0 8px; font-size: 16px; }
+.grupo-expediente h4 { margin: 8px 0 4px; font-size: 14px; color: var(--gris); }
+.grupo-expediente ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.grupo-expediente li { padding: 4px 10px; border-radius: 999px; font-size: 14px; border: 1px solid var(--borde); }
+.grupo-expediente li.tiene { background: #e8f5ec; border-color: var(--verde); color: var(--verde-oscuro); }
+.grupo-expediente li.falta { background: #fdecea; border-color: var(--rojo); color: var(--rojo); font-weight: 600; }
+.enlace-sin-linea { text-decoration: none; color: inherit; }
+.requisitos-cliente { margin-top: 20px; border-top: 1px solid var(--borde); padding-top: 12px; }
+.tabla-requisitos { font-size: 14px; }
+.tabla-requisitos th, .tabla-requisitos td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--borde); }
+.tabla-requisitos tr.inactivo { color: var(--gris); }
+.requisitos-generales { margin-top: 12px; }

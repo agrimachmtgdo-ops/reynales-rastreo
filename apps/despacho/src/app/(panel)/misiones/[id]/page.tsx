@@ -25,7 +25,8 @@ import EnlaceCliente from '@/componentes/EnlaceCliente';
 import SubirDocumento from '@/componentes/SubirDocumento';
 import ListaDocumentos from '@/componentes/ListaDocumentos';
 import IndicadorDocumentos from '@/componentes/IndicadorDocumentos';
-import { CLAVES_DESPACHO, claveDe, documentosFaltantes, nombreDocumento, TIPO_DOCUMENTO, type DocumentoVigente } from '@/lib/documentos';
+import ExpedienteEnvio, { ResumenExpediente } from '@/componentes/ExpedienteEnvio';
+import { CLAVES_DESPACHO, claveDe, documentosFaltantes, nombreDocumento, TIPO_DOCUMENTO, type DocumentoVigente, type ItemExpediente } from '@/lib/documentos';
 import {
   agregarCamion, agregarTransbordo, anularEnlaceSeguimiento, atenderEmergencia, cambiarEtapaManual, crearEnlaceSeguimiento, crearInvitacion,
   editarMision, editarTramo, fijarToneladasDeclaradas, registrarDocumentoDespacho,
@@ -251,6 +252,12 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
     placa: d.asignacion_id ? placaDe(d.asignacion_id) || null : null, tipo_mime: d.tipo_mime, creado_en: d.creado_en,
     subido_por: d.operador ? `${d.operador.nombre} (transbordo)` : null,
   }));
+  // Expediente según los requisitos del destino y del cliente (null si la base aún no lo tiene).
+  const { data: expedienteData, error: errorExpediente } = await supabase.rpc('expediente_mision', { p_mision: id });
+  const expediente = errorExpediente ? null : ((expedienteData ?? []) as ItemExpediente[]);
+  const faltanDelCamion = (asigId: string): string[] => expediente
+    ? expediente.filter((e) => e.momento === 'salida_transbordo' && e.asignacion_id === asigId && !e.tiene).map((e) => e.documento)
+    : documentosFaltantes(documentos, asigId);
   // Últimas aperturas de documentos de esta misión (quién y cuándo).
   const { data: accesosData } = await supabase.from('descargas_documentos')
     .select('id, descargado_en, usuario_id, operador:operadores_transbordo(nombre), documento:documentos!inner(tipo, etiqueta, numero, mision_id)')
@@ -341,8 +348,8 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
             tolerancia={toleranciaLotes}
           />
         )}
-        {(a.tramo ?? 1) > 1 && esInternacional(m.destino?.pais) && a.etapa !== 'cancelado' && documentosFaltantes(documentos, a.id).length > 0 && (
-          <p className="alerta">Falta {documentosFaltantes(documentos, a.id).map((t) => TIPO_DOCUMENTO[t]).join(' y ')} de este camión.</p>
+        {(a.tramo ?? 1) > 1 && (expediente || esInternacional(m.destino?.pais)) && a.etapa !== 'cancelado' && faltanDelCamion(a.id).length > 0 && (
+          <p className="alerta">Falta {faltanDelCamion(a.id).map((t) => TIPO_DOCUMENTO[t] ?? t).join(' y ')} de este camión.</p>
         )}
         {(() => {
           const recorrido = recorridoDe(a.id);
@@ -434,7 +441,11 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ margin: 0 }}>Misión {m.codigo}</h1>
-            <span className="no-imprimir"><IndicadorDocumentos claves={documentos.map((d) => claveDe(d.tipo, d.etiqueta))} pais={m.destino?.pais} /></span>
+            <span className="no-imprimir">
+              {expediente
+                ? <a href="#documentos" className="enlace-sin-linea"><ResumenExpediente items={expediente} /></a>
+                : <IndicadorDocumentos claves={documentos.map((d) => claveDe(d.tipo, d.etiqueta))} pais={m.destino?.pais} />}
+            </span>
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="no-imprimir"><RefrescoEnVivo misionId={id} /></span>
@@ -629,8 +640,9 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
         </section>
       )}
 
-      <section className="tarjeta no-imprimir">
+      <section className="tarjeta no-imprimir" id="documentos">
         <h2>Documentos</h2>
+        {expediente && <ExpedienteEnvio items={expediente} />}
         <ListaDocumentos documentos={documentos} />
         {m.etapa !== 'cancelado' && (
           <details className="agregar" style={{ marginTop: 12 }}>

@@ -206,3 +206,44 @@ export async function alternarOperador(id: string, activo: boolean) {
   await supabase.from('operadores_transbordo').update({ activo }).eq('id', id);
   revalidatePath('/catalogos');
 }
+
+/** Documentos que exige un cliente: «exige», «no_requerido» o vacío (regla general). Solo se guardan los cambios. */
+export async function guardarRequisitosCliente(clienteId: string, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const { CLAVES_REQUISITO } = await import('@/lib/documentos');
+  const supabase = await crearClienteServidor();
+  const { data: actuales, error: errorLeer } = await supabase.from('requisitos_documentos')
+    .select('documento, requerido').eq('alcance', 'cliente').eq('cliente_id', clienteId);
+  if (errorLeer) return { ok: false, mensaje: `No se pudieron leer los documentos del cliente: ${errorLeer.message}` };
+  const antes = new Map((actuales ?? []).map((r) => [r.documento as string, r.requerido ? 'exige' : 'no_requerido']));
+  let cambios = 0;
+  for (const clave of CLAVES_REQUISITO) {
+    const v = f.get(`req_${clave}`);
+    const nuevo = v === 'exige' || v === 'no_requerido' ? v : null;
+    if ((antes.get(clave) ?? null) === nuevo) continue;
+    const { error } = await supabase.rpc('fijar_requisito_cliente', { p_cliente: clienteId, p_documento: clave, p_estado: nuevo });
+    if (error) return { ok: false, mensaje: error.message };
+    cambios++;
+  }
+  revalidatePath('/catalogos');
+  return { ok: true, mensaje: cambios ? `Documentos del cliente guardados (${cambios} ${cambios === 1 ? 'cambio' : 'cambios'}).` : 'No había cambios.' };
+}
+
+/** ADMINISTRADOR: agrega o reactiva una regla general (todos, fuera de Bolivia o un país). */
+export async function guardarRequisitoGeneral(_: Resultado | null, f: FormData): Promise<Resultado> {
+  const documento = String(f.get('documento') ?? '');
+  const alcance = String(f.get('alcance') ?? '');
+  const pais = String(f.get('pais') ?? '') || null;
+  if (!documento) return { ok: false, mensaje: 'Elija el documento.', campo: 'documento', errorCampo: 'Dato obligatorio.' };
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc('guardar_requisito_general', { p_documento: documento, p_alcance: alcance, p_pais: pais, p_activo: true });
+  if (error) return { ok: false, mensaje: error.message };
+  revalidatePath('/catalogos');
+  return { ok: true, mensaje: 'Regla guardada.' };
+}
+
+/** ADMINISTRADOR: activa o desactiva una regla general. */
+export async function alternarRequisitoGeneral(documento: string, alcance: string, pais: string | null, activo: boolean) {
+  const supabase = await crearClienteServidor();
+  await supabase.rpc('guardar_requisito_general', { p_documento: documento, p_alcance: alcance, p_pais: pais, p_activo: activo });
+  revalidatePath('/catalogos');
+}
