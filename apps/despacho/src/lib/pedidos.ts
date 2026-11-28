@@ -44,6 +44,7 @@ export interface EnvioPedido {
   entrega_comprometida: string | null;
   entrega_vigente: string;
   estado: string;
+  camiones_necesarios?: number | null;
 }
 
 /** Fecha AAAA-MM-DD como «10/12/2026» (sin cambiar de día por la zona horaria). */
@@ -93,4 +94,29 @@ export function dividirEnCamiones(total: number, porCamion: number, primeraEntre
     toneladas: i === n - 1 ? ultimo : base,
     entrega: sumarDias(primeraEntrega, i * Math.max(0, cadaDias)),
   }));
+}
+
+/** Camión (tramo 1) de un envío, para calcular lo despachado. */
+export interface CamionDespacho { etapa: string; toneladas_cargadas: number | null }
+
+/**
+ * Toneladas enviadas (salieron de fábrica), entregadas, en camino y saldo por despachar de un envío.
+ * Un camión sin peso de balanza se estima con las toneladas del envío entre los camiones necesarios.
+ */
+export function resumenDespacho(toneladas: number, camionesNecesarios: number | null | undefined, camiones: CamionDespacho[]) {
+  const programadas = Number(toneladas) || 0;
+  const necesarios = Math.max(1, camionesNecesarios || Math.ceil(programadas / TONELADAS_POR_CAMION) || 1);
+  const porCamion = programadas / necesarios;
+  const salidos = camiones.filter((c) => c.etapa !== 'programado' && c.etapa !== 'cancelado');
+  const peso = (c: CamionDespacho) => (c.toneladas_cargadas != null ? Number(c.toneladas_cargadas) : porCamion);
+  const enviadas = salidos.reduce((t, c) => t + peso(c), 0);
+  const entregadas = salidos.filter((c) => c.etapa === 'entregado').reduce((t, c) => t + peso(c), 0);
+  const saldo = Math.max(0, programadas - enviadas);
+  return {
+    programadas, porCamion, enviadas, entregadas, saldo,
+    enCamino: Math.max(0, enviadas - entregadas),
+    camionesSalidos: salidos.length,
+    sinPeso: salidos.filter((c) => c.toneladas_cargadas == null).length,
+    camionesSaldo: porCamion > 0 ? Math.ceil(saldo / porCamion - 0.03) : 0,
+  };
 }

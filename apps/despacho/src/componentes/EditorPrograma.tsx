@@ -123,14 +123,14 @@ export default function EditorPrograma({
           <span className="tramo confirmado" style={{ width: pct(toneladasConfirmadas) }} />
           <span className="tramo planificado" style={{ width: pct(Math.max(0, Math.min(planificadas, toneladasPedido - toneladasConfirmadas))) }} />
         </div>
-        <p className="leyenda-avance">
-          Pedido <strong>{formatoToneladas(toneladasPedido)}</strong>
-          {' · '}<span className="muestra confirmado" aria-hidden="true" />Confirmado {formatoToneladas(toneladasConfirmadas)}
-          {' · '}<span className="muestra planificado" aria-hidden="true" />Planificado {formatoToneladas(planificadas)}
-          {' · '}{falta > 0
+        <ul className="leyenda-avance">
+          <li><span className="muestra confirmado" aria-hidden="true" />Confirmado {formatoToneladas(toneladasConfirmadas)}</li>
+          <li><span className="muestra planificado" aria-hidden="true" />Planificado {formatoToneladas(planificadas)}</li>
+          <li><span className="muestra muestra-faltan" aria-hidden="true" />de {formatoToneladas(toneladasPedido)} pedidas</li>
+          <li className="estado-programa">{falta > 0
             ? <strong>Falta programar {formatoToneladas(falta)}</strong>
-            : excede ? <strong className="docs-faltan">Sobran {formatoToneladas(-falta)}</strong> : <strong>Todo programado</strong>}
-        </p>
+            : excede ? <strong className="docs-faltan">Sobran {formatoToneladas(-falta)}</strong> : <strong className="todo-programado">✓ Todo programado</strong>}</li>
+        </ul>
       </div>
 
       {falta > 0 && (

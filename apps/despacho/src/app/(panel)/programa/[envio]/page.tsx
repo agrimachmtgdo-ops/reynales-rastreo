@@ -5,7 +5,7 @@ import BotonCopiar from '@/componentes/BotonCopiar';
 import FormularioAccion from '@/componentes/FormularioAccion';
 import { Req } from '@/componentes/Obligatorio';
 import { enlaceWhatsApp } from '@/lib/tipos';
-import { ESTADO_ENVIO, formatoFecha, formatoToneladas, plural } from '@/lib/pedidos';
+import { ESTADO_ENVIO, formatoFecha, formatoToneladas, plural, resumenDespacho } from '@/lib/pedidos';
 import {
   ESTADO_SOLICITUD, fechaCarga, fechaHoraBolivia, formatoCosto, formatoTarifa, NOMBRE_SEMAFORO, semaforo,
   textoWhatsApp, valorFechaHora, type FilaPrograma, type Solicitud,
@@ -75,17 +75,8 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
   const pctPlaca = Math.min(100, Math.round((f.camiones_asignados / necesarios) * 100));
 
   // Toneladas: programadas, enviadas (salieron de fábrica), entregadas y saldo por despachar.
-  // Sin peso de balanza, cada camión se estima con las toneladas del envío entre los camiones necesarios.
-  const programadas = Number(f.toneladas) || 0;
-  const porCamion = programadas / necesarios;
-  const salidos = camiones.filter((c) => c.etapa !== 'programado' && c.etapa !== 'cancelado');
-  const pesoDe = (c: Camion) => (c.toneladas_cargadas != null ? Number(c.toneladas_cargadas) : porCamion);
-  const sinPeso = salidos.filter((c) => c.toneladas_cargadas == null).length;
-  const enviadas = salidos.reduce((t, c) => t + pesoDe(c), 0);
-  const entregadas = salidos.filter((c) => c.etapa === 'entregado').reduce((t, c) => t + pesoDe(c), 0);
-  const enCamino = Math.max(0, enviadas - entregadas);
-  const saldo = Math.max(0, programadas - enviadas);
-  const camionesSaldo = porCamion > 0 ? Math.ceil(saldo / porCamion - 0.03) : 0;
+  const { programadas, porCamion, enviadas, entregadas, enCamino, saldo, camionesSaldo, sinPeso, camionesSalidos } =
+    resumenDespacho(Number(f.toneladas), f.camiones_necesarios, camiones);
   const pct = (t: number) => (programadas > 0 ? Math.min(100, (t / programadas) * 100) : 0);
   const pctEntregadas = pct(entregadas);
   const pctEnCamino = Math.min(100 - pctEntregadas, pct(enCamino));
@@ -134,7 +125,7 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
           <span className="avance-titulo">Toneladas</span>
           <div className="cifras-toneladas">
             <div><span>Programadas</span><strong>{formatoToneladas(programadas)}</strong></div>
-            <div><span>Enviadas</span><strong>{formatoToneladas(enviadas)}</strong><small>{plural(salidos.length, 'camión salió', 'camiones salieron')} de fábrica</small></div>
+            <div><span>Enviadas</span><strong>{formatoToneladas(enviadas)}</strong><small>{plural(camionesSalidos, 'camión salió', 'camiones salieron')} de fábrica</small></div>
             <div><span>Entregadas</span><strong>{formatoToneladas(entregadas)}</strong>{enCamino > 0 && <small>{formatoToneladas(enCamino)} en camino</small>}</div>
             <div className={saldo > 0 ? 'cifra-saldo' : 'cifra-saldo completo'}>
               <span>Saldo por despachar</span><strong>{formatoToneladas(saldo)}</strong>
