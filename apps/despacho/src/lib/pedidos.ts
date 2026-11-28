@@ -11,7 +11,8 @@ export const ESTADO_PEDIDO: Record<string, string> = {
   cancelado: 'Cancelado',
 };
 export const ESTADO_ENVIO: Record<string, string> = {
-  pendiente: 'Pendiente',
+  planificado: 'Planificado',
+  pendiente: 'Confirmado',
   en_curso: 'En curso',
   cumplido: 'Cumplido',
   cancelado: 'Cancelado',
@@ -61,6 +62,35 @@ export function toneladasVivas(envios: Pick<EnvioPedido, 'toneladas' | 'estado'>
 
 /** Próxima entrega pendiente (la fecha vigente más cercana). */
 export function proximaEntrega(envios: Pick<EnvioPedido, 'entrega_vigente' | 'estado'>[]): string | null {
-  return envios.filter((e) => e.estado === 'pendiente' || e.estado === 'en_curso')
+  return envios.filter((e) => e.estado === 'planificado' || e.estado === 'pendiente' || e.estado === 'en_curso')
     .map((e) => e.entrega_vigente).sort().at(0) ?? null;
+}
+
+/** Lo programado puede superar lo pedido hasta 3 % (peso real de cada camión). */
+export const TOLERANCIA = 0.03;
+/** Toneladas que suele llevar un camión (valor inicial de «Dividir en camiones»). */
+export const TONELADAS_POR_CAMION = 29;
+
+export const plural = (n: number, uno: string, varios: string) => `${n.toLocaleString('es-BO', { maximumFractionDigits: 2 })} ${n === 1 ? uno : varios}`;
+
+/** Suma días a una fecha AAAA-MM-DD. */
+export function sumarDias(fecha: string, dias: number): string {
+  const d = new Date(`${fecha}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Reparte unas toneladas en camiones con carga pareja: los menos camiones posibles sin pasar
+ * en más de 5 % la capacidad indicada (ej. 150 t a 29 t → 5 camiones de 30 t; 100 t → 4 de 25 t).
+ */
+export function dividirEnCamiones(total: number, porCamion: number, primeraEntrega: string, cadaDias: number) {
+  if (!(total > 0) || !(porCamion > 0) || !primeraEntrega) return [];
+  const n = Math.max(1, Math.ceil(total / (porCamion * 1.05) - 1e-9));
+  const base = Math.floor((total / n) * 100) / 100;
+  const ultimo = Math.round((total - base * (n - 1)) * 100) / 100; // el último absorbe los centésimos
+  return Array.from({ length: n }, (_, i) => ({
+    toneladas: i === n - 1 ? ultimo : base,
+    entrega: sumarDias(primeraEntrega, i * Math.max(0, cadaDias)),
+  }));
 }

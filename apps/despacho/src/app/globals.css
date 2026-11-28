@@ -431,3 +431,17 @@ td.numero { text-align: right; font-variant-numeric: tabular-nums; white-space: 
 .selector-excel:focus-within .boton { outline: 3px solid var(--dorado); outline-offset: 2px; }
 tr.fila-error td { background: #fdf1ef; }
 .lista-errores { margin: 0; padding-left: 16px; color: var(--rojo); font-size: 13px; }
+/* Programa de envíos: avance y división en camiones */
+.avance-programa { margin: 8px 0 12px; }
+.barra-avance { display: flex; height: 12px; border-radius: 6px; background: #ece7de; overflow: hidden; gap: 2px; }
+.barra-avance .tramo { display: block; height: 100%; }
+.tramo.confirmado, .muestra.confirmado { background: var(--verde-oscuro); }
+.tramo.planificado, .muestra.planificado { background: var(--dorado); }
+.leyenda-avance { font-size: 14px; margin: 6px 0 0; }
+.leyenda-avance .muestra { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: 0; }
+.dividir { border: 1px dashed var(--borde); border-radius: 8px; padding: 8px 12px; }
+.botones-programa { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.boton-texto.verde { color: var(--verde-oscuro); }
+.etiqueta.envio-planificado { background: #fbecc0; color: #7a5a00; }
+.fila-envio > label { min-width: 0; }
+.fila-envio input { width: 100%; min-width: 0; }
