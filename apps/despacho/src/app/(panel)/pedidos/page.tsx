@@ -91,7 +91,7 @@ export default async function PaginaPedidos({ searchParams }: { searchParams: Pr
       )}
       {pedidos.length > 0 && (
         <div className="tabla-desplazable">
-          <table className="tabla-pedidos">
+          <table className="tabla-pedidos tabla-tarjetas">
             <thead><tr><th>Código</th><th>Cliente</th><th>Orden de compra</th><th>Producto</th><th>Destino</th><th>Pedido</th><th>Programado</th><th>Fecha límite</th><th>Próxima entrega</th><th>Estado</th></tr></thead>
             <tbody>{pedidos.map((p) => {
               const proxima = proximaEntrega(p.envios);
@@ -102,19 +102,19 @@ export default async function PaginaPedidos({ searchParams }: { searchParams: Pr
               return (
                 <tr key={p.id}>
                   <td><Link href={`/pedidos/${p.id}`}>{p.codigo}</Link></td>
-                  <td>{p.cliente?.razon_social}</td>
-                  <td>{p.orden_compra ?? '—'}</td>
-                  <td>{p.producto}</td>
-                  <td>{p.incoterm} {p.destino?.nombre} ({p.destino?.pais})</td>
-                  <td className="numero">{formatoToneladas(Number(p.toneladas))}</td>
-                  <td className="numero">
+                  <td data-etiqueta="Cliente">{p.cliente?.razon_social}</td>
+                  <td data-etiqueta="Orden de compra">{p.orden_compra ?? '—'}</td>
+                  <td data-etiqueta="Producto">{p.producto}</td>
+                  <td data-etiqueta="Destino">{p.incoterm} {p.destino?.nombre} ({p.destino?.pais})</td>
+                  <td data-etiqueta="Pedido" className="numero">{formatoToneladas(Number(p.toneladas))}</td>
+                  <td data-etiqueta="Programado" className="numero">
                     {formatoToneladas(programado)} <span className={abierto && pct < 97 ? 'docs-faltan' : 'ayuda-campo'} style={{ display: 'inline' }}>({pct} %)</span>
                   </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{formatoFecha(p.entrega_hasta)}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
+                  <td data-etiqueta="Fecha límite" style={{ whiteSpace: 'nowrap' }}>{formatoFecha(p.entrega_hasta)}</td>
+                  <td data-etiqueta="Próxima entrega" style={{ whiteSpace: 'nowrap' }}>
                     {proxima ? <>{formatoFecha(proxima)}{atrasado && <span className="docs-faltan"> · vencida</span>}</> : '—'}
                   </td>
-                  <td><span className={`etiqueta pedido-${p.estado}`}>{ESTADO_PEDIDO[p.estado] ?? p.estado}</span></td>
+                  <td data-etiqueta="Estado"><span className={`etiqueta pedido-${p.estado}`}>{ESTADO_PEDIDO[p.estado] ?? p.estado}</span></td>
                 </tr>
               );
             })}</tbody>

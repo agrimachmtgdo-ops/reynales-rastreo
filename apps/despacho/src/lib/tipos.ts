@@ -102,6 +102,16 @@ export function haceCuanto(iso: string | null, ahora = Date.now()): string {
   return `hace ${Math.floor(h / 24)} días`;
 }
 
+/** Duración legible: «45 min», «6 h 12 min», «3 días». */
+export function duracion(min: number | null): string {
+  if (min === null) return '—';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  if (h >= 48) return `${Math.floor(h / 24)} días`;
+  const m = min % 60;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
 /** Grupos del resumen del tablero. */
 export type Grupo = 'todos' | 'en_ruta' | 'en_frontera' | 'detenido' | 'sin_senal' | 'programado';
 

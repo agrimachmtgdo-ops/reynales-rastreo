@@ -48,4 +48,9 @@ echo "→ ida y vuelta de la reversión de la fecha de carga (con datos)"
 echo "→ ida y vuelta de la reversión del requerimiento de unidades (con datos)"
 "${PSQL[@]}" -d "$DB" -f revertir/20261212000100_requerimiento_unidades.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261212000100_requerimiento_unidades.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261214000100_cumplimiento.sql
+"${PSQL[@]}" -d "$DB" -f tests/95_cumplimiento.sql
+echo "→ ida y vuelta de la reversión del cumplimiento"
+"${PSQL[@]}" -d "$DB" -f revertir/20261214000100_cumplimiento.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261214000100_cumplimiento.sql
 echo "✔ Todas las pruebas pasaron"

@@ -227,7 +227,17 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
                       </FormularioAccion>
                     )}
                     {gestiona && s.estado === 'confirmado' && libres > 0 && !f.mision_id && (
-                      <p className="ayuda-campo">Cree la misión del envío (paso 3) para cargar las placas y choferes.</p>
+                      <FormularioAccion accion={crearMisionEnvio.bind(null, envio, f.pedido_id)} boton="Crear misión" claseBoton="boton secundario">
+                        <p className="ayuda-campo" style={{ marginTop: 0 }}>Para cargar placas y choferes, primero cree la misión del envío (una sola por envío).</p>
+                        {fabricas.length > 1 && (
+                          <label>Fábrica de origen <Req />
+                            <select name="origen_id" required defaultValue="">
+                              <option value="">Seleccione…</option>
+                              {fabricas.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
+                            </select>
+                          </label>
+                        )}
+                      </FormularioAccion>
                     )}
                   </div>
                 )}

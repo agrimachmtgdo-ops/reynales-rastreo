@@ -22,8 +22,9 @@ interface Cambio {
 
 const opcionesCausa = CAUSAS.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>);
 
-export default async function PaginaPedido({ params }: { params: Promise<{ id: string }> }) {
+export default async function PaginaPedido({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ cambiar?: string }> }) {
   const { id } = await params;
+  const { cambiar } = await searchParams;
   const supabase = await crearClienteServidor();
   const [{ data: p }, { data: cambiosData }, comerciales] = await Promise.all([
     supabase.from('pedidos')
@@ -51,6 +52,7 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
   const confirmadas = toneladasVivas(todos.filter((e) => e.estado !== 'planificado'));
   const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' });
   const ultima = todos.filter((e) => e.estado !== 'cancelado').map((e) => e.entrega_vigente).sort().at(-1);
+  const cambiables = !!programa && abierto && envios.some((e) => e.estado === 'pendiente' || e.estado === 'en_curso');
   const sugerir = [hoy, p.entrega_desde, ultima && sumarDias(ultima, 1)].filter(Boolean).sort().at(-1) as string;
 
   return (
@@ -108,33 +110,44 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
         {!programable && todos.length === 0 && <p>Todavía no hay envíos programados.</p>}
         {envios.length > 0 && <h3>{programable ? `Envíos confirmados (${plural(envios.length, 'envío', 'envíos')})` : 'Envíos'}</h3>}
         {envios.length > 0 && <div className="tabla-desplazable">
-          <table>
-            <thead><tr><th>N°</th><th>Toneladas</th><th>Carga en fábrica</th><th>Entrega comprometida</th><th>Entrega vigente</th><th>Estado</th><th>Camiones</th></tr></thead>
+          <table className="tabla-tarjetas">
+            <thead><tr><th>N°</th><th>Toneladas</th><th>Carga en fábrica</th><th>Entrega comprometida</th><th>Entrega vigente</th><th>Estado</th><th>Camiones</th>{cambiables && <th><span className="solo-lector">Acción</span></th>}</tr></thead>
             <tbody>{envios.map((e) => {
               const movido = !!e.entrega_comprometida && e.entrega_vigente !== e.entrega_comprometida;
+              const cargaPasada = e.estado === 'pendiente' && !!e.fecha_carga_planificada && e.fecha_carga_planificada < hoy;
               return (
                 <tr key={e.id} className={e.estado === 'cancelado' ? 'inactivo' : undefined}>
-                  <td>{e.numero}</td>
-                  <td className="numero">{formatoToneladas(Number(e.toneladas))}</td>
-                  <td>{formatoFecha(e.fecha_carga_planificada)}</td>
-                  <td>{e.entrega_comprometida ? formatoFecha(e.entrega_comprometida) : <span className="ayuda-campo">Al confirmar</span>}</td>
-                  <td>
+                  <td><span className="solo-movil">Envío </span>{e.numero}</td>
+                  <td data-etiqueta="Toneladas" className="numero">{formatoToneladas(Number(e.toneladas))}</td>
+                  <td data-etiqueta="Carga en fábrica">
+                    {formatoFecha(e.fecha_carga_planificada)}
+                    {cargaPasada && (cambiables
+                      ? <Link className="etiqueta carga-pasada" href={`/pedidos/${id}?cambiar=${e.id}#cambiar-${e.id}`}>Carga pasada: corregir</Link>
+                      : <span className="etiqueta carga-pasada">Carga pasada</span>)}
+                  </td>
+                  <td data-etiqueta="Entrega comprometida">{e.entrega_comprometida ? formatoFecha(e.entrega_comprometida) : <span className="ayuda-campo">Al confirmar</span>}</td>
+                  <td data-etiqueta="Entrega vigente">
                     {formatoFecha(e.entrega_vigente)}
                     {movido && <span className="etiqueta reprogramado" title="La fecha vigente es distinta de la comprometida">{e.entrega_vigente > e.entrega_comprometida! ? 'Atrasado' : 'Adelantado'}</span>}
                   </td>
-                  <td><span className={`etiqueta envio-${e.estado}`}>{ESTADO_ENVIO[e.estado] ?? e.estado}</span></td>
-                  <td>{e.estado === 'planificado' || e.estado === 'cancelado' ? '—' : <Link href={`/programa/${e.id}`}>Camiones y misión</Link>}</td>
+                  <td data-etiqueta="Estado"><span className={`etiqueta envio-${e.estado}`}>{ESTADO_ENVIO[e.estado] ?? e.estado}</span></td>
+                  <td data-etiqueta="Camiones">{e.estado === 'planificado' || e.estado === 'cancelado' ? '—' : <Link href={`/programa/${e.id}`}>Camiones y misión</Link>}</td>
+                  {cambiables && (
+                    <td>{(e.estado === 'pendiente' || e.estado === 'en_curso') && (
+                      <Link className="boton secundario" href={`/pedidos/${id}?cambiar=${e.id}#cambiar-${e.id}`}>Cambiar</Link>
+                    )}</td>
+                  )}
                 </tr>
               );
             })}</tbody>
           </table>
         </div>}
 
-        {!!programa && abierto && envios.some((e) => e.estado === 'pendiente' || e.estado === 'en_curso') && (
+        {cambiables && (
           <div className="acciones-envio">
             <h3>Cambiar un envío</h3>
             {envios.filter((e) => e.estado === 'pendiente' || e.estado === 'en_curso').map((e) => (
-              <details key={e.id} className="agregar">
+              <details key={e.id} id={`cambiar-${e.id}`} className="agregar" open={cambiar === e.id}>
                 <summary>Envío {e.numero}: {formatoToneladas(Number(e.toneladas))}, entrega {formatoFecha(e.entrega_vigente)}</summary>
                 <div className="rejilla-acciones">
                   <div>

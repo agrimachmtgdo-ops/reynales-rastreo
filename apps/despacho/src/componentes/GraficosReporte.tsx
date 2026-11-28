@@ -80,7 +80,7 @@ export function GraficoBarras({
             <g key={d.etiqueta} className="marca">
               <rect x={0} y={yy - 4} width={ancho} height={fila} fill="transparent" />
               <text x={izq - 8} y={yy + 13} textAnchor="end" className="eje-nombre">
-                {d.etiqueta.length > 24 ? `${d.etiqueta.slice(0, 23)}…` : d.etiqueta}
+                {d.etiqueta.length > 22 ? `${d.etiqueta.slice(0, 21)}…` : d.etiqueta}
               </text>
               {w > 0 && <path d={`M${izq},${yy + 3} h${Math.max(0, w - 4)} q4,0 4,4 v8 q0,4 -4,4 h${-Math.max(0, w - 4)} z`} fill={COLOR_SERIE[0]} />}
               <text x={izq + w + 6} y={yy + 13} className="valor">{numero(d.valor)} {unidad}</text>
@@ -126,7 +126,7 @@ export function BarraPartes({ titulo, partes }: { titulo: string; partes: { nomb
 }
 
 /** Barra de avance contra una meta (ej. puntualidad 90 %). */
-export function BarraMeta({ titulo, valor, meta, detalle }: { titulo: string; valor: number | null; meta: number; detalle: string }) {
+export function BarraMeta({ titulo, valor, meta, detalle, rotulo = 'a tiempo' }: { titulo: string; valor: number | null; meta: number; detalle: string; rotulo?: string }) {
   const ancho = 640, alto = 40;
   return (
     <figure className="grafico">
@@ -134,13 +134,13 @@ export function BarraMeta({ titulo, valor, meta, detalle }: { titulo: string; va
       {valor === null ? <p className="ayuda">{detalle}</p> : (
         <>
           <p style={{ margin: '0 0 6px' }}>
-            <strong className="numero-meta">{Math.round(valor * 100)} %</strong> a tiempo · meta {Math.round(meta * 100)} %{' '}
+            <strong className="numero-meta">{Math.round(valor * 100)} %</strong> {rotulo} · meta {Math.round(meta * 100)} %{' '}
             {valor >= meta ? '✓ cumple' : '✗ por debajo de la meta'} <span className="ayuda">({detalle})</span>
           </p>
           <svg viewBox={`0 0 ${ancho} ${alto}`} role="img" aria-label={`${titulo}: ${Math.round(valor * 100)} %, meta ${Math.round(meta * 100)} %`}>
             <rect x={0} y={10} width={ancho} height={16} rx={4} fill="#ece7de" />
             <rect x={0} y={10} width={Math.max(0, ancho * Math.min(1, valor))} height={16} rx={4} fill={COLOR_SERIE[0]}>
-              <title>{`${Math.round(valor * 100)} % a tiempo`}</title>
+              <title>{`${Math.round(valor * 100)} % ${rotulo}`}</title>
             </rect>
             <line x1={ancho * meta} x2={ancho * meta} y1={4} y2={32} stroke="#2b1d10" strokeWidth={2} />
             <text x={ancho * meta} y={40} textAnchor="middle" className="eje">meta</text>
