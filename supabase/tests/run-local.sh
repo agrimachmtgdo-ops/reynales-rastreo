@@ -24,4 +24,8 @@ echo "→ ida y vuelta de la reversión de Chile (se detiene si hay datos CL)"
 "${PSQL[@]}" -d "$DB" -c "delete from public.documentos where mision_id in (select m.id from public.misiones m join public.ubicaciones u on u.id = m.destino_id where u.pais = 'CL')" -c "delete from public.misiones where destino_id in (select id from public.ubicaciones where pais = 'CL')" -c "delete from public.ubicaciones where pais = 'CL'" -c "delete from public.clientes where pais = 'CL'" >/dev/null
 "${PSQL[@]}" -d "$DB" -f revertir/20261208000100_destino_chile.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261208000100_destino_chile.sql
+"${PSQL[@]}" -d "$DB" -f tests/70_roles_comercial.sql
+echo "→ ida y vuelta de la reversión de roles"
+"${PSQL[@]}" -d "$DB" -f revertir/20261209000100_roles_comercial.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261209000100_roles_comercial.sql
 echo "✔ Todas las pruebas pasaron"

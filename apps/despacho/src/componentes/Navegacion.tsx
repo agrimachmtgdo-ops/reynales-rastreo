@@ -10,11 +10,12 @@ const ENLACES = [
 ];
 
 /** Menú principal: marca la sección en la que está el usuario. */
-export default function Navegacion() {
+export default function Navegacion({ esAdmin = false }: { esAdmin?: boolean }) {
   const ruta = usePathname();
+  const enlaces = esAdmin ? [...ENLACES, { href: '/usuarios', texto: 'Usuarios' }] : ENLACES;
   return (
     <nav aria-label="Menú principal">
-      {ENLACES.map((e) => {
+      {enlaces.map((e) => {
         const activo = e.href === '/' ? ruta === '/' : ruta.startsWith(e.href);
         return (
           <Link key={e.href} href={e.href} className={activo ? 'activo' : undefined} aria-current={activo ? 'page' : undefined}>

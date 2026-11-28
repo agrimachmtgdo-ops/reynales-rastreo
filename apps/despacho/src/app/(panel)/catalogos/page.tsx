@@ -52,11 +52,16 @@ export default async function PaginaCatalogos({
     vehiculos: () => supabase.from('vehiculos').select('*, transportista:transportistas(razon_social)').order('placa'),
     ubicaciones: () => supabase.from('ubicaciones').select('*').order('activo', { ascending: false }).order('tipo').order('nombre'),
   };
-  const [{ data: filasData, error }, { data: transportistasData }, { data: porCorregirData }] = await Promise.all([
+  const [{ data: filasData, error }, { data: transportistasData }, { data: porCorregirData }, { data: perfilActual }, { data: comercialesData }] = await Promise.all([
     consultas[pestana](),
     supabase.from('transportistas').select('id, razon_social').order('razon_social'),
     supabase.rpc('telefonos_por_corregir'),
+    supabase.rpc('perfil_actual'),
+    supabase.rpc('comerciales'),
   ]);
+  const esAdmin = perfilActual === 'administrador';
+  const comerciales = (comercialesData ?? []) as { id: string; nombre: string }[];
+  const nombreComercial = (id: unknown) => comerciales.find((c) => c.id === id)?.nombre ?? '';
   // Teléfonos antiguos sin código de país que no se pudieron corregir solos.
   const porCorregir = ((porCorregirData ?? []) as { tabla: string; fila_id: string; nombre: string; valor: string }[]);
   const NOMBRE_TABLA: Record<string, string> = { clientes: 'Cliente', conductores: 'Chofer', transportistas: 'Transportista', misiones: 'Misión' };
@@ -86,6 +91,14 @@ export default async function PaginaCatalogos({
         <label>Contacto<input name="contacto" defaultValue={v(f, 'contacto')} /></label>
         <label>WhatsApp<input name="whatsapp" inputMode="tel" placeholder="+51987654321" defaultValue={v(f, 'whatsapp')} /></label>
         <label>Correo<input name="correo" type="email" defaultValue={v(f, 'correo')} /></label>
+        {esAdmin && (
+          <label>Comercial responsable
+            <select name="comercial_id" defaultValue={v(f, 'comercial_id') ?? ''}>
+              <option value="">Sin asignar</option>
+              {comerciales.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </label>
+        )}
       </>
     ),
     transportistas: (f) => (
@@ -136,9 +149,9 @@ export default async function PaginaCatalogos({
   const tablas: Record<Pestana, React.ReactNode> = {
     clientes: (
       <div className="tabla-desplazable"><table>
-        <thead><tr><th>Razón social</th><th>NIT/RUC</th><th>País</th><th>WhatsApp</th><th></th></tr></thead>
+        <thead><tr><th>Razón social</th><th>NIT/RUC</th><th>País</th><th>WhatsApp</th><th>Comercial</th><th></th></tr></thead>
         <tbody>{filas.map((c) => (
-          <tr key={c.id}><td>{v(c, 'razon_social')}</td><td>{v(c, 'nit_ruc')}</td><td>{v(c, 'pais')}</td><td>{v(c, 'whatsapp')}</td><td className="acciones">{enlaceEditar(c)}</td></tr>
+          <tr key={c.id}><td>{v(c, 'razon_social')}</td><td>{v(c, 'nit_ruc')}</td><td>{v(c, 'pais')}</td><td>{v(c, 'whatsapp')}</td><td>{nombreComercial(c.comercial_id)}</td><td className="acciones">{enlaceEditar(c)}</td></tr>
         ))}</tbody>
       </table></div>
     ),
