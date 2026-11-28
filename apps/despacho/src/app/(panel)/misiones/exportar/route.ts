@@ -18,10 +18,14 @@ export async function GET(peticion: Request) {
   );
   if (error) return new Response(`No se pudo exportar: ${error}`, { status: 500 });
 
-  const encabezado = ['Código', 'Etapa', 'Cliente', 'Origen', 'Destino', 'País', 'Factura', 'Guía', 'DEX', 'TN objetivo', 'Placas', 'Choferes', 'Creada'];
+  const encabezado = ['Código', 'Pedido', 'Envío', 'Producto', 'Etapa', 'Cliente', 'Origen', 'Destino', 'País', 'Entrega comprometida', 'Factura', 'Guía', 'DEX', 'TN objetivo', 'TN cargadas (balanza)', 'Camiones sin peso', 'Placas', 'Choferes', 'Creada'];
   const lineas = filas.map((m) => [
-    m.codigo, ETIQUETA_ETAPA[m.etapa], m.cliente?.razon_social, m.origen?.nombre, m.destino?.nombre, m.destino?.pais,
-    m.factura, m.guia, m.dex, m.tonelaje_objetivo,
+    m.codigo, m.envio?.pedido?.codigo, m.envio?.numero, m.envio?.pedido?.producto,
+    ETIQUETA_ETAPA[m.etapa], m.cliente?.razon_social, m.origen?.nombre, m.destino?.nombre, m.destino?.pais,
+    m.entrega_comprometida, m.factura, m.guia, m.dex, m.tonelaje_objetivo,
+    m.asignaciones.filter((a) => (a.tramo ?? 1) === 1 && a.etapa !== 'cancelado' && a.toneladas_cargadas != null)
+      .reduce((t, a) => t + Number(a.toneladas_cargadas), 0).toLocaleString('es-BO', { maximumFractionDigits: 2 }),
+    m.asignaciones.filter((a) => (a.tramo ?? 1) === 1 && a.etapa !== 'cancelado' && a.etapa !== 'programado' && a.toneladas_cargadas == null).length,
     m.asignaciones.map((a) => a.vehiculo?.placa).filter(Boolean).join(' / '),
     m.asignaciones.map((a) => a.conductor?.nombre).filter(Boolean).join(' / '),
     formatoHora(m.creado_en),

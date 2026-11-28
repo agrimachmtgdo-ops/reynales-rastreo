@@ -12,7 +12,7 @@ import {
 } from '@/lib/programa';
 import {
   agregarCamion, anularSolicitud, crearMisionEnvio, guardarRequerimiento, pedirCamiones, registrarAusencia,
-  registrarEmbarque, registrarLlegada, responderSolicitud,
+  registrarEmbarque, registrarLlegada, registrarPeso, responderSolicitud,
 } from '../acciones';
 
 export const dynamic = 'force-dynamic';
@@ -251,17 +251,34 @@ export default async function PaginaEnvio({ params }: { params: Promise<{ envio:
                   <div className="camiones-solicitud">
                     <h4>Camiones ({vivos.length} de {s.camiones_confirmados ?? 0})</h4>
                     {propios.length > 0 && (
-                      <div className="tabla-desplazable"><table>
-                        <thead><tr><th>Placa</th><th>Chofer</th><th>Estado</th><th>Llegada a fábrica</th>{gestiona && <th><span className="solo-lector">Acciones</span></th>}</tr></thead>
+                      <div className="tabla-desplazable"><table className="tabla-tarjetas">
+                        <thead><tr><th>Placa</th><th>Chofer</th><th>Estado</th><th>Llegada a fábrica</th><th>Peso de balanza</th>{gestiona && <th><span className="solo-lector">Acciones</span></th>}</tr></thead>
                         <tbody>{propios.map((c) => (
                           <tr key={c.id} className={c.etapa === 'cancelado' ? 'inactivo' : undefined}>
                             <td>{c.vehiculo?.placa}</td>
-                            <td>{c.conductor?.nombre}</td>
-                            <td>
+                            <td data-etiqueta="Chofer">{c.conductor?.nombre}</td>
+                            <td data-etiqueta="Estado">
                               <span className={`etiqueta ${c.etapa}`}>{c.ausencia_causa ? 'No se presentó' : ETAPA_CAMION[c.etapa] ?? c.etapa}</span>
                               {c.ausencia_causa && <div className="ayuda-campo">{c.ausencia_causa}</div>}
                             </td>
-                            <td>{c.llegada_fabrica ? fechaHoraBolivia(c.llegada_fabrica) : '—'}</td>
+                            <td data-etiqueta="Llegada a fábrica">{c.llegada_fabrica ? fechaHoraBolivia(c.llegada_fabrica) : '—'}</td>
+                            <td data-etiqueta="Peso de balanza">
+                              {c.etapa === 'cancelado' ? '—' : (
+                                <>
+                                  {c.toneladas_cargadas != null
+                                    ? <strong>{formatoToneladas(Number(c.toneladas_cargadas))}</strong>
+                                    : c.etapa !== 'programado' && <span className="etiqueta sin-peso">Salió sin peso</span>}
+                                  {esLogistica && (
+                                    <FormularioAccion accion={registrarPeso.bind(null, c.id, envio)} boton={c.toneladas_cargadas != null ? 'Corregir' : 'Guardar peso'}
+                                      claseBoton="boton secundario boton-chico" clase="peso-en-linea">
+                                      <label><span className="solo-lector">Peso de balanza en toneladas</span>
+                                        <input name="peso" inputMode="decimal" placeholder="t" defaultValue={c.toneladas_cargadas ?? ''} size={6} />
+                                      </label>
+                                    </FormularioAccion>
+                                  )}
+                                </>
+                              )}
+                            </td>
                             {gestiona && (
                               <td>
                                 {c.etapa === 'programado' && !c.llegada_fabrica && (

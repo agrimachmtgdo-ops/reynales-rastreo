@@ -880,3 +880,34 @@ textarea { line-height: 1.5; }
   .lista-datos > div { grid-template-columns: 1fr; gap: 2px; }
   .avance-programa .leyenda-avance .estado-programa { margin-left: 0; }
 }
+.saldo-parcial { color: #8a3d00; font-weight: 700; }
+.saldo-cero { color: #006b2d; font-weight: 700; }
+.etiqueta.sin-peso { background: #f3d6d2; color: var(--rojo); font-weight: 700; }
+.peso-en-linea { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.peso-en-linea label { margin: 0; }
+.peso-en-linea input { width: 84px; min-height: 40px; margin: 0; }
+.peso-en-linea .mensaje-ok, .peso-en-linea .mensaje-error { flex-basis: 100%; margin: 0; padding: 4px 8px; font-size: 13px; }
+.boton.boton-chico { min-height: 40px; padding: 6px 12px; font-size: 14px; }
+.alerta-sin-peso { margin: 8px 0 12px; padding: 10px 12px; border-radius: 10px; background: #fdecea; border: 1px solid #f3c1bb; border-left: 4px solid var(--rojo); color: #7a1f14; font-size: 15px; }
+.camion .etiqueta.sin-peso { display: inline-block; margin-top: 4px; align-self: flex-start; }
+
+/* ---- Lista de misiones ---- */
+.tabla-misiones td { vertical-align: top; }
+.codigo-mision { font-weight: 700; white-space: nowrap; }
+.dato-principal { display: block; font-weight: 600; color: var(--tinta); }
+.sub-dato.sin-margen { margin-top: 0; }
+.sub-dato a { color: var(--verde-oscuro); font-weight: 600; }
+.texto-atrasado { color: var(--rojo); font-weight: 700; }
+.etiqueta.atrasada { background: #f3d6d2; color: var(--rojo); margin-left: 6px; }
+.docs-ok { color: #006b2d; font-weight: 600; display: block; margin-top: 2px; }
+.tabla-misiones .docs-faltan { display: block; margin-top: 2px; }
+.tabla-misiones .etiqueta.sin-peso { display: inline-block; margin-top: 4px; }
+@media (max-width: 760px) {
+  .tabla-misiones .sub-dato, .tabla-misiones .dato-principal, .tabla-misiones .docs-ok, .tabla-misiones .docs-faltan { display: inline; margin-left: 4px; }
+  .tabla-misiones td:first-child .sub-dato { display: block; margin-left: 0; font-weight: 400; font-size: 13px; }
+}
+@media (max-width: 760px) {
+  .tabla-misiones td:not(:first-child) .sub-dato::before { content: "· "; color: var(--borde-fuerte); }
+  .tabla-misiones td:not(:first-child) .sub-dato.sin-margen::before { content: none; }
+  .tabla-misiones td:not(:first-child) .sub-dato { margin-left: 6px; }
+}

@@ -169,3 +169,18 @@ export async function fijarDiasAnticipacion(_: Resultado | null, f: FormData): P
   revalidatePath('/programa');
   return { ok: true, mensaje: `Listo: se avisará con ${dias} días de anticipación.` };
 }
+
+/** Peso de balanza (tramo 1) de un camión del envío. */
+export async function registrarPeso(asignacion: string, envio: string, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const peso = numero(f, 'peso');
+  if (peso === null || Number.isNaN(peso) || peso <= 0 || peso > 60) {
+    return { ok: false, mensaje: 'Escriba el peso en toneladas, por ejemplo 29,4.', campo: 'peso', errorCampo: 'Entre 0 y 60 t.' };
+  }
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.from('asignaciones').update({ toneladas_cargadas: peso }).eq('id', asignacion).eq('tramo', 1).select('mision_id');
+  if (error) return { ok: false, mensaje: mensajeAmable(error.message) };
+  if (!data?.length) return { ok: false, mensaje: 'No se pudo guardar el peso (sin permiso o camión no encontrado).' };
+  refrescar(envio);
+  if (data[0]?.mision_id) revalidatePath(`/misiones/${data[0].mision_id}`);
+  return { ok: true, mensaje: 'Peso guardado.' };
+}

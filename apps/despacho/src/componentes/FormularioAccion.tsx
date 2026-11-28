@@ -16,6 +16,7 @@ export default function FormularioAccion({
   children,
   claseBoton = 'boton',
   confirmarCierre = false,
+  clase,
 }: {
   accion: (previo: Resultado | null, datos: FormData) => Promise<Resultado>;
   boton: string;
@@ -23,6 +24,8 @@ export default function FormularioAccion({
   claseBoton?: string;
   /** Pide confirmación y una nota obligatoria si la nueva etapa es Entregado o Cancelado. */
   confirmarCierre?: boolean;
+  /** Clase del formulario (por ejemplo, un campo y su botón en una sola línea). */
+  clase?: string;
 }) {
   const [estado, enviar, pendiente] = useActionState(accion, null);
   const formulario = useRef<HTMLFormElement>(null);
@@ -55,7 +58,7 @@ export default function FormularioAccion({
   }
 
   return (
-    <form ref={formulario} onSubmit={alEnviar} noValidate>
+    <form ref={formulario} onSubmit={alEnviar} noValidate className={clase}>
       {estado && <div role="status" className={estado.ok ? 'mensaje-ok' : 'mensaje-error'}>{estado.mensaje}</div>}
       {children}
       <button className={claseBoton} disabled={pendiente}>{pendiente ? 'Procesando…' : boton}</button>
