@@ -43,6 +43,10 @@ export default function CamposCamion({ catalogos }: { catalogos: CatalogosCamion
           <input name="toneladas_cargadas" inputMode="decimal" />
         </label>
       </div>
+      <label className="casilla">
+        <input type="checkbox" name="asignar_igual" />
+        Asignar igual aunque el chofer o el camión estén en otro viaje activo
+      </label>
       {faltan && (
         <p className="alerta">
           Este transportista no tiene {conductores.length === 0 && vehiculos.length === 0 ? 'choferes ni vehículos' : conductores.length === 0 ? 'choferes' : 'vehículos'} registrados.

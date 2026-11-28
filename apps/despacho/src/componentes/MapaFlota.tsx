@@ -8,6 +8,8 @@ import { formatoHora, textoEmergencia, type AsignacionEnVivo } from '@/lib/tipos
 // Centro inicial: entre Monteagudo y Desaguadero.
 const CENTRO: [number, number] = [-17.6, -66.5];
 const AZUL = '#1d4f80';
+// Un color por camión en el detalle de misión.
+const COLORES_RECORRIDO = [MARCA.cafe, '#1d4f80', '#8e44ad', '#d35400', '#16a085'];
 
 function color(etapa: AsignacionEnVivo['etapa'], emergencia?: string | null) {
   if (emergencia) return MARCA.rojo;
@@ -127,12 +129,13 @@ export default function MapaFlota({
   asignaciones,
   seleccion,
   alSeleccionar,
-  recorrido,
+  recorridos,
 }: {
   asignaciones: AsignacionEnVivo[];
   seleccion?: string | null;
   alSeleccionar?: (id: string) => void;
-  recorrido?: [number, number][];
+  /** Una línea por camión (detalle de misión). */
+  recorridos?: [number, number][][];
 }) {
   const conPosicion = asignaciones.filter((a) => a.ultima_lat !== null && a.ultima_lon !== null);
   const elegida = conPosicion.find((a) => a.id === seleccion);
@@ -147,7 +150,11 @@ export default function MapaFlota({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {recorrido && recorrido.length > 1 && <Polyline positions={recorrido} pathOptions={{ color: MARCA.cafe, weight: 3 }} />}
+        {(recorridos ?? []).map((r, i) =>
+          r.length > 1 ? (
+            <Polyline key={i} positions={r} pathOptions={{ color: COLORES_RECORRIDO[i % COLORES_RECORRIDO.length], weight: 3, opacity: 0.85 }} />
+          ) : null,
+        )}
         {grupos.map((g) => {
           const ids = g.camiones.map((a) => a.id);
           const elegido = seleccion ? ids.includes(seleccion) : false;

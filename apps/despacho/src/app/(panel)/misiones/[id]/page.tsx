@@ -9,7 +9,8 @@ import FormularioAccion from '@/componentes/FormularioAccion';
 import InvitacionChofer from '@/componentes/InvitacionChofer';
 import MapaMision from '@/componentes/MapaMision';
 import RefrescoEnVivo from '@/componentes/RefrescoEnVivo';
-import { agregarCamion, atenderEmergencia, cambiarEtapaManual, crearInvitacion } from '../acciones';
+import BotonImprimir from '@/componentes/BotonImprimir';
+import { agregarCamion, atenderEmergencia, cambiarEtapaManual, crearInvitacion, editarMision } from '../acciones';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,11 @@ function describirEvento(e: Evento, chofer: string): string {
   if (e.tipo === 'emergencia') {
     const donde = typeof d.lat === 'number' && typeof d.lon === 'number' ? ` Ubicación: ${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}.` : ' Sin ubicación.';
     return `EMERGENCIA reportada por ${chofer} desde la app: ${textoEmergencia(d.motivo as string)}.${donde}`;
+  }
+  if (e.tipo === 'nota' && d.motivo === 'activacion') return `${chofer} activó el código en su teléfono (terminado en …${String(d.dispositivo ?? '')}).`;
+  if (e.tipo === 'nota' && d.motivo === 'reactivacion') return `${chofer} volvió a activar el código en el mismo teléfono (por ejemplo, reinstaló la app).`;
+  if (e.tipo === 'incidencia' && d.motivo === 'salto_ubicacion') {
+    return `Alerta: el teléfono envió ${String(d.cantidad ?? 'algunas')} ubicaciones imposibles (saltos de más de 150 km/h). No se usaron para el mapa ni las etapas.`;
   }
   if (e.tipo === 'nota') return `Nota${e.origen === 'despacho' ? ' de despacho' : ''}: ${String(d.nota ?? '')}`;
   const resto = Object.entries(d).map(([k, v]) => `${k}: ${String(v)}`).join(' · ');
@@ -86,13 +92,15 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
     : { data: [] };
   const eventos = (eventosData ?? []) as Evento[];
 
-  // Recorrido completo (simplificado) del primer camión con señal, para la línea en el mapa.
-  const conSenal = asignaciones.find((a) => a.ultima_senal);
-  let recorrido: [number, number][] = [];
-  if (conSenal) {
-    const { data } = await supabase.rpc('recorrido_simplificado', { p_asignacion: conSenal.id, p_tolerancia_m: 25 });
-    recorrido = ((data ?? []) as { lat: number; lon: number }[]).map((p) => [p.lat, p.lon]);
-  }
+  // Recorrido completo (simplificado) de cada camión con señal: una línea por camión.
+  const recorridos = await Promise.all(
+    asignaciones
+      .filter((a) => a.ultima_senal)
+      .map(async (a) => {
+        const { data } = await supabase.rpc('recorrido_simplificado', { p_asignacion: a.id, p_tolerancia_m: 25 });
+        return ((data ?? []) as { lat: number; lon: number }[]).map((p) => [p.lat, p.lon] as [number, number]);
+      }),
+  );
 
   const m = mision as unknown as {
     codigo: string; etapa: Etapa; factura: string | null; guia: string | null; dex: string | null;
@@ -108,7 +116,8 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 style={{ margin: 0 }}>Misión {m.codigo}</h1>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <RefrescoEnVivo misionId={id} />
+            <span className="no-imprimir"><RefrescoEnVivo misionId={id} /></span>
+            <BotonImprimir />
             <span className={`etiqueta ${m.etapa}`}>{ETIQUETA_ETAPA[m.etapa]}</span>
           </div>
         </div>
@@ -118,7 +127,23 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
           Factura {m.factura ?? '—'} · Guía {m.guia ?? '—'} · DEX {m.dex ?? '—'} · {m.tipo_carga ?? ''}{' '}
           {m.tonelaje_objetivo ? `· ${m.tonelaje_objetivo} TN objetivo` : ''}
         </p>
-        <MapaMision asignaciones={asignaciones} recorrido={recorrido} />
+        {m.telefono_coordinador && <p style={{ fontSize: 14 }}>Coordinador: {m.telefono_coordinador}</p>}
+        {m.notas && <p style={{ fontSize: 14 }}>Notas: {m.notas}</p>}
+        <details className="agregar no-imprimir" style={{ marginBottom: 12 }}>
+          <summary>Editar datos de la misión</summary>
+          <FormularioAccion accion={editarMision.bind(null, id)} boton="Guardar cambios">
+            <div className="rejilla">
+              <label>N.º de factura<input name="factura" defaultValue={m.factura ?? ''} /></label>
+              <label>N.º de guía<input name="guia" defaultValue={m.guia ?? ''} /></label>
+              <label>N.º de DEX<input name="dex" defaultValue={m.dex ?? ''} /></label>
+              <label>Tipo de carga<input name="tipo_carga" defaultValue={m.tipo_carga ?? ''} /></label>
+              <label>Tonelaje objetivo (TN)<input name="tonelaje_objetivo" inputMode="decimal" defaultValue={m.tonelaje_objetivo ?? ''} /></label>
+              <label>WhatsApp del coordinador<input name="telefono_coordinador" defaultValue={m.telefono_coordinador ?? ''} placeholder="+591…" /></label>
+            </div>
+            <label>Notas<textarea name="notas" rows={2} defaultValue={m.notas ?? ''} /></label>
+          </FormularioAccion>
+        </details>
+        <MapaMision asignaciones={asignaciones} recorridos={recorridos} />
       </section>
 
       {asignaciones.map((a) => {
@@ -135,7 +160,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
               {a.ultima_velocidad_kmh ?? 0} km/h · {a.toneladas_cargadas ? `${a.toneladas_cargadas} TN cargadas` : 'TN sin registrar'}
             </p>
             {a.emergencia_en && (
-              <div className="aviso-emergencia" role="alert">
+              <div className="aviso-emergencia no-imprimir" role="alert">
                 <strong>EMERGENCIA: {textoEmergencia(a.emergencia_motivo)}</strong> · reportada {formatoHora(a.emergencia_en)}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
                   {a.conductor?.telefono && (
@@ -156,7 +181,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
               </div>
             )}
             {!cerrada && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+              <div className="no-imprimir" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
                 <div>
                   <h3>Acceso del chofer</h3>
                   <InvitacionChofer
@@ -187,7 +212,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
         );
       })}
 
-      <section className="tarjeta">
+      <section className="tarjeta no-imprimir">
         <details className="agregar" open={asignaciones.length === 0}>
           <summary>+ Agregar {asignaciones.length === 0 ? 'un camión' : 'otro camión'}</summary>
           <FormularioAccion accion={agregarCamion.bind(null, id)} boton="Agregar camión">

@@ -188,3 +188,22 @@ tr.evento-alerta td { background: #fff4e5; }
   padding: 6px 12px; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; min-height: 36px;
 }
 .ver-todos-mapa:hover { background: var(--crema); }
+
+/* Buscador de misiones */
+.filtros-misiones { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(140px, 1fr)) auto; gap: 12px; align-items: end; margin-bottom: 8px; }
+.filtros-misiones .acciones-filtro { display: flex; gap: 8px; align-items: center; }
+@media (max-width: 900px) { .filtros-misiones { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .filtros-misiones { grid-template-columns: 1fr; } }
+
+/* Impresión del resumen de misión (o «Guardar como PDF») */
+@media print {
+  .encabezado, .no-imprimir, .ver-todos-mapa, .leyenda, .leaflet-control-container { display: none !important; }
+  body { background: #fff; font-size: 12px; }
+  .contenido { padding: 0; max-width: none; }
+  .tarjeta { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; margin-bottom: 10px; }
+  .mapa-mision { height: 320px !important; }
+  a { color: inherit; text-decoration: none; }
+}
+
+.casilla { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--gris); margin: 8px 0; flex-direction: row; }
+.casilla input { width: auto; min-height: 0; }
