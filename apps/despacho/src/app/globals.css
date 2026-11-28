@@ -376,3 +376,8 @@ input[hidden], [hidden] { display: none !important; }
 }
 .filtros-reporte { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; align-items: end; }
 @media (max-width: 520px) { .cifra-valor { font-size: 22px; } .grafico .eje, .grafico .valor, .grafico .eje-nombre { font-size: 16px; } }
+
+/* Usuarios: lista de perfiles */
+.perfiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 0 0 8px; }
+.perfiles dt { font-weight: 600; }
+.perfiles dd { margin: 2px 0 0; color: var(--gris); font-size: 14px; }

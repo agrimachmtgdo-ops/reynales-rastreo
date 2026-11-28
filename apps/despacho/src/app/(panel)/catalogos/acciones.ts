@@ -52,6 +52,8 @@ const DATOS: Record<Tabla, (f: FormData) => Record<string, unknown>> = {
     contacto: texto(f, 'contacto'),
     whatsapp: texto(f, 'whatsapp'),
     correo: texto(f, 'correo'),
+    // Solo viene en el formulario del administrador; si no viene, no se toca.
+    ...(f.has('comercial_id') ? { comercial_id: texto(f, 'comercial_id') } : {}),
   }),
   transportistas: (f) => ({
     razon_social: texto(f, 'razon_social'),
