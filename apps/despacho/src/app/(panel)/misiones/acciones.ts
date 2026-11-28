@@ -35,6 +35,12 @@ const texto = (f: FormData, k: string) => {
   const v = f.get(k);
   return typeof v === 'string' && v.trim() !== '' ? v.trim() : null;
 };
+/** «Entrega comprometida» (fecha y hora de Bolivia) en formato con zona horaria; null si está vacía. */
+const fechaHoraBolivia = (f: FormData, k: string): string | null | undefined => {
+  const v = texto(f, k);
+  if (!v) return null;
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) ? `${v}:00-04:00` : undefined;
+};
 const numero = (f: FormData, k: string) => {
   const v = texto(f, k);
   return v === null ? null : Number(v.replace(',', '.'));
@@ -115,6 +121,10 @@ export async function crearMision(_: Resultado | null, f: FormData): Promise<Res
   if (ocupado) return ocupado;
   const repetida = await avisoFacturaRepetida(f);
   if (repetida) return repetida;
+  const comprometida = fechaHoraBolivia(f, 'entrega_comprometida');
+  if (comprometida === undefined) {
+    return { ok: false, mensaje: 'Revise la fecha de entrega comprometida.', campo: 'entrega_comprometida', errorCampo: 'Fecha y hora no válidas.' };
+  }
   const supabase = await crearClienteServidor();
   const { data: mision, error } = await supabase
     .from('misiones')
@@ -129,6 +139,7 @@ export async function crearMision(_: Resultado | null, f: FormData): Promise<Res
       tonelaje_objetivo: numero(f, 'tonelaje_objetivo'),
       telefono_coordinador: coordinador.valor,
       notas: texto(f, 'notas'),
+      entrega_comprometida: comprometida,
     })
     .select('id, codigo')
     .single();
@@ -158,9 +169,14 @@ export async function editarMision(misionId: string, _: Resultado | null, f: For
   if (tonelaje !== null && (Number.isNaN(tonelaje) || tonelaje < 0)) return { ok: false, mensaje: 'El tonelaje debe ser un número.' };
   const coordinador = telefonoCoordinador(f);
   if (coordinador.error) return coordinador.error;
+  const comprometida = fechaHoraBolivia(f, 'entrega_comprometida');
+  if (comprometida === undefined) {
+    return { ok: false, mensaje: 'Revise la fecha de entrega comprometida.', campo: 'entrega_comprometida', errorCampo: 'Fecha y hora no válidas.' };
+  }
   const { error } = await supabase
     .from('misiones')
     .update({
+      entrega_comprometida: comprometida,
       factura: texto(f, 'factura'),
       guia: texto(f, 'guia'),
       dex: texto(f, 'dex'),

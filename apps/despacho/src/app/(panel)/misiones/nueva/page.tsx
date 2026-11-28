@@ -64,6 +64,11 @@ export default async function PaginaNuevaMision() {
           <label>Tipo de carga<input name="tipo_carga" /></label>
           <label>Tonelaje objetivo (TN)<input name="tonelaje_objetivo" inputMode="decimal" /></label>
           <label>WhatsApp del coordinador<input name="telefono_coordinador" placeholder="+591…" /></label>
+          <label>
+            Entrega comprometida (opcional)
+            <input name="entrega_comprometida" type="datetime-local" aria-describedby="ayuda-comprometida" />
+            <span id="ayuda-comprometida" className="ayuda">Fecha y hora prometidas al cliente (hora de Bolivia). Sirve para medir la puntualidad.</span>
+          </label>
         </div>
         <label>Notas<textarea name="notas" rows={2} /></label>
         </>}

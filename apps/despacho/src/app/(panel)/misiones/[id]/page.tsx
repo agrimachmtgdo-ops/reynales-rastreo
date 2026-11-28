@@ -45,6 +45,9 @@ interface Evento {
   detalle: Record<string, unknown>;
 }
 
+/** ISO → «AAAA-MM-DDTHH:MM» en hora de Bolivia, para un campo datetime-local. */
+const aFechaHoraBolivia = (iso: string | null) => (iso ? new Date(Date.parse(iso) - 4 * 3_600_000).toISOString().slice(0, 16) : '');
+
 const nombreEtapa = (etapa: unknown) => (typeof etapa === 'string' ? ETIQUETA_ETAPA[etapa as Etapa] ?? etapa : '');
 
 /** Convierte un evento en una frase que despacho entienda sin conocer el sistema. */
@@ -110,7 +113,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
 
   const { data: mision } = await supabase
     .from('misiones')
-    .select(`id, codigo, etapa, factura, guia, dex, tipo_carga, tonelaje_objetivo, telefono_coordinador, notas,
+    .select(`id, codigo, etapa, factura, guia, dex, tipo_carga, tonelaje_objetivo, telefono_coordinador, notas, entrega_comprometida,
              cliente:clientes(razon_social, pais, whatsapp),
              origen:ubicaciones!misiones_origen_id_fkey(nombre),
              destino:ubicaciones!misiones_destino_id_fkey(nombre, pais, lat, lon)`)
@@ -178,6 +181,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
   const m = mision as unknown as {
     codigo: string; etapa: Etapa; factura: string | null; guia: string | null; dex: string | null;
     tipo_carga: string | null; tonelaje_objetivo: number | null; telefono_coordinador: string | null; notas: string | null;
+    entrega_comprometida: string | null;
     cliente: { razon_social: string; pais: string; whatsapp: string | null } | null; origen: { nombre: string } | null; destino: { nombre: string; pais: string; lat: number; lon: number } | null;
   };
   const puntoDestino: [number, number] | null = m.destino ? [m.destino.lat, m.destino.lon] : null;
@@ -340,6 +344,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
           {m.tonelaje_objetivo ? `· ${m.tonelaje_objetivo} TN objetivo` : ''}
         </p>
         {m.telefono_coordinador && <p style={{ fontSize: 14 }}>Coordinador: {m.telefono_coordinador}</p>}
+        {m.entrega_comprometida && <p style={{ fontSize: 14 }}>Entrega comprometida: {formatoHora(m.entrega_comprometida)}</p>}
         {m.notas && <p style={{ fontSize: 14 }}>Notas: {m.notas}</p>}
         <details className="agregar no-imprimir" style={{ marginBottom: 12 }}>
           <summary>Editar datos de la misión</summary>
@@ -351,6 +356,7 @@ export default async function PaginaDetalleMision({ params }: { params: Promise<
               <label>Tipo de carga<input name="tipo_carga" defaultValue={m.tipo_carga ?? ''} /></label>
               <label>Tonelaje objetivo (TN)<input name="tonelaje_objetivo" inputMode="decimal" defaultValue={m.tonelaje_objetivo ?? ''} /></label>
               <label>WhatsApp del coordinador<input name="telefono_coordinador" defaultValue={m.telefono_coordinador ?? ''} placeholder="+591…" /></label>
+              <label>Entrega comprometida (hora de Bolivia)<input name="entrega_comprometida" type="datetime-local" defaultValue={aFechaHoraBolivia(m.entrega_comprometida)} /></label>
             </div>
             <label>Notas<textarea name="notas" rows={2} defaultValue={m.notas ?? ''} /></label>
           </FormularioAccion>
