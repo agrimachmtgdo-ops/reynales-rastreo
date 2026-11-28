@@ -15,6 +15,7 @@ for f in migrations/*.sql; do
   [[ "$f" == *20261217000100_lotes_balanza.sql ]] && continue
   [[ "$f" == *20261218000100_inspeccion_precinto.sql ]] && continue
   [[ "$f" == *20261219000100_requisitos_documentos.sql ]] && continue
+  [[ "$f" == *20261220000100_prueba_entrega.sql ]] && continue
   echo "→ $f"
   "${PSQL[@]}" -d "$DB" -f "$f"
 done
@@ -94,4 +95,12 @@ if "${PSQL[@]}" -d "$DB" -f revertir/20261219000100_requisitos_documentos.sql 2>
 "${PSQL[@]}" -d "$DB" -c "update public.documentos set etiqueta = 'lista_empaque' where etiqueta not in ('lista_empaque')" >/dev/null
 "${PSQL[@]}" -d "$DB" -f revertir/20261219000100_requisitos_documentos.sql
 "${PSQL[@]}" -d "$DB" -f migrations/20261219000100_requisitos_documentos.sql
+"${PSQL[@]}" -d "$DB" -f migrations/20261220000100_prueba_entrega.sql
+"${PSQL[@]}" -d "$DB" -f tests/101_prueba_entrega.sql
+echo "→ ida y vuelta de la reversión de la prueba de entrega (se detiene si hay pruebas)"
+if "${PSQL[@]}" -d "$DB" -f revertir/20261220000100_prueba_entrega.sql 2>/dev/null; then echo "FALLÓ: la reversión debía detenerse"; exit 1; fi
+"${PSQL[@]}" -d "$DB" -c "delete from public.pruebas_entrega" >/dev/null
+"${PSQL[@]}" -d "$DB" -f revertir/20261220000100_prueba_entrega.sql
+"${PSQL[@]}" -d "$DB" -tA -c "select count(*) from pg_proc where proname = 'reporte_cumplimiento' and prosrc like '%recibido%'" | grep -qx 0
+"${PSQL[@]}" -d "$DB" -f migrations/20261220000100_prueba_entrega.sql
 echo "✔ Todas las pruebas pasaron"

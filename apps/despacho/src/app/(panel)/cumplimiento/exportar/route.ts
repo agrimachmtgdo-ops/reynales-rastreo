@@ -44,11 +44,11 @@ export async function GET(peticion: Request) {
   if (error || !datos) return new Response(`No se pudo exportar: ${error}`, { status: 500 });
   return csv(`cumplimiento-${filtros.desde}-a-${filtros.hasta}.csv`,
     ['Pedido', 'Envío', 'Cliente', 'Incoterm', 'Destino', 'Se mide', 'Fecha comprometida', 'Fecha real', 'Embarque', 'A tiempo',
-      'Días de atraso', 'TN comprometidas', 'TN pesadas', 'Completo', 'OTIF', 'Resultado', 'Causa', 'Misión'],
+      'Días de atraso', 'TN comprometidas', 'TN reales', 'Recepción confirmada', 'Completo', 'OTIF', 'Resultado', 'Causa', 'Misión'],
     datos.envios.map((e) => [
       e.pedido_codigo, e.numero, e.cliente, e.incoterm, e.destino, e.hito === 'carga' ? 'Carga' : 'Entrega',
       formatoFecha(e.comprometida), e.fecha_real ? formatoFecha(e.fecha_real) : '', e.embarque ? formatoFecha(e.embarque) : '',
-      si(e.a_tiempo), e.dias_atraso, num(e.toneladas_comprometidas), num(e.toneladas_reales), si(e.completo), si(e.otif),
+      si(e.a_tiempo), e.dias_atraso, num(e.toneladas_comprometidas), num(e.toneladas_reales), e.recibido_confirmado === undefined ? '' : si(e.recibido_confirmado), si(e.completo), si(e.otif),
       e.otif ? 'A tiempo y completo' : motivoFalla(e), e.otif ? '' : textoCausa(e.causa), e.mision_codigo,
     ]));
 }

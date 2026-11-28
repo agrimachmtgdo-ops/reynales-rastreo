@@ -1164,3 +1164,9 @@ a.boton-cancelar { display: inline-flex; align-items: center; text-decoration: n
 .tabla-requisitos th, .tabla-requisitos td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--borde); }
 .tabla-requisitos tr.inactivo { color: var(--gris); }
 .requisitos-generales { margin-top: 12px; }
+
+/* Prueba de entrega (ola 1 · entrega 4) */
+.prueba-entrega.con-novedad > summary strong { color: var(--rojo); }
+.prueba-entrega .fotos-enlaces img { width: 96px; height: 96px; }
+.texto-alerta { color: var(--rojo); }
+.tabla-mermas td.merma { color: var(--rojo); font-weight: 600; }

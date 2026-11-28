@@ -28,6 +28,8 @@ export interface EnvioCumplimiento {
   dias_atraso: number | null;
   toneladas_comprometidas: number;
   toneladas_reales: number | null;
+  /** true: «Completo» se midió con lo recibido (prueba de entrega de todo el último tramo). */
+  recibido_confirmado?: boolean;
   causa: string | null;
   mision_id: string | null;
   mision_codigo: string | null;

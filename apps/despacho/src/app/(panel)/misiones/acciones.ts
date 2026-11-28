@@ -387,3 +387,29 @@ export async function registrarBalanza(asignacionId: string, misionId: string, _
   revalidatePath('/almacen', 'layout');
   return { ok: true, mensaje: `Balanza guardada: neto ${Number(data).toLocaleString('es-BO', { maximumFractionDigits: 2 })} t.` };
 }
+
+/**
+ * LOGÍSTICA: prueba de entrega de un camión ya entregado (el chofer usó la app anterior o no pudo).
+ * La guía firmada se sube aparte, en Documentos.
+ */
+export async function registrarEntrega(asignacionId: string, misionId: string, porUnidades: boolean, _: Resultado | null, f: FormData): Promise<Resultado> {
+  const recibido = texto(f, 'recibido_por');
+  if (!recibido || recibido.length < 2) return { ok: false, mensaje: 'Escriba quién recibió la carga.', campo: 'recibido_por', errorCampo: 'Dato obligatorio.' };
+  const completo = f.get('completo') === 'si';
+  const datos: Record<string, unknown> = {
+    recibido_por: recibido, completo, novedad: texto(f, 'novedad') ?? 'sin_novedad', nota: texto(f, 'nota'),
+  };
+  if (!completo) {
+    const n = Number((texto(f, 'cantidad') ?? '').replace(',', '.'));
+    if (!texto(f, 'cantidad') || !Number.isFinite(n) || n < 0 || (porUnidades && !Number.isInteger(n))) {
+      return { ok: false, mensaje: porUnidades ? 'Escriba cuántas unidades recibieron (número entero).' : 'Escriba cuántos kg recibieron.', campo: 'cantidad', errorCampo: 'Número no válido.' };
+    }
+    datos[porUnidades ? 'unidades' : 'kg'] = n;
+  }
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc('registrar_entrega_despacho', { p_asignacion: asignacionId, p_datos: datos });
+  if (error) return { ok: false, mensaje: error.message };
+  revalidatePath(`/misiones/${misionId}`);
+  revalidatePath('/cumplimiento');
+  return { ok: true, mensaje: 'Prueba de entrega registrada.' };
+}

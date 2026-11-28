@@ -3,7 +3,7 @@
     "name": "Reynales Chofer",
     "slug": "reynales-chofer",
     "owner": "industrias-reynales-bo",
-    "version": "0.1.7",
+    "version": "0.1.8",
     "scheme": "reynaleschofer",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "bo.reynales.chofer",
-      "versionCode": 8,
+      "versionCode": 9,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -48,7 +48,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "La cámara se usa para escanear el código QR de la invitación.",
+          "cameraPermission": "La cámara se usa para escanear el código QR de la invitación y fotografiar la guía firmada al entregar.",
           "recordAudioAndroid": false
         }
       ],
