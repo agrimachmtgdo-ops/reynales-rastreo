@@ -343,3 +343,36 @@ img, svg, video { max-width: 100%; }
 .visor-imagen { object-fit: contain; background: #222; }
 .boton-texto { background: none; border: 0; padding: 0 4px; min-height: 44px; color: var(--rojo); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 input[hidden], [hidden] { display: none !important; }
+
+/* ---------- Reportes ---------- */
+.titulo-reporte { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.acciones-reporte { display: flex; gap: 8px; flex-wrap: wrap; }
+.cifras { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+.cifra { border: 1px solid var(--borde); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; background: var(--blanco); }
+.cifra-titulo { font-size: 13px; color: var(--gris); font-weight: 600; }
+.cifra-valor { font-size: 26px; font-weight: 700; color: var(--tinta); }
+.cifra-detalle { font-size: 12px; color: var(--gris); }
+.rejilla-graficos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 20px; }
+.grafico { margin: 0; }
+.grafico figcaption { font-weight: 700; margin-bottom: 8px; }
+.grafico svg { width: 100%; height: auto; display: block; overflow: visible; }
+.grafico .rejilla-grafico { stroke: #ece7de; stroke-width: 1; }
+.grafico .eje { font-size: 12px; fill: var(--gris); }
+.grafico .eje-nombre { font-size: 13px; fill: var(--tinta); }
+.grafico .valor { font-size: 12px; fill: var(--tinta); font-weight: 600; }
+.grafico .valor-sobre-claro { font-size: 12px; fill: var(--tinta); font-weight: 700; }
+.grafico .valor-sobre-oscuro { font-size: 12px; fill: #fff; font-weight: 700; }
+.grafico .marca:hover path, .grafico .marca:hover rect[fill]:not([fill="transparent"]) { opacity: .8; }
+.leyenda-grafico { list-style: none; padding: 0; margin: 0 0 8px; display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+.leyenda-grafico .muestra { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.numero-meta { font-size: 22px; }
+.tabla-grafico { margin-top: 6px; font-size: 13px; }
+.tabla-grafico summary { cursor: pointer; color: var(--verde-oscuro); font-weight: 600; min-height: 32px; }
+.tabla-reporte td { font-size: 13px; vertical-align: top; }
+@media print {
+  .tabla-grafico[open] summary, .tabla-grafico summary { display: none; }
+  .cifra { break-inside: avoid; }
+  .grafico { break-inside: avoid; }
+}
+.filtros-reporte { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; align-items: end; }
+@media (max-width: 520px) { .cifra-valor { font-size: 22px; } .grafico .eje, .grafico .valor, .grafico .eje-nombre { font-size: 16px; } }
