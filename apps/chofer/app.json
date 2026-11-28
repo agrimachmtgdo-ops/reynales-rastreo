@@ -3,7 +3,7 @@
     "name": "Reynales Chofer",
     "slug": "reynales-chofer",
     "owner": "industrias-reynales-bo",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "scheme": "reynaleschofer",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "bo.reynales.chofer",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

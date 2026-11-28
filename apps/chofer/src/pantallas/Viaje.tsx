@@ -6,11 +6,22 @@ import { Boton } from '../componentes';
 import { e, F } from '../estilos';
 import { contarPendientes, vaciarCola } from '../cola';
 import { guardarEstado, leerEstado, type EstadoRastreo } from '../estado';
-import { enviarPendientes } from '../envio';
+import { enviarTodo } from '../envio';
 import { detenerRastreo, iniciarRastreo, rastreoActivo, type ResultadoPermisos } from '../rastreo';
 import type { Viaje as TViaje } from '../tipos';
 
 const VELOCIDAD_BLOQUEO_KMH = 10;
+// Una velocidad más vieja que esto no bloquea los botones (el GPS pudo perder señal con el camión en marcha).
+const VELOCIDAD_VIGENTE_MS = 2 * 60 * 1000;
+
+/** Traduce errores técnicos a frases para el chofer. */
+function mensajeSimple(err: unknown): string {
+  const texto = err instanceof Error ? err.message : String(err ?? '');
+  if (/network|fetch|abort|timeout|conex/i.test(texto)) return 'No hay señal. Intente de nuevo cuando tenga cobertura.';
+  if (/No se puede pasar/i.test(texto)) return 'Esta etapa ya estaba registrada. La pantalla se actualizó.';
+  if (/Sin acceso/i.test(texto)) return 'Este teléfono perdió el acceso al viaje. Avise a despacho.';
+  return texto || 'No se pudo registrar. Intente de nuevo.';
+}
 
 const MENSAJE_PERMISOS: Record<Exclude<ResultadoPermisos, 'ok'>, string> = {
   gps_apagado: 'El GPS está apagado. Enciéndalo e intente de nuevo.',
@@ -50,8 +61,9 @@ export default function Viaje({
         await vaciarCola();
         await guardarEstado({ asignacionId: viaje.asignacion_id, etapa: viaje.etapa, bytesUsados: 0, modoPeru: viaje.etapa === 'cruzo_frontera' });
       }
-      if (!['programado', 'entregado', 'cancelado'].includes(viaje.etapa)) {
-        await iniciarRastreo();
+      if (!['programado', 'entregado', 'cancelado'].includes(viaje.etapa) && !s.sinAcceso) {
+        const permisos = await iniciarRastreo();
+        if (permisos !== 'ok') setError(MENSAJE_PERMISOS[permisos]);
       }
       await refrescar();
     })();
@@ -59,7 +71,9 @@ export default function Viaje({
     return () => clearInterval(reloj);
   }, [viaje, refrescar]);
 
-  const enMovimiento = (estado?.ultimaVelocidadKmh ?? 0) > VELOCIDAD_BLOQUEO_KMH && activo;
+  const velocidadVigente =
+    estado?.ultimoGuardado != null && Date.now() - estado.ultimoGuardado.t < VELOCIDAD_VIGENTE_MS;
+  const enMovimiento = velocidadVigente && (estado?.ultimaVelocidadKmh ?? 0) > VELOCIDAD_BLOQUEO_KMH && activo;
 
   async function marcar(nueva: EtapaChofer) {
     setCargando(true);
@@ -72,8 +86,8 @@ export default function Viaje({
           return;
         }
       }
-      // Antes de entregar se envía todo lo pendiente.
-      if (nueva === 'entregado') await enviarPendientes(true);
+      // Antes de entregar se intenta enviar todo lo pendiente (lo que quede se envía después).
+      const quedan = nueva === 'entregado' ? await enviarTodo() : 0;
 
       const { error } = await supabase.rpc('marcar_etapa_chofer', { p_asignacion: viaje.asignacion_id, p_etapa: nueva });
       if (error) throw new Error(error.message);
@@ -82,11 +96,22 @@ export default function Viaje({
 
       if (nueva === 'entregado') {
         await detenerRastreo();
-        Alert.alert('Viaje entregado', 'Gracias. El rastreo se detuvo.');
+        await guardarEstado({ viaje: null });
+        Alert.alert(
+          'Viaje entregado',
+          quedan > 0
+            ? `Gracias. El rastreo se detuvo. Quedan ${quedan} ubicaciones guardadas: se enviarán solas la próxima vez que abra la app con señal.`
+            : 'Gracias. El rastreo se detuvo.',
+        );
         alTerminar();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo registrar. Revise su señal.');
+      if (nueva === 'cargado') {
+        // El viaje no se inició: se apaga el GPS y se borra lo capturado (privacidad del chofer).
+        await detenerRastreo();
+        await vaciarCola();
+      }
+      setError(mensajeSimple(err));
     } finally {
       setCargando(false);
       await refrescar();
@@ -180,6 +205,15 @@ export default function Viaje({
         </View>
 
         {error && <Text style={e.error}>{error}</Text>}
+
+        {estado?.sinAcceso && (
+          <View style={[e.tarjeta, { borderColor: MARCA.dorado, borderWidth: 2 }]}>
+            <Text style={e.titulo}>Avise a despacho</Text>
+            <Text style={e.texto}>
+              Este teléfono perdió el acceso al viaje y el rastreo se detuvo. Pida a despacho un código nuevo y actívelo.
+            </Text>
+          </View>
+        )}
 
         {enMovimiento ? (
           <View style={[e.tarjeta, { backgroundColor: MARCA.cafe }]}>
