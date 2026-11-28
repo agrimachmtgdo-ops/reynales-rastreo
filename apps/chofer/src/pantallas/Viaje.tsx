@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Image, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { ETIQUETA_ETAPA, MARCA, type Etapa, type EtapaChofer } from '@reynales/shared';
 import { supabase } from '../supabase';
@@ -44,6 +44,9 @@ export default function Viaje({
   const [revisando, setRevisando] = useState(false);
   // Pantalla de prueba de entrega (último tramo; el transbordo lo confirma el operador).
   const [entregando, setEntregando] = useState(false);
+  // Mientras el chofer llena la entrega, la pantalla no se refresca sola.
+  const entregandoRef = useRef(false);
+  entregandoRef.current = entregando;
   // El servidor aún no tiene la prueba de entrega: se usa la confirmación simple.
   const [sinPrueba, setSinPrueba] = useState(false);
 
@@ -69,7 +72,7 @@ export default function Viaje({
       }
       await refrescar();
     })();
-    const reloj = setInterval(refrescar, 5000);
+    const reloj = setInterval(() => { if (!entregandoRef.current) void refrescar(); }, 5000);
     return () => clearInterval(reloj);
   }, [viaje, refrescar]);
 
