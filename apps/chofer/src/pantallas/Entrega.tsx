@@ -150,18 +150,24 @@ export default function Entrega({
     return r;
   };
 
+  // La pantalla de viaje se refresca cada 5 s y entrega funciones nuevas en cada refresco:
+  // se guarda la última en una referencia para que el detalle de la carga se pida UNA sola vez
+  // (antes se volvía a pedir en cada refresco y el formulario se borraba mientras el chofer escribía).
+  const sinPrueba = useRef(alSinPrueba);
+  sinPrueba.current = alSinPrueba;
+
   const cargar = useCallback(async () => {
     setCargandoDatos(true);
     setError(null);
     const { data, error: err } = await supabase.rpc('carga_para_entrega', { p_asignacion: viaje.asignacion_id });
     setCargandoDatos(false);
     if (err) {
-      if (err.code === 'PGRST202') return alSinPrueba();
+      if (err.code === 'PGRST202') return sinPrueba.current();
       setError(mensajeSimple(err, 'No se pudo cargar el detalle de la carga. Intente de nuevo.'));
       return;
     }
     setEsperado(data as Esperado);
-  }, [viaje.asignacion_id, alSinPrueba]);
+  }, [viaje.asignacion_id]);
 
   useEffect(() => { void cargar(); }, [cargar]);
 
