@@ -106,6 +106,9 @@ select pg_temp.verificar(
 
 select public.marcar_etapa_chofer(:'asig_id', 'cargado') \g /dev/null
 reset role;
+-- Para la prueba, el viaje se inició hace una hora (las posiciones de abajo son de ese lapso).
+update public.eventos set ocurrido_en = to_timestamp(:t0 - 3600)
+ where asignacion_id = :'asig_id' and etapa_nueva = 'cargado';
 
 -- ---------- Otro teléfono intenta usar el mismo código ----------
 select set_config('request.jwt.claims', json_build_object('sub', :'extrano_id', 'is_anonymous', true)::text, false) \g /dev/null
@@ -135,9 +138,12 @@ select public.registrar_posiciones(:'asig_id', jsonb_build_array(
   jsonb_build_array((:t0 - 1800), -1656700, -6903800,  8, 15, 0),  -- Desaguadero: en_frontera
   jsonb_build_array((:t0 - 1200), -1655000, -6907000, 30, 12, 0),  -- lado peruano, fuera de la geocerca
   jsonb_build_array((:t0 - 600),  9999999, -6907000, 30, 12, 0),  -- latitud inválida: se descarta
-  jsonb_build_array(1, 2, 3)                                                                                 -- mal formado: se descarta
+  jsonb_build_array(1, 2, 3),                                                                                -- mal formado: se descarta
+  jsonb_build_array('x', -1600000, -6950000, 30, 12, 0),                                                     -- texto en vez de número: se descarta sin rechazar el lote
+  jsonb_build_array((:t0 - 4000), -1980500, -6395600, 0, 10, 0)                                              -- antes de "Iniciar viaje": se descarta (privacidad)
 )) as r \gset
-select pg_temp.verificar((:'r'::jsonb ->> 'nuevas')::int = 4, 'se guardan 4 posiciones válidas y se descartan 2');
+select pg_temp.verificar((:'r'::jsonb ->> 'nuevas')::int = 4, 'se guardan 4 posiciones válidas');
+select pg_temp.verificar((:'r'::jsonb ->> 'descartadas')::int = 4, 'se informan 4 descartadas (inválida, mal formadas y previa al viaje)');
 select pg_temp.verificar((:'r'::jsonb ->> 'etapa') = 'cruzo_frontera', 'geocercas: fábrica → en ruta → frontera → cruzó');
 select pg_temp.verificar((:'r'::jsonb ->> 'modo_peru')::boolean, 'la app pasa a modo Perú');
 
@@ -153,7 +159,7 @@ reset role;
 select pg_temp.verificar((select etapa = 'cruzo_frontera' from public.misiones where id = :'mision_id'), 'la etapa de la misión sigue al camión');
 select pg_temp.verificar((select count(*) = 3 from public.eventos where asignacion_id = :'asig_id' and origen = 'geocerca'), 'tres cambios de etapa por geocerca registrados');
 select pg_temp.verificar((select count(*) = 1 from public.eventos where tipo = 'incidencia' and detalle ->> 'motivo' = 'ubicacion_simulada'), 'ubicación simulada registrada como incidencia');
-select pg_temp.verificar((select ultima_senal > now() - interval '6 min' and ultima_lat < -15.9 from public.asignaciones where id = :'asig_id'), 'última posición actualizada para el mapa');
+select pg_temp.verificar((select ultima_senal = to_timestamp(:t0 - 1200) and ultima_lat < -16.5 from public.asignaciones where id = :'asig_id'), 'el mapa muestra la última posición real (no la simulada)');
 
 -- ---------- Despacho ve el recorrido ----------
 select set_config('request.jwt.claims', json_build_object('sub', :'despacho_id')::text, false) \g /dev/null
@@ -166,10 +172,30 @@ select set_config('request.jwt.claims', json_build_object('sub', :'chofer_id', '
 set role authenticated;
 select public.marcar_etapa_chofer(:'asig_id', 'entregado') \g /dev/null
 select pg_temp.verificar(public.mi_viaje() is null, 'tras entregar, el chofer ya no tiene viaje activo');
-select pg_temp.verificar(
-  not (public.registrar_posiciones(:'asig_id', jsonb_build_array(
-     jsonb_build_array(:t0, -1584000, -7002000, 0, 5, 0))) ->> 'rastrear')::boolean,
-  'tras entregar, el servidor pide apagar el GPS');
+-- Último tramo que quedó sin enviar (sin señal en el destino) y un punto posterior a la entrega.
+select public.registrar_posiciones(:'asig_id', jsonb_build_array(
+  jsonb_build_array((:t0 - 100), -1584000, -7002000, 0, 5, 0),
+  jsonb_build_array(extract(epoch from now())::bigint + 120, -1584000, -7002000, 0, 5, 0))) as r \gset
+select pg_temp.verificar(not (:'r'::jsonb ->> 'rastrear')::boolean, 'tras entregar, el servidor pide apagar el GPS');
+select pg_temp.verificar((:'r'::jsonb ->> 'nuevas')::int = 1, 'tras entregar se acepta el último tramo anterior a la entrega, no lo posterior');
 reset role;
 select pg_temp.verificar((select etapa = 'entregado' from public.misiones where id = :'mision_id'), 'misión entregada');
-select pg_temp.verificar((select count(*) = 5 from public.posiciones where asignacion_id = :'asig_id'), 'no se guardan posiciones después de entregar');
+select pg_temp.verificar((select count(*) = 6 from public.posiciones where asignacion_id = :'asig_id'), 'no se guardan posiciones posteriores a la entrega');
+
+-- Un lote atrasado o una geocerca ya no puede reabrir un viaje entregado.
+select pg_temp.verificar(
+  public.aplicar_etapa(:'asig_id', 'en_frontera', 'geocerca') = 'entregado',
+  'la geocerca no hace retroceder la etapa');
+select pg_temp.verificar(
+  public.aplicar_etapa(:'asig_id', 'en_ruta', 'chofer') = 'entregado',
+  'el chofer no hace retroceder la etapa');
+
+-- Otro teléfono anónimo no puede subir el último tramo.
+select set_config('request.jwt.claims', json_build_object('sub', :'extrano_id', 'is_anonymous', true)::text, false) \g /dev/null
+set role authenticated;
+do $$ begin
+  perform public.registrar_posiciones((select id from public.asignaciones limit 1), '[]'::jsonb);
+  raise exception 'FALLÓ: otro teléfono subió posiciones';
+exception when insufficient_privilege then raise notice 'ok - otro teléfono no puede subir posiciones';
+end $$;
+reset role;

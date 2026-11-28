@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Linking from 'expo-linking';
@@ -8,9 +8,10 @@ import { useFonts } from 'expo-font';
 import { Montserrat_400Regular } from '@expo-google-fonts/montserrat/400Regular';
 import { Montserrat_600SemiBold } from '@expo-google-fonts/montserrat/600SemiBold';
 import { Montserrat_700Bold } from '@expo-google-fonts/montserrat/700Bold';
-import { MARCA } from '@reynales/shared';
+import { MARCA, type Etapa } from '@reynales/shared';
 import { asegurarSesion, supabase } from './src/supabase';
-import { reiniciarEstado } from './src/estado';
+import { guardarEstado, leerEstado, reiniciarEstado } from './src/estado';
+import { enviarPendientes } from './src/envio';
 import { e } from './src/estilos';
 import Activar, { extraerCodigo } from './src/pantallas/Activar';
 import Consentimiento from './src/pantallas/Consentimiento';
@@ -20,6 +21,15 @@ import type { Viaje as TViaje } from './src/tipos';
 
 type Pantalla = 'cargando' | 'activar' | 'consentimiento' | 'viaje' | 'ajustes';
 
+const ETAPAS_ACTIVAS: Etapa[] = ['cargado', 'en_ruta', 'en_frontera', 'cruzo_frontera'];
+
+/** Guarda el viaje en el teléfono; si es otro viaje, empieza de cero (sin puntos del anterior). */
+async function recordarViaje(v: TViaje) {
+  const s = await leerEstado();
+  if (s.asignacionId === v.asignacion_id) await guardarEstado({ viaje: v });
+  else await reiniciarEstado(v.asignacion_id, v.etapa, v);
+}
+
 export default function App() {
   const [fuentes] = useFonts({ Montserrat_400Regular, Montserrat_600SemiBold, Montserrat_700Bold });
   const [pantalla, setPantalla] = useState<Pantalla>('cargando');
@@ -28,6 +38,7 @@ export default function App() {
   const [aviso, setAviso] = useState<string | null>(null);
 
   const mostrarViaje = useCallback((v: TViaje | null) => {
+    if (v) void recordarViaje(v);
     setViaje(v);
     if (!v) setPantalla('activar');
     else if (v.requiere_consentimiento) setPantalla('consentimiento');
@@ -42,10 +53,22 @@ export default function App() {
       await asegurarSesion();
       const { data, error } = await supabase.rpc('mi_viaje');
       if (error) throw error;
-      mostrarViaje((data as TViaje | null) ?? null);
+      const v = (data as TViaje | null) ?? null;
+      if (!v) await guardarEstado({ viaje: null });
+      mostrarViaje(v);
+      // Envía lo que haya quedado pendiente (por ejemplo, el último tramo de un viaje ya entregado).
+      void enviarPendientes(true);
     } catch {
-      setAviso('Sin conexión. Si ya inició el viaje, el rastreo sigue guardando su ubicación.');
-      setPantalla('activar');
+      // Sin señal: si había un viaje en curso, se muestra desde el teléfono y el rastreo sigue.
+      const s = await leerEstado();
+      if (s.viaje && !s.sinAcceso && s.etapa && ETAPAS_ACTIVAS.includes(s.etapa)) {
+        setAviso('Sin conexión. Su viaje sigue activo y la ubicación se guarda en el teléfono hasta recuperar señal.');
+        setViaje({ ...s.viaje, etapa: s.etapa, requiere_consentimiento: false });
+        setPantalla('viaje');
+      } else {
+        setAviso('Sin conexión. Revise su señal y toque aquí para reintentar.');
+        setPantalla('activar');
+      }
     }
   }, [mostrarViaje]);
 
@@ -67,12 +90,20 @@ export default function App() {
     <SafeAreaProvider>
       <SafeAreaView style={e.pantalla}>
         <StatusBar style="dark" />
-        {aviso && <Text style={[e.textoChico, { padding: 12, backgroundColor: '#FBECC0' }]}>{aviso}</Text>}
+        {aviso && (
+          <Pressable onPress={() => void cargar()} accessibilityRole="button" accessibilityHint="Vuelve a intentar la conexión">
+            <Text style={[e.texto, { padding: 12, backgroundColor: '#FBECC0' }]}>{aviso}</Text>
+          </Pressable>
+        )}
         {pantalla === 'cargando' && (
           <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator size="large" color={MARCA.verde} /></View>
         )}
         {pantalla === 'activar' && (
-          <Activar key={codigoEnlace} codigoInicial={codigoEnlace} alActivar={(v) => { void reiniciarEstado(v.asignacion_id, v.etapa); mostrarViaje(v); }} />
+          <Activar key={codigoEnlace} codigoInicial={codigoEnlace} alActivar={async (v) => {
+            await enviarPendientes(true); // si quedó algo del viaje anterior, se intenta enviar antes
+            await reiniciarEstado(v.asignacion_id, v.etapa, v);
+            mostrarViaje(v);
+          }} />
         )}
         {pantalla === 'consentimiento' && viaje && <Consentimiento viaje={viaje} alAceptar={mostrarViaje} />}
         {pantalla === 'viaje' && viaje && (

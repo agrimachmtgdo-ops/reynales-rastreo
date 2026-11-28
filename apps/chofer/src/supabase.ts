@@ -9,7 +9,17 @@ if (!url || !clave) {
   console.warn('Faltan EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_ANON_KEY en apps/chofer/.env');
 }
 
+/** Ninguna petición espera más de 20 s: con señal inestable, un envío colgado bloqueaba los demás. */
+const LIMITE_MS = 20_000;
+const fetchConLimite: typeof fetch = (entrada, opciones) => {
+  const control = new AbortController();
+  const reloj = setTimeout(() => control.abort(), LIMITE_MS);
+  opciones?.signal?.addEventListener('abort', () => control.abort());
+  return fetch(entrada, { ...opciones, signal: control.signal }).finally(() => clearTimeout(reloj));
+};
+
 export const supabase = createClient(url ?? 'http://localhost', clave ?? 'sin-clave', {
+  global: { fetch: fetchConLimite },
   auth: {
     storage: Storage,
     persistSession: true,
