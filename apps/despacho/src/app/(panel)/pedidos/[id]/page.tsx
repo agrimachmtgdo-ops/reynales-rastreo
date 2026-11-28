@@ -109,7 +109,7 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
         {envios.length > 0 && <h3>{programable ? `Envíos confirmados (${plural(envios.length, 'envío', 'envíos')})` : 'Envíos'}</h3>}
         {envios.length > 0 && <div className="tabla-desplazable">
           <table>
-            <thead><tr><th>N°</th><th>Toneladas</th><th>Carga en fábrica</th><th>Entrega comprometida</th><th>Entrega vigente</th><th>Estado</th></tr></thead>
+            <thead><tr><th>N°</th><th>Toneladas</th><th>Carga en fábrica</th><th>Entrega comprometida</th><th>Entrega vigente</th><th>Estado</th><th>Camiones</th></tr></thead>
             <tbody>{envios.map((e) => {
               const movido = !!e.entrega_comprometida && e.entrega_vigente !== e.entrega_comprometida;
               return (
@@ -123,6 +123,7 @@ export default async function PaginaPedido({ params }: { params: Promise<{ id: s
                     {movido && <span className="etiqueta reprogramado" title="La fecha vigente es distinta de la comprometida">{e.entrega_vigente > e.entrega_comprometida! ? 'Atrasado' : 'Adelantado'}</span>}
                   </td>
                   <td><span className={`etiqueta envio-${e.estado}`}>{ESTADO_ENVIO[e.estado] ?? e.estado}</span></td>
+                  <td>{e.estado === 'planificado' || e.estado === 'cancelado' ? '—' : <Link href={`/programa/${e.id}`}>Camiones y misión</Link>}</td>
                 </tr>
               );
             })}</tbody>

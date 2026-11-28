@@ -447,3 +447,46 @@ tr.fila-error td { background: #fdf1ef; }
 .fila-envio input { width: 100%; min-width: 0; }
 .fila-envio.con-aviso { background: #fff8e1; }
 .aviso-fila { grid-column: 2 / -1; margin: 4px 0 0; color: #7a5a00; font-size: 14px; font-weight: 600; }
+
+/* Programa de despachos y pedido de camiones (C3) */
+.resumen-semaforo { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 15px; }
+.resumen-semaforo li { display: flex; align-items: center; gap: 6px; }
+.luz { display: inline-block; width: 12px; height: 12px; border-radius: 50%; flex: none; border: 2px solid transparent; }
+.luz-rojo { background: var(--rojo); }
+.luz-amarillo { background: var(--dorado); }
+.luz-a_tiempo { background: var(--blanco); border-color: var(--gris); }
+.luz-listo { background: var(--verde); }
+.luz-en_curso { background: #1d4f80; }
+.semaforo { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; white-space: nowrap; }
+.semaforo.luz-rojo, .semaforo.luz-amarillo, .semaforo.luz-a_tiempo, .semaforo.luz-listo, .semaforo.luz-en_curso { background: none; border: 0; }
+.semaforo.luz-rojo { color: var(--rojo); }
+.semaforo.luz-amarillo { color: #7a5a00; }
+.semaforo.luz-listo { color: #006b2d; }
+.semaforo.luz-en_curso { color: #1d4f80; }
+.tabla-programa td { vertical-align: top; }
+.tabla-programa .boton { white-space: nowrap; }
+.solicitud { border: 1px solid var(--borde); border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--blanco); }
+.solicitud-pedido { border-left: 4px solid var(--dorado); }
+.solicitud-confirmado { border-left: 4px solid var(--verde); }
+.solicitud-rechazado, .solicitud-anulado { border-left: 4px solid var(--borde); opacity: .8; }
+.etiqueta.solicitud-pedido { background: #fbecc0; color: #7a5a00; }
+.etiqueta.solicitud-confirmado { background: #d9f0e2; color: #006b2d; }
+.etiqueta.solicitud-rechazado { background: #f3d6d2; color: var(--rojo); }
+.etiqueta.solicitud-anulado { background: #ece7de; }
+.mensaje-whatsapp { white-space: pre-wrap; font-family: inherit; font-size: 14px; background: #e7f6ec; border-radius: 8px; padding: 10px; margin: 0 0 8px; }
+.camiones-solicitud { margin-top: 12px; }
+.camiones-solicitud h4 { margin: 0 0 8px; }
+.acciones-camion { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+.acciones-camion form { margin: 0; }
+.acciones-camion summary { cursor: pointer; color: var(--rojo); padding: 10px 0; }
+.pedir-camiones { margin-top: 8px; }
+.pedir-camiones > summary { cursor: pointer; font-weight: 600; color: var(--cafe); padding: 10px 0; }
+.tabla-programa .numero, .tabla-programa td:nth-child(6) a { white-space: nowrap; }
+@media (max-width: 700px) {
+  .tabla-programa thead { display: none; }
+  .tabla-programa, .tabla-programa tbody, .tabla-programa tr, .tabla-programa td { display: block; width: 100%; }
+  .tabla-programa tr { border-bottom: 1px solid var(--borde); padding: 10px 0; }
+  .tabla-programa td { border: 0; padding: 3px 0; text-align: left; }
+  .tabla-programa td[data-etiqueta]::before { content: attr(data-etiqueta) ": "; color: var(--gris); font-size: 14px; }
+  .tabla-programa td:last-child { padding-top: 8px; }
+}
