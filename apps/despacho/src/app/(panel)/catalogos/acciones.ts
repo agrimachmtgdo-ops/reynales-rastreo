@@ -87,7 +87,8 @@ const DATOS: Record<Tabla, (f: FormData) => Record<string, unknown>> = {
   productos: (f) => ({
     nombre: texto(f, 'nombre'),
     codigo: texto(f, 'codigo')?.toUpperCase() ?? null,
-    presentacion: texto(f, 'presentacion'),
+    // «Otra» (o ninguna pastilla elegida) toma el texto escrito a mano.
+    presentacion: [null, '__otra'].includes(texto(f, 'presentacion') ?? null) ? texto(f, 'presentacion_otra') : texto(f, 'presentacion'),
     partida_arancelaria: texto(f, 'partida_arancelaria'),
   }),
 };
