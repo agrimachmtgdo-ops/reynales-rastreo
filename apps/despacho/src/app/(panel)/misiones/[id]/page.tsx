@@ -471,14 +471,14 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
                   </div>
                   {(ultimoTramo === 1 || abierto) && (
                     <div className="acciones-tramo no-imprimir">
-                      <details className="agregar" open={delTramo.length === 0 && n === 1}>
+                      <details className="agregar panel-nuevo" open={delTramo.length === 0 && n === 1}>
                         <summary>+ Agregar {delTramo.length === 0 ? 'un camión' : 'otro camión'} a este tramo</summary>
-                        <FormularioAccion accion={agregarCamion.bind(null, id, n)} boton="Agregar camión">
+                        <FormularioAccion accion={agregarCamion.bind(null, id, n)} boton={`Agregar camión al tramo ${n}`}>
                           <CamposCamion catalogos={catalogos} transportistaInicial={n > 1 ? tramo?.transportista_id : undefined} declaradas={n > 1} />
                         </FormularioAccion>
                       </details>
                       {n > 1 && tramo && abierto && (
-                        <details className="agregar">
+                        <details className="agregar panel-nuevo">
                           <summary>Cambiar empresa o lugar del transbordo</summary>
                           <FormularioAccion accion={editarTramo.bind(null, id, tramo.id)} boton="Guardar tramo" claseBoton="boton secundario">
                             <div className="rejilla">

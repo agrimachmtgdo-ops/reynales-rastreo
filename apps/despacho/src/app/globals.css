@@ -989,3 +989,15 @@ textarea { line-height: 1.5; }
 .codigo-corto { letter-spacing: 1px; font-family: ui-monospace, monospace; }
 .acciones-camion { border-top: 1px solid var(--borde); margin-top: 10px; padding-top: 4px; display: flex; flex-direction: column; }
 .acciones-camion .agregar summary, .camion-tramo > .agregar summary { font-size: 14px; }
+
+/* ---- Formulario «Agregar camión» dentro de un tramo ---- */
+.panel-nuevo[open] { border: 1px dashed var(--dorado, #E2A900); border-radius: 10px; padding: 4px 16px 16px; background: #fffcf3; }
+.panel-nuevo[open] > summary { border-bottom: 1px solid var(--borde); margin: 0 0 12px; }
+.grupo-campos { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
+.grupo-campos > legend { font-weight: 700; font-size: 14px; color: var(--cafe); padding: 0; margin-bottom: 6px; }
+.rejilla-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 16px; align-items: start; }
+@media (max-width: 720px) { .rejilla-3 { grid-template-columns: 1fr; } }
+.ayuda-campo { display: block; font-size: 13px; font-weight: 400; color: #6b5a4a; margin-top: -4px; margin-bottom: 8px; }
+.casilla-secundaria { font-size: 14px; color: #6b5a4a; align-items: flex-start; gap: 8px; margin: 4px 0 12px; }
+.casilla-secundaria input { width: 18px; height: 18px; margin-top: 2px; flex: none; }
+@media (max-width: 520px) { .panel-nuevo[open] { padding: 4px 10px 12px; } }

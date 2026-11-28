@@ -26,58 +26,73 @@ export default function CamposCamion({
     return <p className="alerta">Primero registre transportistas, choferes y vehículos en <Link href="/catalogos?pestana=transportistas">Catálogos</Link>.</p>;
   }
   const faltan = transportista !== '' && (conductores.length === 0 || vehiculos.length === 0);
+  const sugerida = transportistaInicial && transportista === transportistaInicial;
   return (
     <>
-      <div className="rejilla">
-        <label>
-          Transportista <Req />
-          <select name="transportista_id" required value={transportista} onChange={(e) => setTransportista(e.target.value)}>
-            <option value="" disabled>Seleccione…</option>
-            {catalogos.transportistas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-          </select>
-        </label>
-        <label>
-          Chofer <Req />
-          <select name="conductor_id" required key={`c-${transportista}`} defaultValue={conductores.length === 1 ? conductores[0]!.id : ''} disabled={!transportista}>
-            <option value="" disabled>{transportista ? 'Seleccione…' : 'Elija primero el transportista'}</option>
-            {conductores.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-          </select>
-        </label>
-        <label>
-          Vehículo (placa) <Req />
-          <select name="vehiculo_id" required key={`v-${transportista}`} defaultValue={vehiculos.length === 1 ? vehiculos[0]!.id : ''} disabled={!transportista}>
-            <option value="" disabled>{transportista ? 'Seleccione…' : 'Elija primero el transportista'}</option>
-            {vehiculos.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
-          </select>
-        </label>
-        {declaradas ? (
-          <>
-            <label>
-              Toneladas declaradas en el transbordo
-              <input name="toneladas_declaradas" inputMode="decimal" />
-            </label>
-            <label>
-              N.º de precinto <Req />
-              <input name="precinto" required autoComplete="off" />
-            </label>
-          </>
-        ) : (
+      <fieldset className="grupo-campos">
+        <legend>¿Quién lleva la carga?</legend>
+        <div className="rejilla rejilla-3">
           <label>
-            Toneladas cargadas (balanza)
-            <input name="toneladas_cargadas" inputMode="decimal" />
+            Transportista <Req />
+            <select name="transportista_id" required value={transportista} onChange={(e) => setTransportista(e.target.value)}>
+              <option value="" disabled>Seleccione…</option>
+              {catalogos.transportistas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+            </select>
+            <span className="ayuda-campo">
+              {sugerida ? 'Empresa prevista para este tramo.' : transportista ? `${conductores.length} ${conductores.length === 1 ? 'chofer' : 'choferes'} · ${vehiculos.length} ${vehiculos.length === 1 ? 'vehículo' : 'vehículos'}` : 'Al elegirla se cargan sus choferes y placas.'}
+            </span>
           </label>
+          <label>
+            Chofer <Req />
+            <select name="conductor_id" required key={`c-${transportista}`} defaultValue={conductores.length === 1 ? conductores[0]!.id : ''} disabled={!transportista}>
+              <option value="" disabled>{transportista ? 'Seleccione…' : 'Primero el transportista'}</option>
+              {conductores.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </label>
+          <label>
+            Placa del camión <Req />
+            <select name="vehiculo_id" required key={`v-${transportista}`} defaultValue={vehiculos.length === 1 ? vehiculos[0]!.id : ''} disabled={!transportista}>
+              <option value="" disabled>{transportista ? 'Seleccione…' : 'Primero el transportista'}</option>
+              {vehiculos.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
+            </select>
+          </label>
+        </div>
+        {faltan && (
+          <p className="alerta">
+            Este transportista no tiene {conductores.length === 0 && vehiculos.length === 0 ? 'choferes ni vehículos' : conductores.length === 0 ? 'choferes' : 'vehículos'} registrados.
+            Agréguelos en <Link href={`/catalogos?pestana=${conductores.length === 0 ? 'conductores' : 'vehiculos'}`}>Catálogos</Link>.
+          </p>
         )}
-      </div>
-      <label className="casilla">
+      </fieldset>
+      <fieldset className="grupo-campos">
+        <legend>Carga</legend>
+        <div className="rejilla rejilla-3">
+          {declaradas ? (
+            <>
+              <label>
+                Toneladas declaradas
+                <input name="toneladas_declaradas" inputMode="decimal" placeholder="Ej. 29,0" />
+                <span className="ayuda-campo">Las que recibe en el transbordo. Puede anotarlas después.</span>
+              </label>
+              <label>
+                N.º de precinto <Req />
+                <input name="precinto" required autoComplete="off" placeholder="Ej. 004512" />
+                <span className="ayuda-campo">El precinto que se coloca al cargar en el transbordo.</span>
+              </label>
+            </>
+          ) : (
+            <label>
+              Toneladas del ticket de balanza
+              <input name="toneladas_cargadas" inputMode="decimal" placeholder="Ej. 29,4" />
+              <span className="ayuda-campo">Si aún no se pesó, déjelo vacío y anótelo después.</span>
+            </label>
+          )}
+        </div>
+      </fieldset>
+      <label className="casilla casilla-secundaria">
         <input type="checkbox" name="asignar_igual" />
-        Asignar igual aunque el chofer o el camión estén en otro viaje activo
+        <span>Permitir aunque el chofer o el camión ya estén en otro viaje activo</span>
       </label>
-      {faltan && (
-        <p className="alerta">
-          Este transportista no tiene {conductores.length === 0 && vehiculos.length === 0 ? 'choferes ni vehículos' : conductores.length === 0 ? 'choferes' : 'vehículos'} registrados.
-          Agréguelos en <Link href={`/catalogos?pestana=${conductores.length === 0 ? 'conductores' : 'vehiculos'}`}>Catálogos</Link>.
-        </p>
-      )}
     </>
   );
 }
