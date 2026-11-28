@@ -9,6 +9,8 @@ import {
 } from '@/lib/tipos';
 import CamposCamion from '@/componentes/CamposCamion';
 import CargaCamion from '@/componentes/CargaCamion';
+import InspeccionCamion from '@/componentes/InspeccionCamion';
+import { cargarInspecciones } from '@/lib/inspeccionServidor';
 import { cantidadLote, nombrePresentacion, TOLERANCIA_LOTES_PCT, type LoteCamion } from '@/lib/lotes';
 import SelectorProducto from '@/componentes/SelectorProducto';
 import { cargarProductos } from '@/lib/productosServidor';
@@ -112,6 +114,24 @@ function describirEvento(e: Evento, chofer: string, entregaEnTransbordo = false)
     const cantidad = cantidadLote({ presentacion: String(d.presentacion) as LoteCamion['presentacion'], unidades: d.unidades == null ? null : Number(d.unidades), kg: Number(d.kg) });
     return `Despacho ${que} el lote ${String(d.lote)} (${nombrePresentacion(String(d.presentacion))}): ${cantidad}.`;
   }
+  if (d.accion === 'inspeccion_aprobado') {
+    return `Almacén aprobó la inspección del camión${d.carga_anterior ? ` (carga anterior: ${String(d.carga_anterior)})` : ''}. Puede cargar.`;
+  }
+  if (d.accion === 'inspeccion_rechazado') {
+    const falla = Array.isArray(d.falla) && d.falla.length ? ` No cumple: ${(d.falla as string[]).join(', ')}.` : '';
+    return `Almacén RECHAZÓ el camión: ${String(d.motivo_rechazo ?? '')}.${falla}`;
+  }
+  if (d.accion === 'carga_cerrada') return `Almacén cerró la carga con el precinto ${String(d.precinto)}.`;
+  if (d.accion === 'precinto_corregido') return `Se corrigió el precinto: ${String(d.precinto_anterior ?? '—')} → ${String(d.precinto)}.`;
+  if (e.tipo === 'incidencia' && d.motivo === 'liberado_por_excepcion') {
+    return `El administrador liberó el camión por excepción (sin inspección o sin carga cerrada): ${String(d.nota ?? '')}.`;
+  }
+  if (e.tipo === 'incidencia' && d.motivo === 'salio_sin_inspeccion') {
+    const faltan = Array.isArray(d.faltan) ? (d.faltan as string[]) : [];
+    const que = faltan.includes('inspeccion') && faltan.includes('precinto') ? 'inspección aprobada ni carga cerrada con precinto'
+      : faltan.includes('inspeccion') ? 'inspección aprobada' : 'carga cerrada con precinto';
+    return `Alerta: el camión salió de fábrica sin ${que}.`;
+  }
   if (e.tipo === 'nota') return `Nota${e.origen === 'despacho' ? ' de despacho' : ''}: ${String(d.nota ?? '')}`;
   const resto = Object.entries(d).map(([k, v]) => `${k}: ${String(v)}`).join(' · ');
   return `${e.tipo}${resto ? ` (${resto})` : ''}`;
@@ -188,7 +208,8 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
   const balanzaDe = (asigId: string) =>
     ((balanzaData ?? []) as { id: string; ticket_balanza: string | null; peso_bruto_kg: number | null; tara_kg: number | null }[])
       .find((b) => b.id === asigId) ?? { ticket_balanza: null, peso_bruto_kg: null, tara_kg: null };
-  const editaCarga = perfil === 'administrador' || perfil === 'logistica';
+  const editaCarga = perfil === 'administrador' || perfil === 'logistica' || perfil === 'almacen';
+  const { inspecciones, cierres, obligatoria } = await cargarInspecciones(supabase, idsFabrica);
   const toleranciaLotes = Number((tolData as { valor: unknown } | null)?.valor ?? TOLERANCIA_LOTES_PCT) || TOLERANCIA_LOTES_PCT;
 
   // Recorrido completo (simplificado) de cada camión con señal: una línea por camión.
@@ -298,6 +319,16 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
               </label>
             </FormularioAccion>
           </div>
+        )}
+        {(a.tramo ?? 1) === 1 && a.etapa !== 'cancelado' && cierres.find((c) => c.id === a.id) && (
+          <InspeccionCamion
+            cierre={cierres.find((c) => c.id === a.id)!}
+            misionId={id}
+            inspecciones={inspecciones.filter((i) => i.asignacion_id === a.id)}
+            puedeCargar={editaCarga}
+            esAdmin={perfil === 'administrador'}
+            obligatoria={obligatoria}
+          />
         )}
         {(a.tramo ?? 1) === 1 && a.etapa !== 'cancelado' && (
           <CargaCamion

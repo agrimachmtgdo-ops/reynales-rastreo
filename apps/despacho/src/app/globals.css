@@ -1117,3 +1117,35 @@ a.boton-cancelar { display: inline-flex; align-items: center; text-decoration: n
 }
 .grupo-pastillas > .etiqueta-campo { font-size: 14px; color: var(--tinta, #2b1d12); }
 @media (max-width: 520px) { .pie-catalogo .nota-obligatorio { flex-basis: 100%; } }
+
+/* Ola 1 · Entrega 2: inspección del camión y almacén */
+.inspeccion { display: grid; gap: 12px; margin-top: 8px; }
+.puntos-inspeccion { border: 1px solid var(--borde); border-radius: 8px; padding: 8px 12px; margin: 0; }
+.puntos-inspeccion legend { font-weight: 600; padding: 0 4px; }
+.puntos-inspeccion .punto { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
+.puntos-inspeccion .punto:last-child { border-bottom: none; }
+.puntos-inspeccion .punto > span { flex: 1 1 200px; }
+.puntos-inspeccion .punto label { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 8px; font-weight: 600; }
+.puntos-inspeccion .punto input[type="radio"] { width: 22px; height: 22px; }
+.puntos-inspeccion .punto.falla > span { color: var(--rojo); font-weight: 600; }
+.botones-fotos { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0; }
+.miniaturas { list-style: none; padding: 0; margin: 8px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.miniaturas li { display: grid; gap: 4px; justify-items: center; }
+.miniaturas img { width: 96px; height: 96px; object-fit: cover; border-radius: 6px; border: 1px solid var(--borde); }
+.acciones-inspeccion .boton { width: 100%; min-height: 48px; font-size: 16px; }
+.lista-inspecciones { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; font-size: 14px; }
+.lista-inspecciones li { border-left: 4px solid var(--verde); padding: 4px 8px; background: var(--blanco); }
+.lista-inspecciones li.rechazado { border-left-color: var(--rojo); }
+.fotos-enlaces { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.fotos-enlaces img { width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid var(--borde); }
+.lista-almacen { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
+.lista-almacen a { display: grid; gap: 2px; grid-template-columns: 1fr auto; padding: 12px; border: 1px solid var(--borde); border-radius: 8px; background: var(--blanco); color: var(--tinta); text-decoration: none; }
+.lista-almacen a:hover { border-color: var(--dorado); }
+.lista-almacen .placa { font-weight: 700; font-size: 18px; color: var(--cafe); }
+.lista-almacen .detalle { grid-column: 1 / -1; font-size: 14px; color: var(--gris); }
+.lista-almacen .estado-rechazado a { border-left: 4px solid var(--rojo); }
+.lista-almacen .estado-sin_inspeccion a { border-left: 4px solid var(--dorado); }
+.lista-almacen .estado-cargando a, .lista-almacen .estado-liberado a { border-left: 4px solid var(--cafe); }
+.lista-almacen .estado-cerrada a { border-left: 4px solid var(--verde); }
+.etiqueta.carga-rechazado { background: var(--rojo); color: var(--blanco); }
+.etiqueta.carga-cerrada { background: var(--verde-oscuro); color: var(--blanco); }

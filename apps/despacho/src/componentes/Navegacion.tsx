@@ -7,6 +7,7 @@ const ENLACES = [
   { href: '/pedidos', texto: 'Pedidos' },
   { href: '/programa', texto: 'Programa' },
   { href: '/misiones', texto: 'Misiones' },
+  { href: '/almacen', texto: 'Almacén' },
   { href: '/lotes', texto: 'Lotes' },
   { href: '/reportes', texto: 'Reportes' },
   { href: '/cumplimiento', texto: 'Cumplimiento' },
