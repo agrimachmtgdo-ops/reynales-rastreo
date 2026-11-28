@@ -22,13 +22,13 @@ export default async function PaginaEditarPedido({ params }: { params: Promise<{
   if (!puede) {
     return <section className="tarjeta"><h1>{p.codigo}</h1><p>Solo el administrador o el comercial de este cliente pueden cambiar el pedido.</p>{volver}</section>;
   }
-  const { clientes, ubicaciones } = await opcionesPedido();
+  const { clientes, ubicaciones, productos } = await opcionesPedido();
 
   return (
     <section className="tarjeta">
       <p className="migas"><Link href="/pedidos">Pedidos</Link> › <Link href={`/pedidos/${id}`}>{p.codigo}</Link> › Editar</p>
       <h1>Editar {p.codigo}</h1>
-      <FormularioPedido id={id} clientes={clientes} ubicaciones={ubicaciones}
+      <FormularioPedido id={id} clientes={clientes} ubicaciones={ubicaciones} productos={productos}
         inicial={{
           cliente_id: p.cliente_id, orden_compra: p.orden_compra, producto: p.producto, toneladas: Number(p.toneladas),
           entrega_desde: p.entrega_desde, entrega_hasta: p.entrega_hasta, destino_id: p.destino_id, incoterm: p.incoterm, notas: p.notas,

@@ -6,15 +6,18 @@ import SeccionTransbordo from '@/componentes/SeccionTransbordo';
 import FormularioNuevaMision from '@/componentes/FormularioNuevaMision';
 import { NotaObligatorio, Req } from '@/componentes/Obligatorio';
 import { crearMision, registrarDocumentoDespacho } from '../acciones';
+import SelectorProducto from '@/componentes/SelectorProducto';
+import { cargarProductos } from '@/lib/productosServidor';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PaginaNuevaMision() {
   const supabase = await crearClienteServidor();
-  const [clientes, ubicaciones, catalogos] = await Promise.all([
+  const [clientes, ubicaciones, catalogos, productos] = await Promise.all([
     supabase.from('clientes').select('id, razon_social').order('razon_social'),
     supabase.from('ubicaciones').select('id, nombre, ciudad, pais, tipo').eq('activo', true).order('nombre'),
     cargarCatalogosCamion(),
+    cargarProductos(true),
   ]);
   const origenes = (ubicaciones.data ?? []).filter((u) => u.tipo === 'fabrica');
   const destinos = (ubicaciones.data ?? []).filter((u) => u.tipo === 'destino');
@@ -61,7 +64,7 @@ export default async function PaginaNuevaMision() {
           <label>N.º de factura<input name="factura" /></label>
           <label>N.º de guía<input name="guia" /></label>
           <label>N.º de DEX<input name="dex" /></label>
-          <label>Tipo de carga<input name="tipo_carga" /></label>
+          <SelectorProducto productos={productos} obligatorio />
           <label>Tonelaje objetivo (TN)<input name="tonelaje_objetivo" inputMode="decimal" /></label>
           <label>WhatsApp del coordinador<input name="telefono_coordinador" placeholder="+591…" /></label>
           <label>

@@ -125,6 +125,9 @@ export async function crearMision(_: Resultado | null, f: FormData): Promise<Res
   if (comprometida === undefined) {
     return { ok: false, mensaje: 'Revise la fecha de entrega comprometida.', campo: 'entrega_comprometida', errorCampo: 'Fecha y hora no válidas.' };
   }
+  if (!texto(f, 'producto_id')) {
+    return { ok: false, mensaje: 'Elija el producto que se transporta.', campo: 'producto_id', errorCampo: 'Dato obligatorio.' };
+  }
   const supabase = await crearClienteServidor();
   const { data: mision, error } = await supabase
     .from('misiones')
@@ -135,7 +138,8 @@ export async function crearMision(_: Resultado | null, f: FormData): Promise<Res
       factura: texto(f, 'factura'),
       guia: texto(f, 'guia'),
       dex: texto(f, 'dex'),
-      tipo_carga: texto(f, 'tipo_carga'),
+      // El disparador completa tipo_carga con el nombre del producto.
+      producto_id: texto(f, 'producto_id'),
       tonelaje_objetivo: numero(f, 'tonelaje_objetivo'),
       telefono_coordinador: coordinador.valor,
       notas: texto(f, 'notas'),
@@ -180,7 +184,8 @@ export async function editarMision(misionId: string, _: Resultado | null, f: For
       factura: texto(f, 'factura'),
       guia: texto(f, 'guia'),
       dex: texto(f, 'dex'),
-      tipo_carga: texto(f, 'tipo_carga'),
+      // Solo si eligió un producto: un texto antiguo fuera del catálogo se conserva.
+      ...(texto(f, 'producto_id') ? { producto_id: texto(f, 'producto_id') } : {}),
       tonelaje_objetivo: tonelaje,
       telefono_coordinador: coordinador.valor,
       notas: texto(f, 'notas'),

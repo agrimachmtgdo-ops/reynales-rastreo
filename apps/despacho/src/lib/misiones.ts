@@ -7,6 +7,7 @@ export interface FiltrosMisiones {
   etapa?: string;
   desde?: string;
   hasta?: string;
+  producto?: string;
   pagina?: string;
 }
 
@@ -23,6 +24,8 @@ export interface FilaMision {
   tonelaje_objetivo: number | null;
   creado_en: string;
   entrega_comprometida: string | null;
+  tipo_carga: string | null;
+  producto: { id: string; nombre: string } | null;
   envio: { id: string; numero: number; pedido: { id: string; codigo: string; producto: string | null } | null } | null;
   cliente: { razon_social: string } | null;
   origen: { nombre: string } | null;
@@ -45,7 +48,8 @@ export async function buscarMisiones(
   const supabase = await crearClienteServidor();
   let consulta = supabase
     .from('misiones')
-    .select(`id, codigo, etapa, factura, guia, dex, tonelaje_objetivo, creado_en, entrega_comprometida,
+    .select(`id, codigo, etapa, factura, guia, dex, tonelaje_objetivo, creado_en, entrega_comprometida, tipo_carga,
+             producto:productos(id, nombre),
              envio:programa_envios(id, numero, pedido:pedidos(id, codigo, producto)),
              cliente:clientes(razon_social), origen:ubicaciones!misiones_origen_id_fkey(nombre),
              destino:ubicaciones!misiones_destino_id_fkey(nombre, pais),
@@ -77,6 +81,7 @@ export async function buscarMisiones(
   // Fechas en hora de Bolivia (UTC-4).
   if (desde) consulta = consulta.gte('creado_en', `${desde}T00:00:00-04:00`);
   if (hasta) consulta = consulta.lte('creado_en', `${hasta}T23:59:59-04:00`);
+  if (filtros.producto && /^[0-9a-f-]{36}$/i.test(filtros.producto)) consulta = consulta.eq('producto_id', filtros.producto);
 
   const { data, error, count } = await consulta;
   if (error) return { filas: [], total: 0, error: error.message };

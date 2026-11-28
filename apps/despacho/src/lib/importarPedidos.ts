@@ -113,7 +113,10 @@ export interface PedidoImportado {
 }
 export interface ResultadoLectura { pedidos: PedidoImportado[]; error: string | null; filasLeidas: number }
 
-export function leerPedidos(filas: Celda[][], clientes: ClienteRef[], ubicaciones: UbicacionRef[]): ResultadoLectura {
+export interface ProductoRef { nombre: string; codigo: string | null }
+
+/** `productos`: catálogo activo; el producto de cada fila se busca por nombre o por código. Sin catálogo no se valida. */
+export function leerPedidos(filas: Celda[][], clientes: ClienteRef[], ubicaciones: UbicacionRef[], productos: ProductoRef[] = []): ResultadoLectura {
   const cab = encontrarColumnas(filas);
   if (!cab) {
     return { pedidos: [], filasLeidas: 0, error: 'No encontré la fila de títulos. La hoja debe tener columnas como «Cliente», «Producto», «Destino», «Incoterm», «Toneladas» y «Fecha de entrega». Puede usar la plantilla.' };
@@ -145,8 +148,14 @@ export function leerPedidos(filas: Celda[][], clientes: ClienteRef[], ubicacione
     const destino = unico(ubicaciones, lugar, (u) => [u.nombre, u.ciudad]);
     if (!destino) errores.push(`Fila ${numFila}: no encontré el destino «${lugar || 'vacío'}» en Catálogos → Ubicaciones.`);
 
-    const producto = texto(celda(fila, 'producto'));
-    if (!producto) errores.push(`Fila ${numFila}: falta el producto.`);
+    const escrito = texto(celda(fila, 'producto'));
+    // Se guarda el nombre exacto del catálogo, así la base enlaza el producto.
+    const delCatalogo = escrito && productos.length
+      ? productos.find((p) => normalizar(p.nombre) === normalizar(escrito) || (p.codigo && normalizar(p.codigo) === normalizar(escrito)))
+      : undefined;
+    const producto = delCatalogo ? delCatalogo.nombre : escrito;
+    if (!escrito) errores.push(`Fila ${numFila}: falta el producto.`);
+    else if (productos.length && !delCatalogo) errores.push(`Fila ${numFila}: el producto «${escrito}» no está en Catálogos → Productos. Agréguelo o corrija el nombre en el Excel.`);
     const toneladas = leerNumero(celda(fila, 'toneladas'));
     if (toneladas == null || toneladas <= 0) errores.push(`Fila ${numFila}: las toneladas deben ser un número mayor que 0.`);
     const entrega = leerFecha(celda(fila, 'entrega'));
@@ -163,7 +172,7 @@ export function leerPedidos(filas: Celda[][], clientes: ClienteRef[], ubicacione
     if (!pedido) {
       pedido = {
         clave, filas: [], clienteNombre: cliente?.razon_social ?? nombreCliente, destinoNombre: destino?.nombre ?? lugar, envios: [], errores: [],
-        datos: cliente && destino && incoterm && producto
+        datos: cliente && destino && incoterm && producto && (!productos.length || delCatalogo)
           ? { cliente_id: cliente.id, orden_compra: oc, producto, destino_id: destino.id, incoterm, notas: texto(celda(fila, 'notas')) || null, origen: 'excel' }
           : null,
       };

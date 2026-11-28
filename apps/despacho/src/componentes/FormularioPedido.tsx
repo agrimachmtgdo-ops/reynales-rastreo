@@ -5,6 +5,7 @@ import { useRef, useState, useTransition, type FormEvent } from 'react';
 import { Req } from './Obligatorio';
 import { guardarPedido, type DatosPedido } from '@/app/(panel)/pedidos/acciones';
 import { hitoPorIncoterm, INCOTERMS, NOMBRE_HITO, plural, TONELADAS_POR_CAMION } from '@/lib/pedidos';
+import { etiquetaProducto, type Producto } from '@/lib/productos';
 
 export interface OpcionCliente { id: string; razon_social: string }
 export interface OpcionUbicacion { id: string; nombre: string; ciudad: string | null; pais: string }
@@ -19,11 +20,13 @@ type Campos = 'cliente_id' | 'orden_compra' | 'producto' | 'toneladas' | 'entreg
  * Valida al salir de cada campo y, al guardar, muestra un resumen de errores con enlaces a cada campo.
  */
 export default function FormularioPedido({
-  id, clientes, ubicaciones, inicial,
+  id, clientes, ubicaciones, productos, inicial,
 }: {
   id: string | null;
   clientes: OpcionCliente[];
   ubicaciones: OpcionUbicacion[];
+  /** Productos activos del catálogo (se guarda el nombre y la base enlaza el producto). */
+  productos: Producto[];
   inicial?: Partial<DatosPedido>;
 }) {
   const router = useRouter();
@@ -51,7 +54,7 @@ export default function FormularioPedido({
     const e: ErrorForm[] = [];
     const t = Number(d.toneladas.replace(',', '.'));
     if (!d.cliente_id) e.push({ campo: 'cliente_id', mensaje: 'Elija el cliente.' });
-    if (!d.producto.trim()) e.push({ campo: 'producto', mensaje: 'Escriba el producto.' });
+    if (!d.producto.trim()) e.push({ campo: 'producto', mensaje: 'Elija el producto.' });
     if (!(t > 0)) e.push({ campo: 'toneladas', mensaje: 'Escriba las toneladas que pidió el cliente (mayor que 0).' });
     if (!d.entrega_hasta) e.push({ campo: 'entrega_hasta', mensaje: 'Elija la fecha límite de entrega.' });
     if (d.entrega_desde && d.entrega_hasta && d.entrega_desde > d.entrega_hasta) {
@@ -137,8 +140,19 @@ export default function FormularioPedido({
             <span className="ayuda-campo">Evita cargar dos veces el mismo pedido.</span>
           </label>
           <label>Producto <Req />
-            <input {...props('producto')} maxLength={120} onChange={(e) => cambiar('producto', e.target.value)} />
-            {aviso('producto')}
+            <select {...props('producto')} onChange={(e) => cambiar('producto', e.target.value)}>
+              <option value="">Seleccione…</option>
+              {inicial?.producto && !productos.some((p) => p.nombre === inicial.producto) && (
+                <option value={inicial.producto}>«{inicial.producto}» (fuera del catálogo)</option>
+              )}
+              {productos.map((p) => <option key={p.id} value={p.nombre}>{etiquetaProducto(p)}</option>)}
+            </select>
+            {aviso('producto') ?? (
+              <span className="ayuda-campo">
+                {productos.length === 0 ? 'Aún no hay productos: ' : '¿Falta uno? '}
+                <Link href="/catalogos?pestana=productos">Catálogos → Productos</Link>
+              </span>
+            )}
           </label>
           <label>Toneladas pedidas <Req />
             <input {...props('toneladas')} inputMode="decimal" onChange={(e) => cambiar('toneladas', e.target.value)} />

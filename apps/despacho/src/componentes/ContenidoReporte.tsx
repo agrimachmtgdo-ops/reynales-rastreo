@@ -28,9 +28,10 @@ function Cifra({ titulo, valor, detalle, cambio, ayuda, alerta, menosEsMejor }: 
 }
 
 /** Contenido del reporte (separado de la carga de datos). */
-export default function ContenidoReporte({ filtros, filas, filasAnteriores, clientes, transportistas }: {
+export default function ContenidoReporte({ filtros, filas, filasAnteriores, clientes, transportistas, productos }: {
   filtros: FiltrosReporte; filas: FilaReporte[]; filasAnteriores: FilaReporte[];
   clientes: { id: string; razon_social: string }[]; transportistas: { id: string; razon_social: string }[];
+  productos: { id: string; nombre: string }[];
 }) {
   const anterior = periodoAnterior(filtros);
   const r = resumir(filas);
@@ -41,7 +42,7 @@ export default function ContenidoReporte({ filtros, filas, filasAnteriores, clie
   const fichas = fichasTransportistas(filas);
   const mes = mesAnterior();
   const parametros = aParametros(filtros);
-  const hayFiltros = !!(filtros.cliente || filtros.pais || filtros.transportista);
+  const hayFiltros = !!(filtros.cliente || filtros.pais || filtros.transportista || filtros.producto);
   const puntualidad = r.conCompromiso > 0 ? r.aTiempo / r.conCompromiso : null;
   const cam = resumenCamiones(filas);
   const notas = hallazgos(filas, filasAnteriores);
@@ -49,6 +50,8 @@ export default function ContenidoReporte({ filtros, filas, filasAnteriores, clie
   const atrasadas = masAtrasadas(filas);
   const porClienteServ = servicioPor(filas, 'cliente');
   const porDestino = servicioPor(filas, 'destino');
+  const porProducto = servicioPor(filas, 'producto');
+  const tnTotal = porProducto.reduce((t, g) => t + g.toneladas, 0);
 
   return (
     <>
@@ -94,13 +97,20 @@ export default function ContenidoReporte({ filtros, filas, filasAnteriores, clie
               {(transportistas ?? []).map((t) => <option key={t.id} value={t.id}>{t.razon_social}</option>)}
             </select>
           </label>
+          <label>
+            Producto
+            <select name="producto" defaultValue={filtros.producto ?? ''}>
+              <option value="">Todos</option>
+              {(productos ?? []).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+          </label>
           <div className="acciones-filtro">
             <button className="boton">Aplicar</button>
             {hayFiltros && <Link href={`/reportes?desde=${filtros.desde}&hasta=${filtros.hasta}`} className="enlace-cancelar">Quitar filtros</Link>}
           </div>
         </FiltrosAutomaticos>
         <p className="ayuda no-imprimir" style={{ marginTop: 0 }}>
-          Las fechas se aplican al elegirlas; cliente, país y transportista, con «Aplicar». El enlace de esta página guarda los filtros: puede copiarlo y compartirlo.
+          Las fechas se aplican al elegirlas; cliente, país, transportista y producto, con «Aplicar». El enlace de esta página guarda los filtros: puede copiarlo y compartirlo.
         </p>
 
         {ra.entregas === 0 && filas.length > 0 && (
@@ -158,6 +168,15 @@ export default function ContenidoReporte({ filtros, filas, filasAnteriores, clie
               </details>
             </div>
             <div>
+              <GraficoBarras titulo="Toneladas por producto" unidad="TN"
+                datos={porProducto.map((g) => ({ etiqueta: g.nombre, valor: g.toneladas, detalle: `${g.entregas} ${g.entregas === 1 ? 'entrega' : 'entregas'}` }))} />
+              <details className="tabla-grafico">
+                <summary>Ver tabla</summary>
+                <table><thead><tr><th>Producto</th><th>Entregas</th><th>Toneladas</th><th>% del total</th></tr></thead>
+                  <tbody>{porProducto.map((g) => <tr key={g.clave}><td>{g.nombre}</td><td>{g.entregas}</td><td>{formatoTn(g.toneladas)}</td><td>{tnTotal ? formatoPct(g.toneladas / tnTotal) : '—'}</td></tr>)}</tbody></table>
+              </details>
+            </div>
+            <div>
               <GraficoBarras titulo="Toneladas por cliente" unidad="TN"
                 datos={porCliente.map((c) => ({ etiqueta: c.cliente, valor: c.toneladas, detalle: `${c.entregas} entregas` }))} />
               <details className="tabla-grafico">
@@ -185,6 +204,7 @@ export default function ContenidoReporte({ filtros, filas, filasAnteriores, clie
           <section className="tarjeta rejilla-tablas">
             <TablaServicio titulo="Servicio por cliente" columna="Cliente" grupos={porClienteServ} />
             <TablaServicio titulo="Servicio por destino" columna="Destino" grupos={porDestino} />
+            <TablaServicio titulo="Servicio por producto" columna="Producto" grupos={porProducto} />
           </section>
 
           {atrasadas.length > 0 && (

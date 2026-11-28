@@ -44,6 +44,9 @@ export interface FilaReporte {
   incidencias: number;
   motivos: string[];
   camiones: CamionReporte[];
+  /** Se completan desde la misión (catálogo de productos). */
+  producto_id?: string | null;
+  producto?: string | null;
 }
 
 export interface FiltrosReporte {
@@ -52,6 +55,7 @@ export interface FiltrosReporte {
   cliente?: string;
   pais?: string;
   transportista?: string;
+  producto?: string;
 }
 
 /** Meta de puntualidad (entregas a tiempo sobre las que tienen fecha comprometida). */
@@ -90,6 +94,7 @@ export function leerFiltros(p: Record<string, string | string[] | undefined>): F
     desde, hasta, pais,
     cliente: uuidValido(t('cliente')) ? t('cliente') : undefined,
     transportista: uuidValido(t('transportista')) ? t('transportista') : undefined,
+    producto: uuidValido(t('producto')) ? t('producto') : undefined,
   };
 }
 
@@ -312,6 +317,7 @@ export function aParametros(f: FiltrosReporte): string {
   if (f.cliente) p.set('cliente', f.cliente);
   if (f.pais) p.set('pais', f.pais);
   if (f.transportista) p.set('transportista', f.transportista);
+  if (f.producto) p.set('producto', f.producto);
   return p.toString();
 }
 
@@ -344,11 +350,11 @@ export interface GrupoServicio {
 }
 
 /** Entregas, toneladas, puntualidad y duración agrupadas (por cliente o por destino). */
-export function servicioPor(filas: FilaReporte[], por: 'cliente' | 'destino'): GrupoServicio[] {
+export function servicioPor(filas: FilaReporte[], por: 'cliente' | 'destino' | 'producto'): GrupoServicio[] {
   const mapa = new Map<string, { g: GrupoServicio; retrasos: number[]; duraciones: (number | null)[] }>();
   for (const f of filas) {
-    const clave = por === 'cliente' ? f.cliente_id : `${f.destino}|${f.pais}`;
-    const nombre = por === 'cliente' ? f.cliente : `${f.destino} (${f.pais})`;
+    const clave = por === 'cliente' ? f.cliente_id : por === 'producto' ? (f.producto_id ?? 'sin') : `${f.destino}|${f.pais}`;
+    const nombre = por === 'cliente' ? f.cliente : por === 'producto' ? (f.producto ?? 'Sin producto') : `${f.destino} (${f.pais})`;
     const x = mapa.get(clave) ?? {
       g: { clave, nombre, entregas: 0, toneladas: 0, conCompromiso: 0, aTiempo: 0, retrasoMediano: null, duracionMediana: null },
       retrasos: [], duraciones: [],
