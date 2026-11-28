@@ -76,7 +76,7 @@ th { color: var(--cafe); font-size: 12px; text-transform: uppercase; letter-spac
 .mensaje-error { background: #fbe4e1; color: var(--rojo); padding: 10px; border-radius: 6px; margin-bottom: 12px; }
 .mensaje-ok { background: #ddf3e5; color: #006b2d; padding: 10px; border-radius: 6px; margin-bottom: 12px; }
 
-.tablero { display: grid; grid-template-columns: 380px 1fr; gap: 16px; height: calc(100vh - 190px); min-height: 460px; }
+.tablero { display: grid; grid-template-columns: 380px 1fr; gap: 16px; height: calc(100vh - 330px); height: calc(100dvh - 330px); min-height: 420px; }
 .tablero .lista { overflow-y: auto; }
 .tablero .mapa { border-radius: 10px; overflow: hidden; border: 1px solid var(--borde); min-height: 400px; }
 .camion { border-bottom: 1px solid var(--borde); padding: 0 0 8px; }
@@ -214,6 +214,7 @@ tr.evento-alerta td { background: #fff4e5; }
 /* Camión detenido */
 .indicador.detenido .numero { color: #7d3c98; }
 .etiqueta.detenido { background: #eadcf2; color: #5b2c6f; }
+.etiqueta.sin_senal { background: #e4e4e4; color: #3d3d3d; }
 .aviso-sin-whatsapp { font-size: 13px; color: var(--rojo); font-weight: 600; }
 .lista-telefonos { background: #fff4e5; border: 1px solid var(--dorado); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; }
 .lista-telefonos ul { margin: 6px 0 0; padding-left: 18px; }
@@ -244,7 +245,7 @@ img, svg, video { max-width: 100%; }
   .tarjeta { padding: 12px; }
   h1 { font-size: 20px; }
   .resumen { gap: 6px; }
-  .indicador { padding: 6px 10px; flex: 1 1 calc(50% - 6px); }
+  .indicador { padding: 6px 10px; flex: 1 1 calc(50% - 6px); text-align: left; }
   .codigo-invitacion { font-size: 26px; letter-spacing: 3px; }
   .rejilla { grid-template-columns: 1fr; }
   .tablero .mapa { height: 360px; }

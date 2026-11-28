@@ -6,7 +6,7 @@ import { ETIQUETA_ETAPA } from '@reynales/shared';
 import { crearClienteNavegador } from '@/lib/supabase/client';
 import { SELECT_ASIGNACION_EN_VIVO } from '@/lib/consultas';
 import {
-  enlaceWhatsApp, formatoHora, grupoDe, haceCuanto, minutosDetenido, MINUTOS_DETENIDO, prioridad, textoEmergencia,
+  duracion, enlaceWhatsApp, formatoHora, grupoDe, haceCuanto, minutosDetenido, MINUTOS_DETENIDO, prioridad, textoEmergencia,
   type AsignacionEnVivo, type Grupo,
 } from '@/lib/tipos';
 
@@ -299,7 +299,13 @@ export default function TableroEnVivo({
               >
                 <span className="fila">
                   <span className="placa">{a.vehiculo?.placa ?? 'Sin placa'}</span>
-                  <span className={`etiqueta ${a.etapa}`}>{ETIQUETA_ETAPA[a.etapa]}</span>
+                  {grupo === 'detenido' ? (
+                    <span className="etiqueta detenido">Detenido · {duracion(minutosDetenido(a, ahora))}</span>
+                  ) : sinSenal && a.etapa !== 'programado' ? (
+                    <span className="etiqueta sin_senal">Sin señal</span>
+                  ) : (
+                    <span className={`etiqueta ${a.etapa}`}>{ETIQUETA_ETAPA[a.etapa]}</span>
+                  )}
                 </span>
                 <span className="detalle">
                   {a.mision?.codigo} · {a.mision?.cliente?.razon_social} → {a.mision?.destino?.nombre}
@@ -309,8 +315,8 @@ export default function TableroEnVivo({
                   <span title={formatoHora(a.ultima_senal)}>{haceCuanto(a.ultima_senal, ahora)}</span>
                   {sinSenal && a.etapa !== 'programado' && <span className="alerta"> · revisar</span>}
                 </span>
-                {grupo === 'detenido' && (
-                  <span className="etiqueta detenido">Detenido hace {haceCuanto(a.detenido_desde ?? null, ahora).replace('hace ', '')} ({minutosDetenido(a, ahora)} min)</span>
+                {(grupo === 'detenido' || (sinSenal && a.etapa !== 'programado')) && (
+                  <span className="detalle">Etapa del viaje: {ETIQUETA_ETAPA[a.etapa]}</span>
                 )}
                 {a.emergencia_en && <span className="etiqueta emergencia">EMERGENCIA: {textoEmergencia(a.emergencia_motivo)}</span>}
               </button>
