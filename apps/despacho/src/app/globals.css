@@ -855,3 +855,28 @@ textarea { line-height: 1.5; }
 .nota-estimado { margin: 10px 0 0; font-size: 14px; color: #6b4e00; background: #fbf0cf; border-radius: 8px; padding: 8px 12px; }
 @media (max-width: 760px) { .cifras-toneladas { grid-template-columns: 1fr 1fr; } }
 .barra-avance > .barra-en-camino { border-radius: 0 999px 999px 0; }
+
+/* ---- Pedido: resumen de toneladas, datos agrupados y programa ---- */
+.barra-avance > .tramo { position: static; border-radius: 0; transition: none; }
+.cifras-pedido { margin: 4px 0 14px; }
+.grupos-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px 32px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--borde); }
+.titulo-grupo { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--cafe); margin: 0 0 8px; }
+.lista-datos { margin: 0; }
+.lista-datos > div { display: grid; grid-template-columns: 150px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f0ebe2; }
+.lista-datos > div:last-child { border-bottom: 0; }
+.lista-datos dt { font-size: 14px; color: var(--gris); }
+.lista-datos dd { margin: 0; color: var(--tinta); font-weight: 500; overflow-wrap: anywhere; }
+.meta-registro { margin: 12px 0 0; font-size: 13px; color: var(--gris); }
+.ayuda-plegable { margin: 0 0 16px; font-size: 14px; color: var(--gris); }
+.ayuda-plegable > summary { cursor: pointer; color: var(--verde-oscuro); font-weight: 600; min-height: 32px; display: inline-flex; align-items: center; }
+.ayuda-plegable ul { margin: 6px 0 0; padding-left: 20px; line-height: 1.6; }
+.avance-programa .leyenda-avance .estado-programa { margin-left: auto; }
+.todo-programado { color: #006b2d; }
+.sub-dato { display: block; font-size: 13px; color: var(--gris); margin-top: 2px; }
+.despachado-envio { display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
+.mini-barra { display: block; height: 6px; border-radius: 999px; background: #ece4d6; overflow: hidden; max-width: 140px; }
+.mini-barra > span { display: block; height: 100%; background: var(--verde); border-radius: 999px; }
+@media (max-width: 600px) {
+  .lista-datos > div { grid-template-columns: 1fr; gap: 2px; }
+  .avance-programa .leyenda-avance .estado-programa { margin-left: 0; }
+}
