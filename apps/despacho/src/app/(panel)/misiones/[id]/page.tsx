@@ -327,7 +327,7 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
         {!cerrada && (
           <div className="acciones-camion no-imprimir">
             <details className="agregar" open={!invitacionDe(a.id) && a.etapa === 'programado'}>
-              <summary>Acceso del chofer: código, QR y WhatsApp</summary>
+              <summary>Acceso del chofer (código y QR)</summary>
               <InvitacionChofer
                 nombreChofer={a.conductor?.nombre ?? ''}
                 telefonoChofer={a.conductor?.telefono ?? null}
@@ -337,7 +337,7 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
               />
             </details>
             <details className="agregar">
-              <summary>Cambiar etapa a mano (si falla la app)</summary>
+              <summary>Cambiar etapa a mano</summary>
               <FormularioAccion accion={cambiarEtapaManual.bind(null, a.id, id)} boton="Cambiar etapa" claseBoton="boton secundario" confirmarCierre>
                 <div className="rejilla">
                   <label>
@@ -472,15 +472,24 @@ export default async function PaginaDetalleMision({ params, searchParams }: {
                   {(ultimoTramo === 1 || abierto) && (
                     <div className="acciones-tramo no-imprimir">
                       <details className="agregar panel-nuevo" open={delTramo.length === 0 && n === 1}>
-                        <summary>+ Agregar {delTramo.length === 0 ? 'un camión' : 'otro camión'} a este tramo</summary>
-                        <FormularioAccion accion={agregarCamion.bind(null, id, n)} boton={`Agregar camión al tramo ${n}`}>
+                        <summary>
+                          <span className="si-cerrado">+ Agregar {delTramo.length === 0 ? 'un camión' : 'otro camión'} a este tramo</span>
+                          <span className="si-abierto">
+                            <strong>Nuevo camión · Tramo {n}</strong>
+                            <span>{desde} → {hasta}</span>
+                          </span>
+                        </summary>
+                        <FormularioAccion accion={agregarCamion.bind(null, id, n)} boton="Agregar camión" cancelar>
                           <CamposCamion catalogos={catalogos} transportistaInicial={n > 1 ? tramo?.transportista_id : undefined} declaradas={n > 1} />
                         </FormularioAccion>
                       </details>
                       {n > 1 && tramo && abierto && (
                         <details className="agregar panel-nuevo">
-                          <summary>Cambiar empresa o lugar del transbordo</summary>
-                          <FormularioAccion accion={editarTramo.bind(null, id, tramo.id)} boton="Guardar tramo" claseBoton="boton secundario">
+                          <summary>
+                            <span className="si-cerrado">Cambiar empresa o lugar del transbordo</span>
+                            <span className="si-abierto"><strong>Transbordo del tramo {n}</strong><span>Empresa y lugar</span></span>
+                          </summary>
+                          <FormularioAccion accion={editarTramo.bind(null, id, tramo.id)} boton="Guardar cambios" cancelar>
                             <div className="rejilla">
                               <label>
                                 Empresa del tramo

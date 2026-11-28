@@ -17,6 +17,7 @@ export default function FormularioAccion({
   claseBoton = 'boton',
   confirmarCierre = false,
   clase,
+  cancelar = false,
 }: {
   accion: (previo: Resultado | null, datos: FormData) => Promise<Resultado>;
   boton: string;
@@ -26,6 +27,8 @@ export default function FormularioAccion({
   confirmarCierre?: boolean;
   /** Clase del formulario (por ejemplo, un campo y su botón en una sola línea). */
   clase?: string;
+  /** Muestra «Cancelar», que limpia el formulario y cierra el panel plegable que lo contiene. */
+  cancelar?: boolean;
 }) {
   const [estado, enviar, pendiente] = useActionState(accion, null);
   const formulario = useRef<HTMLFormElement>(null);
@@ -61,7 +64,17 @@ export default function FormularioAccion({
     <form ref={formulario} onSubmit={alEnviar} noValidate className={clase}>
       {estado && <div role="status" className={estado.ok ? 'mensaje-ok' : 'mensaje-error'}>{estado.mensaje}</div>}
       {children}
-      <button className={claseBoton} disabled={pendiente}>{pendiente ? 'Procesando…' : boton}</button>
+      {cancelar ? (
+        <div className="pie-form">
+          <button type="button" className="boton-cancelar" disabled={pendiente}
+            onClick={(e) => { formulario.current?.reset(); e.currentTarget.closest('details')?.removeAttribute('open'); }}>
+            Cancelar
+          </button>
+          <button className={claseBoton} disabled={pendiente}>{pendiente ? 'Guardando…' : boton}</button>
+        </div>
+      ) : (
+        <button className={claseBoton} disabled={pendiente}>{pendiente ? 'Procesando…' : boton}</button>
+      )}
     </form>
   );
 }
