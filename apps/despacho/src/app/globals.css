@@ -445,3 +445,5 @@ tr.fila-error td { background: #fdf1ef; }
 .etiqueta.envio-planificado { background: #fbecc0; color: #7a5a00; }
 .fila-envio > label { min-width: 0; }
 .fila-envio input { width: 100%; min-width: 0; }
+.fila-envio.con-aviso { background: #fff8e1; }
+.aviso-fila { grid-column: 2 / -1; margin: 4px 0 0; color: #7a5a00; font-size: 14px; font-weight: 600; }

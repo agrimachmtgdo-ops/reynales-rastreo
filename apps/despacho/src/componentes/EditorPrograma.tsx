@@ -8,8 +8,9 @@ import { dividirEnCamiones, formatoToneladas, plural, sumarDias, TOLERANCIA, TON
 interface Fila { clave: number; toneladas: string; entrega: string; carga: string }
 
 /**
- * Envíos PLANIFICADOS del pedido (un envío por camión). Se cambian libremente hasta confirmar el programa.
- * «Dividir en camiones» arma las filas para lo que falta programar; después se ajustan una por una.
+ * Envíos PLANIFICADOS del pedido. Un envío es un lote que se entrega en una fecha y puede llevar varios
+ * camiones. Se cambian libremente hasta confirmar el programa.
+ * «Repartir en envíos» arma las filas para lo que falta programar; después se ajustan una por una.
  */
 export default function EditorPrograma({
   pedido, toneladasPedido, toneladasConfirmadas, numeroInicial, planificados, sugerirDesde, pedidoConfirmado,
@@ -36,9 +37,9 @@ export default function EditorPrograma({
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null);
   const [pendiente, iniciar] = useTransition();
-  const [porCamion, setPorCamion] = useState(String(TONELADAS_POR_CAMION));
+  const [porEnvio, setPorEnvio] = useState(String(TONELADAS_POR_CAMION * 5));
   const [desde, setDesde] = useState(sugerirDesde);
-  const [cadaDias, setCadaDias] = useState('1');
+  const [cadaDias, setCadaDias] = useState('7');
 
   const numero = (t: string) => Number(t.replace(',', '.'));
   const planificadas = filas.reduce((s, f) => s + (numero(f.toneladas) > 0 ? numero(f.toneladas) : 0), 0);
@@ -47,13 +48,28 @@ export default function EditorPrograma({
   const excede = programado > toneladasPedido * (1 + TOLERANCIA) + 1e-9;
   const pct = (t: number) => `${Math.min(100, (t / toneladasPedido) * 100)}%`;
 
-  function actualizar(fs: Fila[]) { setFilas(fs); setCambiado(true); setMensaje(null); }
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' });
+  const camionesDe = (t: number) => Math.max(1, Math.ceil(t / (TONELADAS_POR_CAMION * 1.05)));
+  /** Avisos que no impiden guardar: fechas pasadas o una carga muy anticipada (posible error de mes). */
+  function avisosDe(f: Fila): string | null {
+    if (f.entrega && f.entrega < hoy) return 'La fecha de entrega ya pasó.';
+    if (f.carga && f.carga < hoy) return 'La fecha de carga ya pasó. ¿Es el mes correcto?';
+    if (f.carga && f.entrega) {
+      const dias = Math.round((Date.parse(f.entrega) - Date.parse(f.carga)) / 86_400_000);
+      if (dias > 15) return `La carga es ${dias} días antes de la entrega. ¿Es el mes correcto?`;
+    }
+    return null;
+  }
+  const conAviso = filas.filter((f) => avisosDe(f)).length;
+  const [avisoVisto, setAvisoVisto] = useState(false);
+
+  function actualizar(fs: Fila[]) { setFilas(fs); setCambiado(true); setMensaje(null); setAvisoVisto(false); }
   function dividir() {
     // Si ya hay envíos en el editor, los nuevos siguen después del último.
     const ultimaFila = filas.map((f) => f.entrega).filter(Boolean).sort().at(-1);
     const inicio = ultimaFila && ultimaFila >= desde ? sumarDias(ultimaFila, Math.max(1, Number(cadaDias) || 0)) : desde;
-    const nuevas = dividirEnCamiones(Math.max(0, falta), numero(porCamion), inicio, Number(cadaDias) || 0);
-    if (!nuevas.length) { setMensaje({ ok: false, texto: falta <= 0 ? 'Ya está programado todo el pedido.' : 'Indique las toneladas por camión y la primera entrega.' }); return; }
+    const nuevas = dividirEnCamiones(Math.max(0, falta), numero(porEnvio), inicio, Number(cadaDias) || 0);
+    if (!nuevas.length) { setMensaje({ ok: false, texto: falta <= 0 ? 'Ya está programado todo el pedido.' : 'Indique las toneladas por envío y la primera entrega.' }); return; }
     actualizar([...filas, ...nuevas.map((e) => nueva(e))]);
   }
 
@@ -70,6 +86,11 @@ export default function EditorPrograma({
     if (Object.keys(e).length) {
       setMensaje({ ok: false, texto: `Corrija ${plural(Object.keys(e).length, 'dato', 'datos')} marcados en rojo.` });
       document.getElementById(Object.keys(e)[0]!)?.focus();
+      return;
+    }
+    if (conAviso && !avisoVisto) {
+      setAvisoVisto(true);
+      setMensaje({ ok: false, texto: `Revise ${plural(conAviso, 'envío marcado', 'envíos marcados')} en amarillo. Si está bien así, pulse «Guardar programa» otra vez.` });
       return;
     }
     if (excede) { setMensaje({ ok: false, texto: `El programa (${formatoToneladas(programado)}) supera el pedido (${formatoToneladas(toneladasPedido)}) en más de 3 %.` }); return; }
@@ -114,15 +135,16 @@ export default function EditorPrograma({
 
       {falta > 0 && (
         <details className="agregar dividir" open={filas.length === 0}>
-          <summary>Dividir en camiones lo que falta ({formatoToneladas(falta)})</summary>
+          <summary>Repartir en envíos lo que falta ({formatoToneladas(falta)})</summary>
           <div className="rejilla">
-            <label>Toneladas por camión<input inputMode="decimal" value={porCamion} onChange={(e) => setPorCamion(e.target.value)} /></label>
+            <label>Toneladas por envío<input inputMode="decimal" value={porEnvio} onChange={(e) => setPorEnvio(e.target.value)} />
+              {numero(porEnvio) > 0 && <span className="ayuda-campo">≈ {plural(camionesDe(numero(porEnvio)), 'camión', 'camiones')} de {TONELADAS_POR_CAMION} t por envío.</span>}</label>
             <label>Primera entrega<input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></label>
-            <label>Un camión cada (días)<input inputMode="numeric" value={cadaDias} onChange={(e) => setCadaDias(e.target.value)} />
+            <label>Un envío cada (días)<input inputMode="numeric" value={cadaDias} onChange={(e) => setCadaDias(e.target.value)} />
               <span className="ayuda-campo">0 = todos el mismo día.</span></label>
           </div>
           <button type="button" className="boton secundario" onClick={dividir}>
-            Crear {plural(dividirEnCamiones(Math.max(0, falta), numero(porCamion), desde || '2000-01-01', 0).length, 'envío', 'envíos')}
+            Crear {plural(dividirEnCamiones(Math.max(0, falta), numero(porEnvio), desde || '2000-01-01', 0).length, 'envío', 'envíos')}
           </button>
         </details>
       )}
@@ -132,13 +154,15 @@ export default function EditorPrograma({
           <ol className="filas-envio">
             {filas.map((f, i) => {
               const n = numeroInicial + i;
+              const alerta = avisosDe(f);
+              const t = numero(f.toneladas);
               return (
-                <li key={f.clave} className="fila-envio">
+                <li key={f.clave} className={alerta ? 'fila-envio con-aviso' : 'fila-envio'}>
                   <span className="numero-envio" aria-hidden="true">{n}</span>
                   <label>Toneladas <Req />
                     <input {...campo(`t-${f.clave}`, `Toneladas del envío ${n}`)} inputMode="decimal" value={f.toneladas}
                       onChange={(e) => actualizar(filas.map((x) => (x.clave === f.clave ? { ...x, toneladas: e.target.value } : x)))} />
-                    {aviso(`t-${f.clave}`)}
+                    {aviso(`t-${f.clave}`) ?? (t > 0 && <span className="ayuda-campo">≈ {plural(camionesDe(t), 'camión', 'camiones')}</span>)}
                   </label>
                   <label>Entrega <Req />
                     <input {...campo(`e-${f.clave}`, `Fecha de entrega del envío ${n}`)} type="date" value={f.entrega}
@@ -152,13 +176,14 @@ export default function EditorPrograma({
                   </label>
                   <button type="button" className="boton-texto" aria-label={`Quitar el envío ${n}`}
                     onClick={() => actualizar(filas.filter((x) => x.clave !== f.clave))}>Quitar</button>
+                  {alerta && <p className="aviso-fila" role="status">⚠ Envío {n}: {alerta}</p>}
                 </li>
               );
             })}
           </ol>
         )}
         <div className="pie-envios">
-          <button type="button" className="boton-texto verde" onClick={() => actualizar([...filas, nueva({ toneladas: Number(porCamion) || undefined })])}>
+          <button type="button" className="boton-texto verde" onClick={() => actualizar([...filas, nueva({ toneladas: numero(porEnvio) || undefined })])}>
             + Agregar un envío
           </button>
         </div>

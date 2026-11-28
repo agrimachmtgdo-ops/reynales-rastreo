@@ -15,7 +15,7 @@ type Campos = 'cliente_id' | 'orden_compra' | 'producto' | 'toneladas' | 'entreg
 
 /**
  * Formulario del PEDIDO: lo que el cliente compra (cantidad total y plazo). El programa de envíos
- * (un envío por camión) se arma después, en el detalle del pedido.
+ * (lotes que se entregan en una fecha, con uno o varios camiones) se arma después, en el detalle del pedido.
  * Valida al salir de cada campo y, al guardar, muestra un resumen de errores con enlaces a cada campo.
  */
 export default function FormularioPedido({
@@ -143,7 +143,7 @@ export default function FormularioPedido({
           <label>Toneladas pedidas <Req />
             <input {...props('toneladas')} inputMode="decimal" onChange={(e) => cambiar('toneladas', e.target.value)} />
             {aviso('toneladas') ?? (camiones > 0 && (
-              <span className="ayuda-campo">Son unos {plural(camiones, 'camión', 'camiones')} de {TONELADAS_POR_CAMION} t. Los envíos se programan después.</span>
+              <span className="ayuda-campo">Son unos {plural(camiones, 'camión', 'camiones')} de {TONELADAS_POR_CAMION} t. Los envíos (lotes por fecha) se programan después.</span>
             ))}
           </label>
         </div>
@@ -183,7 +183,7 @@ export default function FormularioPedido({
 
       <button className="boton" disabled={pendiente}>{pendiente ? 'Guardando…' : id ? 'Guardar cambios' : 'Guardar pedido'}</button>
       <Link href={id ? `/pedidos/${id}` : '/pedidos'} className="enlace-cancelar">Cancelar</Link>
-      <p className="ayuda">Al guardar, el pedido queda en borrador y se abre su ficha para armar el programa de envíos (un envío por camión).</p>
+      <p className="ayuda">Al guardar, el pedido queda en borrador y se abre su ficha para armar el programa de envíos (un envío = un lote que se entrega en una fecha).</p>
     </form>
   );
 }
