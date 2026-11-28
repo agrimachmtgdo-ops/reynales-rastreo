@@ -1045,3 +1045,64 @@ textarea { line-height: 1.5; }
 .acciones-camion > .agregar > summary { margin-left: 0; }
 .acciones-camion { padding-left: 0; margin-left: 0; }
 .pie-form .boton, .pie-form .boton-cancelar { white-space: nowrap; }
+
+/* ---- Catálogos → Productos: cabecera, formulario por secciones y tabla ---- */
+.cabecera-catalogo { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.cabecera-catalogo h2 { margin: 0; font-size: 20px; color: var(--cafe); }
+.cabecera-catalogo p { margin: 4px 0 0; font-size: 14px; color: #6b5a4a; }
+.rejilla-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; align-items: start; }
+@media (max-width: 720px) { .rejilla-2 { grid-template-columns: 1fr; } }
+.form-secciones .seccion-form:last-child { border-bottom: 1px solid var(--borde); }
+.form-secciones label { display: flex; flex-direction: column; gap: 6px; }
+.form-secciones .ayuda-campo { margin-top: 0; }
+.grupo-pastillas { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.pastillas { display: flex; flex-wrap: wrap; gap: 8px; }
+.form-secciones label.pastilla { position: relative; display: inline-flex; flex-direction: row; gap: 0; cursor: pointer; }
+.pastilla input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.pastilla span {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid var(--borde-fuerte, #cdbfa8);
+  border-radius: 999px; background: var(--blanco); color: var(--cafe); font-weight: 600; font-size: 14px;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.pastilla:hover span { background: #f6f1e9; border-color: var(--cafe); }
+.pastilla input:checked + span { background: #fff4d1; border-color: #b98a00; box-shadow: inset 0 0 0 1px #b98a00; }
+.pastilla input:checked + span::before { content: '✓'; margin-right: 6px; color: #7a5a00; }
+.pastilla input:focus-visible + span { outline: 3px solid var(--dorado); outline-offset: 2px; }
+.campo-otra { max-width: 420px; }
+.campo-partida { max-width: 320px; }
+.pie-catalogo { padding-top: 16px; }
+.pie-catalogo .nota-obligatorio { margin: 0 auto 0 0; font-size: 13px; color: #6b5a4a; }
+a.boton-cancelar { display: inline-flex; align-items: center; text-decoration: none; }
+.panel-edicion { background: var(--blanco); border: 1px solid var(--borde); border-top: 4px solid var(--dorado); padding: 12px 20px 16px; box-shadow: 0 2px 10px rgba(90, 55, 27, .08); }
+.panel-edicion h2 { color: var(--cafe); font-size: 18px; }
+.panel-nuevo + .tabla-desplazable, .panel-nuevo ~ .tabla-desplazable { margin-top: 16px; }
+.tabla-catalogo { margin-top: 16px; }
+.tabla-catalogo td { vertical-align: middle; padding: 12px 8px; }
+.nombre-catalogo { display: block; color: var(--tinta, #2b1d12); font-weight: 600; }
+.codigo-catalogo { display: inline-block; margin-top: 2px; font-family: ui-monospace, monospace; font-size: 12px; letter-spacing: .5px; color: #6b5a4a; background: #f6f1e9; border-radius: 4px; padding: 1px 6px; }
+.cifra-tabla { font-variant-numeric: tabular-nums; }
+.vacio { color: #8a7b6c; font-style: italic; }
+.uso-producto { font-size: 14px; }
+.etiqueta.activo { background: #e3f4e9; color: #006b2d; }
+.etiqueta.inactivo { background: #ececec; color: #4a4a4a; }
+.tabla-catalogo td.acciones { display: table-cell; }
+.tabla-catalogo td.acciones a, .tabla-catalogo td.acciones .enlace-boton {
+  min-height: 36px; padding: 0 12px; margin: 0 0 0 6px; border: 1px solid var(--borde); border-radius: 8px;
+  text-decoration: none; font-size: 14px; font-weight: 600; color: var(--cafe); background: var(--blanco);
+}
+.tabla-catalogo td.acciones a:hover, .tabla-catalogo td.acciones .enlace-boton:hover { background: #f6f1e9; border-color: var(--cafe); }
+.tabla-catalogo tr.inactivo .nombre-catalogo { color: var(--gris); }
+.vacio-catalogo { padding: 16px; border: 1px dashed var(--borde); border-radius: 8px; color: #6b5a4a; text-align: center; }
+@media (max-width: 640px) {
+  .tabla-tarjetas thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .tabla-tarjetas, .tabla-tarjetas tbody, .tabla-tarjetas tr, .tabla-tarjetas td { display: block; width: 100%; }
+  .tabla-tarjetas tr { border: 1px solid var(--borde); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; background: var(--blanco); }
+  .tabla-tarjetas td { border: 0; padding: 4px 0; display: flex; justify-content: space-between; gap: 12px; text-align: right; }
+  .tabla-tarjetas td[data-etiqueta]::before { content: attr(data-etiqueta); color: #6b5a4a; font-size: 13px; text-align: left; }
+  .tabla-tarjetas td:first-child { display: block; text-align: left; padding-bottom: 6px; border-bottom: 1px solid var(--borde); margin-bottom: 4px; }
+  .tabla-tarjetas td:first-child::before { content: none; }
+  .tabla-tarjetas td.acciones { display: flex; justify-content: flex-end; padding-top: 8px; }
+  .tabla-tarjetas tbody tr:hover td { background: transparent; }
+}
+.grupo-pastillas > .etiqueta-campo { font-size: 14px; color: var(--tinta, #2b1d12); }
+@media (max-width: 520px) { .pie-catalogo .nota-obligatorio { flex-basis: 100%; } }
