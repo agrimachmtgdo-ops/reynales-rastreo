@@ -182,3 +182,21 @@ export async function fijarMinutosDetenido(_: Resultado | null, f: FormData): Pr
   revalidatePath('/');
   return { ok: true, mensaje: `Listo: se avisará «Detenido» a los ${minutos} minutos sin moverse.` };
 }
+
+/** Crea (o reemplaza) el enlace de seguimiento que se envía al cliente. */
+export async function crearEnlaceSeguimiento(misionId: string) {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('crear_enlace_seguimiento', { p_mision: misionId });
+  if (error || typeof data !== 'string') return { ok: false as const, mensaje: error?.message ?? 'No se pudo crear el enlace.' };
+  revalidatePath(`/misiones/${misionId}`);
+  return { ok: true as const, token: data };
+}
+
+/** Anula el enlace del cliente: deja de funcionar de inmediato. */
+export async function anularEnlaceSeguimiento(misionId: string) {
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc('anular_enlace_seguimiento', { p_mision: misionId });
+  if (error) return { ok: false as const, mensaje: error.message };
+  revalidatePath(`/misiones/${misionId}`);
+  return { ok: true as const };
+}

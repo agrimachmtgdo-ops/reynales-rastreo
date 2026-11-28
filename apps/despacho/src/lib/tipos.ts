@@ -58,12 +58,12 @@ export function prioridad(
   return 3;
 }
 
-export function formatoHora(iso: string | null): string {
+export function formatoHora(iso: string | null, zona = 'America/La_Paz'): string {
   if (!iso) return '—';
   return new Intl.DateTimeFormat('es-BO', {
     dateStyle: 'short',
     timeStyle: 'short',
-    timeZone: 'America/La_Paz',
+    timeZone: zona,
   }).format(new Date(iso));
 }
 
